@@ -52,6 +52,16 @@
     });
   }
 
+  // Tout le contenu visible d'un bloc est dans le bloc (haut, bas, gauche, droite), même centré
+  function fitsBox(box) {
+    const r = box.getBoundingClientRect();
+    return [...box.querySelectorAll("*")].every(el => {
+      if (!el.getClientRects().length) return true;
+      const e = el.getBoundingClientRect();
+      return e.top >= r.top - 1 && e.bottom <= r.bottom + 1 && e.left >= r.left - 1 && e.right <= r.right + 1;
+    });
+  }
+
   async function imagesReady(doc) {
     const imgs = [...doc.images].filter(i => i.getAttribute("src"));
     await Promise.all(imgs.map(i => i.complete ? null : new Promise(r => { i.onload = i.onerror = r; })));
@@ -428,12 +438,12 @@
     check(g, "happiness : retours à la ligne gardés", tw.getComputedStyle(hd).whiteSpace === "pre-line");
     tw.deck.show(tw.deck.ids.indexOf("happiness"));
     tw.fitHappiness(true);
-    check(g, "happiness texte long : tout tient à l'écran (1280×800)", hi.scrollHeight <= hi.clientHeight + 1, `${hi.scrollHeight} > ${hi.clientHeight}`);
+    check(g, "happiness texte long : tout tient à l'écran (1280×800)", fitsBox(hi), `${hi.scrollHeight} > ${hi.clientHeight}`);
     check(g, "happiness texte long : texte réduit, pas trop petit", parseFloat(hd.style.fontSize || tw.getComputedStyle(hd).fontSize) >= 12, hd.style.fontSize);
     tv.width = 375; tv.height = 667;
     await sleep(300);
     tw.fitHappiness(true);
-    check(g, "happiness texte long : tout tient à l'écran (375×667)", hi.scrollHeight <= hi.clientHeight + 1, `${hi.scrollHeight} > ${hi.clientHeight}`);
+    check(g, "happiness texte long : tout tient à l'écran (375×667)", fitsBox(hi), `${hi.scrollHeight} > ${hi.clientHeight}`);
     tv.width = 1280; tv.height = 800;
     await sleep(300);
 
@@ -542,6 +552,18 @@
       check(g, "écran : encart « resto du jour » avec le tirage", !td.getElementById("lunch-draw").hidden && td.getElementById("draw-name").textContent === drawToday.name, td.getElementById("draw-name").textContent);
     }
     check(g, "écran : le resto tiré au sort est marqué 🎲 dans la liste", [...td.querySelectorAll("#lunch-list li.drawn")].some(li => li.textContent.indexOf(drawToday.name) !== -1));
+    if (!weekend) {
+      // Bouton Relancer directement sur l'écran
+      tw.deck.show(tw.deck.ids.indexOf("lunch"));
+      const slideBefore = tw.deck.index;
+      const nameBefore = td.getElementById("draw-name").textContent;
+      check(g, "écran : bouton « Relancer » visible dans l'encart", !td.getElementById("tv-reroll").hidden && tw.getComputedStyle(td.getElementById("tv-reroll")).display !== "none");
+      td.getElementById("tv-reroll").click();
+      await waitFor(() => td.getElementById("draw-name").textContent !== nameBefore && !td.getElementById("tv-reroll").disabled);
+      check(g, "écran : « Relancer » change le resto du jour", td.getElementById("draw-name").textContent !== nameBefore, `${nameBefore} → ${td.getElementById("draw-name").textContent}`);
+      check(g, "écran : cliquer « Relancer » ne change pas de slide", tw.deck.index === slideBefore);
+      check(g, "écran : le nouveau tirage est enregistré pour tout le monde", (await s.getDraw(today)).name === td.getElementById("draw-name").textContent);
+    }
 
     // Beaucoup de choix aux noms longs : tout doit tenir sur un écran 16:9
     for (let i = 1; i <= 12; i++) await s.propose(today, `Restaurant au nom vraiment très long numéro ${i}`);
@@ -566,7 +588,8 @@
     const vote = await load("../vote.html#mock", 375, 812);
     const vw = vote.contentWindow, vd = vote.contentDocument;
     await waitFor(() => vd.querySelectorAll(".option").length > 0);
-    check(g, "vote : encart du tirage avec le resto du jour", !vd.getElementById("draw").hidden && vd.getElementById("draw-name").textContent === drawToday.name || weekend, vd.getElementById("draw-name").textContent);
+    const drawNow = (await s.getDraw(today)).name;
+    check(g, "vote : encart du tirage avec le resto du jour", !vd.getElementById("draw").hidden && vd.getElementById("draw-name").textContent === drawNow || weekend, `${vd.getElementById("draw-name").textContent} / attendu ${drawNow}`);
     const before = vd.getElementById("draw-name").textContent;
     vd.getElementById("reroll").click();
     await waitFor(() => vd.getElementById("draw-name").textContent !== before);
@@ -609,6 +632,104 @@
     ad.getElementById("draw-reroll").click();
     await waitFor(() => ad.getElementById("draw-now").textContent !== drawBefore);
     check(g, "dashboard : bouton Relancer", ad.getElementById("draw-now").textContent !== drawBefore, `${drawBefore} → ${ad.getElementById("draw-now").textContent}`);
+    adm.remove();
+    tv.remove();
+    localStorage.removeItem("matdora-demo");
+  }
+
+  // Happiness : date à confirmer, image, rappel du channel HM
+  async function testHappy() {
+    const g = "happiness (démo)";
+    localStorage.removeItem("matdora-demo");
+    const tv = await load("../index.html#mock", 1280, 720);
+    const tw = tv.contentWindow, td = tv.contentDocument;
+    tw.deck.pause(true);
+    await tw.refresh();
+    tw.deck.show(tw.deck.ids.indexOf("happiness"));
+    const adm = await load("../admin.html#mock,happiness", 1280, 900);
+    const aw = adm.contentWindow, ad = adm.contentDocument;
+    await aw.ready;
+    const visible = el => !el.hidden && tw.getComputedStyle(el).display !== "none";
+    const save = async () => {
+      ad.getElementById("happy-form").dispatchEvent(new aw.Event("submit", { cancelable: true }));
+      await waitFor(() => !ad.getElementById("toast").hidden && ad.getElementById("toast").textContent === "Event enregistré.");
+      ad.getElementById("toast").hidden = true;
+      await tw.refresh();
+    };
+
+    // Sans date
+    check(g, "dashboard : la date n'est plus obligatoire", !ad.getElementById("happy-date").required);
+    ad.getElementById("happy-title").value = "Soirée jeux de société";
+    ad.getElementById("happy-date").value = "";
+    ad.getElementById("happy-tbc").checked = false;
+    await save();
+    check(g, "sans date : l'event s'affiche quand même", td.getElementById("happy-title").textContent === "Soirée jeux de société", td.getElementById("happy-title").textContent);
+    check(g, "sans date : « Date à confirmer », pas de compte à rebours", td.getElementById("happy-when").textContent === "📅 Date à confirmer" && !visible(td.getElementById("happy-in")), td.getElementById("happy-when").textContent);
+
+    // Date proposée mais pas confirmée (même passée)
+    ad.getElementById("happy-date").value = "2026-11-20T19:00";
+    ad.getElementById("happy-tbc").checked = true;
+    await save();
+    check(g, "date à confirmer : date affichée avec « ? », sans compte à rebours", /^Date à confirmer · Vendredi 20 novembre · 19:00 \?$/.test(td.getElementById("happy-when").textContent) && !visible(td.getElementById("happy-in")) && td.getElementById("happy-when").classList.contains("tbc"), td.getElementById("happy-when").textContent);
+    ad.getElementById("happy-date").value = "2020-01-10T19:00";
+    await save();
+    check(g, "date à confirmer déjà passée : l'event reste affiché", td.getElementById("happy-title").textContent === "Soirée jeux de société");
+
+    // Date confirmée
+    const soon = new Date(Date.now() + 2 * 86400000);
+    const p2 = n => String(n).padStart(2, "0");
+    ad.getElementById("happy-date").value = `${soon.getFullYear()}-${p2(soon.getMonth() + 1)}-${p2(soon.getDate())}T18:30`;
+    ad.getElementById("happy-tbc").checked = false;
+    await save();
+    check(g, "date confirmée : compte à rebours affiché", visible(td.getElementById("happy-in")) && /^dans \d/.test(td.getElementById("happy-in").textContent) && !td.getElementById("happy-when").classList.contains("tbc"), td.getElementById("happy-in").textContent);
+
+    // Rappel du channel HM
+    check(g, "rappel HM : caché par défaut", !visible(td.getElementById("happy-reminder")));
+    ad.getElementById("happy-reminder").checked = true;
+    await save();
+    check(g, "rappel HM : affiché avec le texte par défaut", visible(td.getElementById("happy-reminder")) && td.getElementById("happy-reminder").textContent.indexOf("channel HM") !== -1 && td.getElementById("happy-reminder").textContent.indexOf("présence") !== -1, td.getElementById("happy-reminder").textContent);
+    ad.getElementById("happy-reminder-text").value = "Votez pour la date sur le channel HM avant jeudi !";
+    await save();
+    check(g, "rappel HM : texte modifiable", td.getElementById("happy-reminder").textContent === "📣 Votez pour la date sur le channel HM avant jeudi !", td.getElementById("happy-reminder").textContent);
+
+    // Image
+    const c = document.createElement("canvas");
+    c.width = 800; c.height = 1100;
+    const ctx = c.getContext("2d");
+    ctx.fillStyle = "#ff6fae"; ctx.fillRect(0, 0, 800, 1100);
+    const blob = await new Promise(r => c.toBlob(r, "image/png"));
+    const dt = new aw.DataTransfer();
+    dt.items.add(new aw.File([blob], "affiche.png", { type: "image/png" }));
+    ad.getElementById("happy-image").files = dt.files;
+    ad.getElementById("happy-desc").value = "Jeux, pizzas et tournoi de Mölkky.\n".repeat(12);
+    await save();
+    await waitFor(() => td.getElementById("happy-img").complete && td.getElementById("happy-img").naturalWidth > 0);
+    const himg = td.getElementById("happy-img");
+    check(g, "image : envoyée réduite en JPEG", (td.getElementById("happy-img").getAttribute("src") || "").indexOf("data:image/jpeg") === 0);
+    check(g, "image : affichée à côté du texte", visible(himg) && td.getElementById("happy-inner").classList.contains("has-image") && himg.getBoundingClientRect().right <= td.querySelector(".happy-text").getBoundingClientRect().left + 1);
+    check(g, "dashboard : aperçu de l'image", !ad.getElementById("happy-image-preview").hidden && !ad.getElementById("happy-image-remove").hidden);
+    const hi = td.getElementById("happy-inner");
+    for (const [w, h] of [[1920, 1080], [1280, 720], [375, 667]]) {
+      tv.width = w; tv.height = h;
+      await sleep(250);
+      tw.fitHappiness(true);
+      check(g, `image + texte long : tout tient (${w}×${h})`, fitsBox(hi), `${hi.scrollWidth}×${hi.scrollHeight} dans ${hi.clientWidth}×${hi.clientHeight}`);
+    }
+    tv.width = 1280; tv.height = 720;
+    await sleep(250);
+
+    ad.getElementById("happy-image-remove").click();
+    await save();
+    check(g, "image retirée : plus affichée", !visible(td.getElementById("happy-img")) && !td.getElementById("happy-inner").classList.contains("has-image"));
+
+    // Un élément masqué l'est vraiment, sur les 3 pages (sans dépendre d'un style externe)
+    const vote = await load("../vote.html#mock", 375, 812);
+    await sleep(500);
+    for (const [name, doc, win] of [["écran", td, tw], ["dashboard", ad, aw], ["vote", vote.contentDocument, vote.contentWindow]]) {
+      const leaks = [...doc.querySelectorAll("[hidden]")].filter(el => win.getComputedStyle(el).display !== "none");
+      check(g, `${name} : tout élément masqué est vraiment caché`, leaks.length === 0, leaks.map(el => el.id || el.className).join(", "));
+    }
+    vote.remove();
     adm.remove();
     tv.remove();
     localStorage.removeItem("matdora-demo");
@@ -700,6 +821,7 @@
       await testLogic();
       await testData();
       await testLunch();
+      await testHappy();
       localStorage.removeItem("matdora-demo");
       for (const [w, h] of VIEWPORTS) await testViewport(w, h);
       localStorage.removeItem("matdora-demo");

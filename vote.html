@@ -31,6 +31,8 @@
     --accent: #7cc451; --accent-fg: #10200a; --line: #2f4026; --danger: #ff8a80;
     color-scheme: dark;
   }
+  /* Un élément masqué reste masqué, même s'il a un display */
+  [hidden] { display: none !important; }
   body {
     margin: 0;
     background: var(--bg);

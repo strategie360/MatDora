@@ -139,6 +139,15 @@
         await api(`/rest/v1/photos?id=eq.${photo.id}`, { method: "DELETE" });
         await api(`/storage/v1/object/photos/${photo.path}`, { method: "DELETE" }).catch(() => {});
       },
+      // Image hors galerie (ex. affiche du happiness event) : même bucket, sans ligne dans "photos"
+      async uploadImage(blob, prefix) {
+        const path = `${prefix || "image"}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
+        await api(`/storage/v1/object/photos/${path}`, { method: "POST", body: blob, headers: { "Content-Type": blob.type || "image/jpeg" } });
+        return { url: photoUrl(path), path };
+      },
+      deleteImage(path) {
+        return api(`/storage/v1/object/photos/${path}`, { method: "DELETE" }).catch(() => {});
+      },
       async lunch(day, voter) {
         const options = await api(`/rest/v1/lunch_options?select=id,name,created_at&day=eq.${day}&order=created_at`);
         const votes = await api(`/rest/v1/lunch_votes?select=option_id,voter&day=eq.${day}`);
@@ -294,6 +303,8 @@
         return p;
       },
       deletePhoto(photo) { const s = load(); s.photos = s.photos.filter(p => p.id !== photo.id); save(s); return later(null); },
+      async uploadImage(blob, prefix) { return { url: await blobToDataUrl(blob), path: `demo-${prefix || "image"}-${id()}` }; },
+      deleteImage() { return later(null); },
       lunch(day, voter) {
         const s = load();
         return later(countVotes(s.options.filter(o => o.day === day), s.votes.filter(v => v.day === day), voter));
@@ -434,7 +445,7 @@
 
   const lunchApi = impl ? { lunch, ensureDraw, reroll, voteFor, lunchRaw: impl.lunch } : {};
   window.MatDoraStore = Object.assign(
-    { mode, SLIDES, DEFAULTS, today, voterId, withDefaults, resizeImage, openOn, drawTime, weekday, DRAW_HOUR, DRAW_MINUTE },
+    { mode, SLIDES, DEFAULTS, HM_REMINDER: "Va sur le channel HM pour voter pour la date et annoncer ta présence !", today, voterId, withDefaults, resizeImage, openOn, drawTime, weekday, DRAW_HOUR, DRAW_MINUTE },
     impl || { getSettings: () => Promise.resolve(withDefaults(null)) },
     lunchApi
   );

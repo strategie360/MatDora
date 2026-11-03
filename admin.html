@@ -32,6 +32,8 @@
     --accent: #e0a368; --accent-fg: #1f1915; --line: #3e3229; --ok: #81c784; --danger: #ff8a80;
     color-scheme: dark;
   }
+  /* Un élément masqué reste masqué, même s'il a un display */
+  [hidden] { display: none !important; }
   body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 16px; line-height: 1.5; }
   .wrap {
     max-width: 860px;
@@ -86,6 +88,10 @@
   input.secs { width: 4.5em; }
   textarea { min-height: 160px; resize: vertical; }
   .hint { color: var(--muted); font-weight: 600; }
+  label.check { display: flex; align-items: center; gap: 8px; font-weight: 700; margin-top: 6px; }
+  .image-pick { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .image-pick img { width: 120px; max-width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 10px; border: 2px solid var(--line); }
+  .image-pick > div { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 
   /* Pauses : une ligne par jour */
   .day-row { display: grid; grid-template-columns: 7em minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--line); }
@@ -171,15 +177,30 @@
   <!-- Happiness -->
   <section class="panel" id="tab-happiness" role="tabpanel" hidden>
     <h2>Prochain happiness event</h2>
-    <p class="help">La slide affiche un compte à rebours jusqu'à l'event, puis « C'est maintenant ! » pendant 4 heures.</p>
+    <p class="help">La slide affiche un compte à rebours jusqu'à l'event, puis « C'est maintenant ! » pendant 4 heures. Sans date confirmée, elle affiche « Date à confirmer ».</p>
     <form id="happy-form">
       <div class="field"><label for="happy-title">Nom de l'event</label><input id="happy-title" maxlength="200" required placeholder="Ex. Apéro de fin d'année"></div>
       <div class="two">
-        <div class="field"><label for="happy-date">Date et heure</label><input id="happy-date" type="datetime-local" required></div>
+        <div class="field"><label for="happy-date">Date et heure <span class="hint">(facultatif)</span></label><input id="happy-date" type="datetime-local">
+          <label class="check"><input type="checkbox" id="happy-tbc"> Date pas encore confirmée</label></div>
         <div class="field"><label for="happy-place">Lieu</label><input id="happy-place" maxlength="200" placeholder="Ex. la terrasse du 3e"></div>
       </div>
       <div class="field"><label for="happy-desc">Description</label><textarea id="happy-desc" rows="8" placeholder="Ce qui est prévu, ce qu'il faut apporter… Les retours à la ligne sont gardés."></textarea>
         <small class="hint" id="happy-count">Pas de limite : plus le texte est long, plus il s'affiche petit sur l'écran.</small></div>
+      <div class="field">
+        <label for="happy-image">Image <span class="hint">(facultatif : affiche, photo du lieu…)</span></label>
+        <div class="image-pick">
+          <img id="happy-image-preview" alt="Image actuelle de l'event" hidden>
+          <div>
+            <input id="happy-image" type="file" accept="image/*">
+            <button class="btn danger" type="button" id="happy-image-remove" hidden>Retirer l'image</button>
+          </div>
+        </div>
+      </div>
+      <div class="field">
+        <label class="check"><input type="checkbox" id="happy-reminder"> Afficher le rappel du channel HM</label>
+        <input id="happy-reminder-text" maxlength="200" aria-label="Texte du rappel">
+      </div>
       <div class="actions">
         <button class="btn primary" type="submit">Enregistrer l'event</button>
         <button class="btn danger" type="button" id="happy-clear">Retirer l'event</button>
@@ -421,25 +442,66 @@
   });
 
   /* ---------- Happiness ---------- */
+  let happyImage = null;  // { url, path } de l'image enregistrée ; null = pas d'image
   function renderHappiness() {
     const h = settings.happiness || {};
     $("happy-title").value = h.title || "";
     $("happy-date").value = h.date || "";
+    $("happy-tbc").checked = !!h.tbc;
     $("happy-place").value = h.place || "";
     $("happy-desc").value = h.description || "";
+    $("happy-reminder").checked = !!h.reminder;
+    $("happy-reminder-text").value = h.reminderText || store.HM_REMINDER;
+    happyImage = h.image ? { url: h.image, path: h.imagePath || "" } : null;
+    renderHappyImage();
   }
+  function renderHappyImage() {
+    $("happy-image-preview").hidden = !happyImage;
+    if (happyImage) $("happy-image-preview").src = happyImage.url;
+    $("happy-image-remove").hidden = !happyImage;
+  }
+  $("happy-image-remove").addEventListener("click", () => {
+    happyImage = null;
+    $("happy-image").value = "";
+    renderHappyImage();
+    toast("Image retirée. Pense à enregistrer.");
+  });
   $("happy-form").addEventListener("submit", e => {
     e.preventDefault();
-    const value = {
-      title: $("happy-title").value.trim(),
-      date: $("happy-date").value,
-      place: $("happy-place").value.trim(),
-      description: $("happy-desc").value.trim()
-    };
-    attempt(async () => { await store.saveSetting("happiness", value); settings.happiness = value; }, "Event enregistré.");
+    attempt(async () => {
+      const old = settings.happiness && settings.happiness.imagePath;
+      const file = $("happy-image").files[0];
+      if (file) {
+        const blob = await store.resizeImage(file, 1600);
+        happyImage = await store.uploadImage(blob, "event");
+      }
+      const value = {
+        title: $("happy-title").value.trim(),
+        date: $("happy-date").value,
+        tbc: $("happy-tbc").checked,
+        place: $("happy-place").value.trim(),
+        description: $("happy-desc").value.trim(),
+        image: happyImage ? happyImage.url : null,
+        imagePath: happyImage ? happyImage.path : null,
+        reminder: $("happy-reminder").checked,
+        reminderText: $("happy-reminder-text").value.trim() || store.HM_REMINDER
+      };
+      await store.saveSetting("happiness", value);
+      // L'ancienne image remplacée ou retirée est supprimée du stockage
+      if (old && old !== value.imagePath) await store.deleteImage(old);
+      settings.happiness = value;
+      $("happy-image").value = "";
+      renderHappyImage();
+    }, "Event enregistré.");
   });
   $("happy-clear").addEventListener("click", () => {
-    attempt(async () => { await store.saveSetting("happiness", null); settings.happiness = null; renderHappiness(); }, "Event retiré.");
+    attempt(async () => {
+      const old = settings.happiness && settings.happiness.imagePath;
+      await store.saveSetting("happiness", null);
+      if (old) await store.deleteImage(old);
+      settings.happiness = null;
+      renderHappiness();
+    }, "Event retiré.");
   });
 
   /* ---------- Photos ---------- */

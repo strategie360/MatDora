@@ -35,6 +35,8 @@
     color-scheme: dark;
   }
 
+  /* Un élément masqué reste masqué, même s'il a un display */
+  [hidden] { display: none !important; }
   html, body { height: 100%; }
   body {
     margin: 0;
@@ -486,13 +488,28 @@
     color: #f4f1ff;
   }
   .s-happy .inner {
-    max-width: 980px;
+    max-width: 1200px;
     display: flex;
-    flex-direction: column;
     align-items: center;
     justify-content: center;
   }
-  .s-happy .inner > * + * { margin-top: clamp(10px, 2.4vh, 22px); }
+  .happy-text { display: flex; flex-direction: column; align-items: center; min-width: 0; }
+  .happy-text > * + * { margin-top: clamp(10px, 2.4vh, 22px); }
+  /* Avec une image : image à gauche, texte à droite aligné à gauche */
+  .happy-img { display: block; min-width: 0; max-width: 44%; max-height: 100%; height: auto; border-radius: 18px; margin-right: clamp(16px, 3vw, 44px); box-shadow: 0 18px 40px -18px rgba(0, 0, 0, .7); object-fit: contain; }
+  .s-happy .has-image .happy-text { flex: 1 1 56%; align-items: flex-start; text-align: left; }
+  .happy-reminder {
+    display: inline-block;
+    background: #ff6fae;
+    color: #16163f;
+    font-weight: 800;
+    font-size: clamp(.9rem, min(2.4vw, 2.6vh), 1.25rem);
+    border-radius: 14px;
+    padding: 8px 16px;
+    margin-bottom: 0;
+    max-width: 60ch;
+  }
+  .happy-when.tbc { background: transparent; color: #ffc145; border: 2px dashed #ffc145; }
   .s-happy .eyebrow { color: #ffc145; }
   .s-happy h2 { color: #ffffff; font-size: clamp(2.2rem, min(7vw, 11vh), 5.6rem); }
   .happy-when {
@@ -622,7 +639,22 @@
     margin-top: clamp(10px, 2vh, 18px);
   }
   .draw-icon { font-size: clamp(1.6rem, min(4vw, 6vh), 2.8rem); margin-right: 14px; line-height: 1; }
-  .draw-text { min-width: 0; }
+  .draw-text { min-width: 0; flex: 1; }
+  .draw-reroll {
+    flex: none;
+    margin-left: 14px;
+    font: inherit;
+    font-weight: 800;
+    font-size: clamp(.8rem, 1.9vh, 1rem);
+    color: #e9f5dc;
+    background: transparent;
+    border: 2px solid #a8d98a;
+    border-radius: 12px;
+    padding: 8px 14px;
+    cursor: pointer;
+  }
+  .draw-reroll:hover, .draw-reroll:focus-visible { background: #a8d98a; color: #213a17; outline: none; }
+  .draw-reroll:disabled { opacity: .5; cursor: wait; }
   .draw-label { display: block; font-weight: 800; text-transform: uppercase; letter-spacing: .1em; font-size: clamp(.65rem, 1.5vh, .8rem); color: #a8d98a; }
   .draw-name { display: block; font-family: var(--display); font-weight: 400; font-size: clamp(1.3rem, min(3.6vw, 5.4vh), 2.6rem); line-height: 1.1; overflow-wrap: anywhere; }
   .draw.waiting .draw-name { color: #e9f5dc; opacity: .85; }
@@ -670,6 +702,9 @@
     .s-help .inner { flex-direction: column; align-items: stretch; }
     .help-text { flex: none; margin: 0 0 clamp(16px, 3vh, 28px); }
     .chat { flex: none; max-width: none; }
+    .s-happy .has-image { flex-direction: column; }
+    .happy-img { max-width: 100%; max-height: 34%; margin: 0 0 clamp(10px, 2vh, 18px); }
+    .s-happy .has-image .happy-text { flex: none; align-items: center; text-align: center; }
     .s-lunch .inner { flex-direction: column; align-items: stretch; }
     .lunch-main { flex: none; margin: 0; }
     .lunch-list { grid-template-columns: minmax(0, 1fr); }
@@ -812,12 +847,16 @@
   <!-- Slide 5 : prochain happiness event (données du dashboard) -->
   <section class="slide s-happy" data-id="happiness" data-tone="dark" aria-label="Prochain happiness event">
     <div class="inner" id="happy-inner">
-      <div class="eyebrow">Prochain happiness event</div>
-      <h2 id="happy-title">Bientôt annoncé</h2>
-      <p class="happy-when" id="happy-when" hidden></p>
-      <p class="happy-place" id="happy-place" hidden></p>
-      <p class="happy-desc" id="happy-desc">Une idée d'event&nbsp;? Ajoute-la dans le dashboard.</p>
-      <p class="happy-in" id="happy-in" hidden></p>
+      <img class="happy-img" id="happy-img" alt="Affiche de l'event" hidden>
+      <div class="happy-text">
+        <div class="eyebrow">Prochain happiness event</div>
+        <h2 id="happy-title">Bientôt annoncé</h2>
+        <p class="happy-when" id="happy-when" hidden></p>
+        <p class="happy-place" id="happy-place" hidden></p>
+        <p class="happy-desc" id="happy-desc">Une idée d'event&nbsp;? Ajoute-la dans le dashboard.</p>
+        <p class="happy-in" id="happy-in" hidden></p>
+        <p class="happy-reminder" id="happy-reminder" hidden></p>
+      </div>
     </div>
   </section>
 
@@ -838,6 +877,7 @@
         <div class="draw" id="lunch-draw" hidden>
           <span class="draw-icon" aria-hidden="true">🎲</span>
           <span class="draw-text"><span class="draw-label" id="draw-label">Resto du jour</span><strong class="draw-name" id="draw-name">–</strong></span>
+          <button type="button" class="draw-reroll" id="tv-reroll">🎲 Relancer</button>
         </div>
         <ol class="lunch-list" id="lunch-list"></ol>
         <p class="lunch-more" id="lunch-more" hidden></p>
@@ -1012,22 +1052,35 @@
   /* ---------- Slide Happiness ---------- */
   let happiness = null;
   function renderHappiness(now = new Date()) {
-    const ev = happiness && happiness.title && happiness.date ? happiness : null;
-    const start = ev ? new Date(ev.date) : null;
-    const ongoing = !!start && now >= start && now - start < 4 * 3600000;
-    const upcoming = !!start && start > now;
-    const show = !!ev && (upcoming || ongoing);
+    const ev = happiness && happiness.title ? happiness : null;
+    const start = ev && ev.date ? new Date(ev.date) : null;
+    // Date pas encore confirmée (ou pas de date) : on affiche l'event sans compte à rebours
+    const tbc = !!ev && (!!ev.tbc || !start || isNaN(start));
+    const ongoing = !tbc && now >= start && now - start < 4 * 3600000;
+    const upcoming = !tbc && start > now;
+    const show = !!ev && (tbc || upcoming || ongoing);
     $("happy-title").textContent = show ? ev.title : "Le prochain event arrive bientôt";
     $("happy-when").hidden = !show;
     $("happy-place").hidden = !(show && ev.place);
-    $("happy-in").hidden = !show;
+    $("happy-in").hidden = !show || tbc;
     $("happy-desc").textContent = show ? (ev.description || "") : "Une idée d'event ? Ajoute-la dans le dashboard.";
     $("happy-desc").hidden = show && !ev.description;
-    if (!show) return;
-    const when = start.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
-    $("happy-when").textContent = `${when.charAt(0).toUpperCase() + when.slice(1)} · ${pad(start.getHours())}:${pad(start.getMinutes())}`;
-    $("happy-place").textContent = ev.place ? `📍 ${ev.place}` : "";
-    $("happy-in").textContent = ongoing ? "C'est maintenant !" : `dans ${duration(start - now)}`;
+    $("happy-reminder").hidden = !(show && ev.reminder);
+    $("happy-reminder").textContent = show && ev.reminder ? `📣 ${ev.reminderText || store.HM_REMINDER}` : "";
+    const img = $("happy-img"), url = show && ev.image ? ev.image : "";
+    if (img.getAttribute("src") !== url) { if (url) img.src = url; else img.removeAttribute("src"); }
+    img.hidden = !url;
+    $("happy-inner").classList.toggle("has-image", !!url);
+    if (show) {
+      const fmt = d => {
+        const w = d.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
+        return `${w.charAt(0).toUpperCase() + w.slice(1)} · ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      };
+      $("happy-when").className = "happy-when" + (tbc ? " tbc" : "");
+      $("happy-when").textContent = tbc ? (start && !isNaN(start) ? `Date à confirmer · ${fmt(start)} ?` : "📅 Date à confirmer") : fmt(start);
+      $("happy-place").textContent = ev.place ? `📍 ${ev.place}` : "";
+      $("happy-in").textContent = ongoing ? "C'est maintenant !" : tbc ? "" : `dans ${duration(start - now)}`;
+    }
     fitHappiness();
   }
 
@@ -1036,13 +1089,25 @@
   let happyFitKey = "";
   function fitHappiness(force) {
     const inner = $("happy-inner"), title = $("happy-title"), desc = $("happy-desc");
-    const key = [title.textContent, desc.textContent, desc.hidden, $("happy-place").textContent, innerWidth, innerHeight].join("|");
+    const img = $("happy-img");
+    const key = [title.textContent, desc.textContent, desc.hidden, $("happy-place").textContent, $("happy-reminder").textContent, img.getAttribute("src"), img.complete, innerWidth, innerHeight].join("|");
     if (!force && key === happyFitKey) return;
     happyFitKey = key;
-    title.style.fontSize = desc.style.fontSize = desc.style.maxHeight = "";
+    title.style.fontSize = desc.style.fontSize = desc.style.maxHeight = img.style.maxHeight = "";
     desc.classList.remove("cut");
     desc.classList.toggle("long", desc.textContent.length > 240 || desc.textContent.indexOf("\n") !== -1);
-    const overflows = () => inner.scrollHeight > inner.clientHeight + 1;
+    // Hauteur utile vs hauteur nécessaire (le contenu est centré : scrollHeight ne voit pas ce qui dépasse en haut)
+    const text = inner.querySelector(".happy-text");
+    const need = () => {
+      if (img.hidden) return text.offsetHeight;
+      const column = getComputedStyle(inner).flexDirection === "column";
+      return column ? text.offsetHeight + img.offsetHeight + parseFloat(getComputedStyle(img).marginBottom) : Math.max(text.offsetHeight, img.offsetHeight);
+    };
+    const avail = () => {
+      const cs = getComputedStyle(inner);
+      return inner.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+    };
+    const overflows = () => need() > avail() + 1 || inner.scrollWidth > inner.clientWidth + 1;
     if (!overflows()) return;
     const baseTitle = parseFloat(getComputedStyle(title).fontSize);
     const baseDesc = parseFloat(getComputedStyle(desc).fontSize);
@@ -1050,14 +1115,17 @@
       title.style.fontSize = Math.max(20, baseTitle * scale) + "px";
       desc.style.fontSize = Math.max(12, baseDesc * scale) + "px";
     }
+    // Écran en hauteur : l'image peut rapetisser
+    for (let h = 30; h >= 14 && overflows() && !img.hidden; h -= 4) img.style.maxHeight = h + "%";
     // Toujours trop long à la taille minimale : on coupe la description en fondu
     if (overflows() && !desc.hidden) {
-      const extra = inner.scrollHeight - inner.clientHeight;
+      const extra = need() - avail();
       desc.style.maxHeight = Math.max(40, desc.offsetHeight - extra - 4) + "px";
       desc.classList.add("cut");
     }
   }
   window.fitHappiness = fitHappiness;
+  $("happy-img").addEventListener("load", () => fitHappiness(true));
   window.addEventListener("resize", () => fitHappiness(true));
 
   /* ---------- Slide Photos d'events : mosaïque ---------- */
@@ -1142,6 +1210,9 @@
     const day = now.getDay();
     if (!data || day === 0 || day === 6) { card.hidden = true; return; }
     card.hidden = false;
+    const btn = $("tv-reroll");
+    btn.hidden = !data.candidates.length;
+    if (!btn.disabled) btn.textContent = data.draw ? "🎲 Relancer" : "🎲 Tirer au sort";
     if (data.draw) {
       card.className = "draw";
       $("draw-label").textContent = "Resto du jour · tiré au sort";
@@ -1205,6 +1276,23 @@
     if (hiddenCount > 0 && inner.scrollHeight > inner.clientHeight + 1 && list.children.length > 1) list.removeChild(list.lastChild);
   }
   window.renderLunch = renderLunch;
+
+  // Relancer le tirage directement depuis l'écran (souris, tactile ou télécommande)
+  const rerollBtn = $("tv-reroll");
+  ["pointerdown", "pointerup", "click"].forEach(t => rerollBtn.addEventListener(t, e => e.stopPropagation()));
+  rerollBtn.addEventListener("keydown", e => e.stopPropagation());
+  rerollBtn.addEventListener("click", async () => {
+    rerollBtn.disabled = true;
+    rerollBtn.textContent = "🎲 Tirage…";
+    try {
+      await store.reroll(store.today());
+      await refresh();
+    } catch (e) {
+      console.warn("MatDora : relance impossible", e);
+    }
+    rerollBtn.disabled = false;
+    if (lunchData) renderDraw(lunchData);
+  });
   window.addEventListener("resize", () => { if (lunchData) renderLunch(lunchData); });
 
   /* ---------- QR codes vers le vote et le dashboard ---------- */
