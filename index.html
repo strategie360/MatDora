@@ -425,6 +425,17 @@
     margin-right: 14px;
   }
   .steps strong { color: #6b4eff; }
+  .reassure {
+    margin: clamp(14px, 3vh, 26px) 0 0;
+    padding: 10px 14px;
+    border-left: 4px solid #6b4eff;
+    background: rgba(107, 78, 255, .08);
+    border-radius: 0 10px 10px 0;
+    font-weight: 600;
+    font-size: clamp(.9rem, min(2.4vw, 2.3vh), 1.05rem);
+    color: #4a3d8f;
+    max-width: 46ch;
+  }
   .chat { flex: 1 1 45%; min-width: 0; max-width: 420px; }
   .msg {
     padding: 14px 18px;
@@ -478,6 +489,9 @@
     .s-help .inner { flex-direction: column; align-items: stretch; }
     .help-text { flex: none; margin: 0 0 clamp(16px, 3vh, 28px); }
     .chat { flex: none; max-width: none; }
+  }
+  @media (max-height: 700px) and (max-aspect-ratio: 1/1) {
+    .chat .from, .chat .msg.him, .chat .typing { display: none; }
   }
   @media (max-height: 640px) and (max-aspect-ratio: 1/1) {
     .s-dora .lede, .s-dora .eyebrow { display: none; }
@@ -588,6 +602,7 @@
           <li><span>Écris à <strong>Matthieu Hunel</strong></span></li>
           <li><span>Propose-lui un créneau</span></li>
         </ol>
+        <p class="reassure">Pas de réponse tout de suite&nbsp;? Ce n'est pas qu'il ne vous aime pas&nbsp;: il est sûrement débordé. Relancez-le gentiment&nbsp;!</p>
       </div>
       <div class="chat" aria-hidden="true">
         <div class="msg me">Salut Matthieu, tu aurais 30&nbsp;min pour m'aider&nbsp;?</div>
@@ -796,4 +811,22 @@
   });
 
   show(0);
+
+  /* ---------- Garder l'écran allumé (Fire TV / Silk) ---------- */
+  // Demande au navigateur de ne pas mettre l'écran en veille tant que la page est affichée.
+  // Le verrou saute quand la page passe en arrière-plan : on le redemande au retour.
+  let wakeLock = null;
+  async function keepAwake() {
+    if (!("wakeLock" in navigator) || document.hidden) return;
+    try {
+      wakeLock = await navigator.wakeLock.request("screen");
+      wakeLock.addEventListener("release", () => { wakeLock = null; });
+    } catch (e) { /* refusé (pas en HTTPS, iframe…) : la page marche quand même */ }
+  }
+  window.keepAwake = keepAwake;
+  keepAwake();
+  document.addEventListener("visibilitychange", () => { if (!document.hidden && !wakeLock) keepAwake(); });
+  // Certains navigateurs exigent une interaction : un appui sur la télécommande suffit
+  document.addEventListener("keydown", () => { if (!wakeLock) keepAwake(); });
+  document.addEventListener("pointerup", () => { if (!wakeLock) keepAwake(); });
 </script>

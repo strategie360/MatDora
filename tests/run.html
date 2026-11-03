@@ -188,6 +188,8 @@
     // Slide RDV
     check(g, "slide RDV : Matthieu Hunel et Teams affichés", text.includes("Matthieu Hunel") && text.includes("Teams"));
     const steps = [...doc.querySelectorAll(".steps li")].map(li => li.innerText.replace(/\s+/g, " ").trim());
+    check(g, "slide RDV : mention « ce n'est pas qu'il ne vous aime pas »", text.includes("Ce n'est pas qu'il ne vous aime pas"));
+    check(g, "anti-veille : présent et sans erreur", typeof win.keepAwake === "function" && (await win.keepAwake(), true));
     check(g, "slide RDV : étapes lisibles, espaces compris", steps.join(" / ") === "Ouvre Teams / Écris à Matthieu Hunel / Propose-lui un créneau", steps.join(" / "));
     win.deck.show(0);
 
