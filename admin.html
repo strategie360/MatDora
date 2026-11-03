@@ -84,7 +84,22 @@
   }
   input[type="checkbox"] { width: 20px; height: 20px; accent-color: var(--accent); }
   input.secs { width: 4.5em; }
-  textarea { min-height: 80px; resize: vertical; }
+  textarea { min-height: 160px; resize: vertical; }
+  .hint { color: var(--muted); font-weight: 600; }
+
+  /* Pauses : une ligne par jour */
+  .day-row { display: grid; grid-template-columns: 7em minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+  .day-row:last-child { border-bottom: 0; }
+  .day-name { font-weight: 800; }
+  .times { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
+  .time-chip { display: inline-flex; align-items: center; gap: 2px; border: 2px solid var(--line); border-radius: 10px; padding: 2px 2px 2px 4px; background: var(--bg); }
+  .time-chip input { border: 0; padding: 4px; background: transparent; }
+  .time-chip button { border: 0; background: transparent; color: var(--danger); font-weight: 800; padding: 2px 8px; border-radius: 8px; }
+  .no-pause { color: var(--muted); font-style: italic; }
+  @media (max-width: 560px) {
+    .day-row { grid-template-columns: minmax(0, 1fr) auto; }
+    .times { grid-column: 1 / -1; grid-row: 2; }
+  }
   button { font: inherit; cursor: pointer; }
   .btn { font-weight: 800; border-radius: 10px; padding: 8px 14px; border: 2px solid var(--line); background: var(--surface); color: var(--fg); }
   .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
@@ -135,10 +150,10 @@
   <!-- Pauses -->
   <section class="panel" id="tab-pauses" role="tabpanel" hidden>
     <h2>Horaires des pauses</h2>
-    <p class="help">Du lundi au vendredi. L'écran affiche la prochaine.</p>
+    <p class="help">Chaque jour a ses propres horaires. Laisse un jour vide s'il n'y a pas de pause. L'écran affiche la prochaine.</p>
     <div id="pauses-list"></div>
     <div class="actions">
-      <button class="btn" id="pause-add">Ajouter une pause</button>
+      <button class="btn" id="pause-copy">Copier lundi sur mardi → vendredi</button>
       <button class="btn primary" id="pauses-save">Enregistrer les pauses</button>
     </div>
   </section>
@@ -148,12 +163,13 @@
     <h2>Prochain happiness event</h2>
     <p class="help">La slide affiche un compte à rebours jusqu'à l'event, puis « C'est maintenant ! » pendant 4 heures.</p>
     <form id="happy-form">
-      <div class="field"><label for="happy-title">Nom de l'event</label><input id="happy-title" maxlength="80" required placeholder="Ex. Apéro de fin d'année"></div>
+      <div class="field"><label for="happy-title">Nom de l'event</label><input id="happy-title" maxlength="200" required placeholder="Ex. Apéro de fin d'année"></div>
       <div class="two">
         <div class="field"><label for="happy-date">Date et heure</label><input id="happy-date" type="datetime-local" required></div>
-        <div class="field"><label for="happy-place">Lieu</label><input id="happy-place" maxlength="80" placeholder="Ex. la terrasse du 3e"></div>
+        <div class="field"><label for="happy-place">Lieu</label><input id="happy-place" maxlength="200" placeholder="Ex. la terrasse du 3e"></div>
       </div>
-      <div class="field"><label for="happy-desc">Description</label><textarea id="happy-desc" maxlength="220" placeholder="Ce qui est prévu, ce qu'il faut apporter…"></textarea></div>
+      <div class="field"><label for="happy-desc">Description</label><textarea id="happy-desc" rows="8" placeholder="Ce qui est prévu, ce qu'il faut apporter… Les retours à la ligne sont gardés."></textarea>
+        <small class="hint" id="happy-count">Pas de limite : plus le texte est long, plus il s'affiche petit sur l'écran.</small></div>
       <div class="actions">
         <button class="btn primary" type="submit">Enregistrer l'event</button>
         <button class="btn danger" type="button" id="happy-clear">Retirer l'event</button>
@@ -300,32 +316,74 @@
     attempt(() => store.saveSetting("slides", settings.slides), "Slides enregistrées.");
   });
 
-  /* ---------- Pauses ---------- */
+  /* ---------- Pauses (par jour) ---------- */
+  const DAYS = [[1, "Lundi"], [2, "Mardi"], [3, "Mercredi"], [4, "Jeudi"], [5, "Vendredi"], [6, "Samedi"], [0, "Dimanche"]];
+  const pad2 = n => String(n).padStart(2, "0");
+
   function renderPauses() {
     const list = $("pauses-list");
     list.innerHTML = "";
-    settings.pauses.forEach((p, i) => {
+    DAYS.forEach(([d, name]) => {
+      const times = settings.pauses[d];
       const row = document.createElement("div");
-      row.className = "row";
-      const input = document.createElement("input");
-      input.type = "time";
-      input.value = p;
-      input.id = "pause-" + i;
-      input.setAttribute("aria-label", `Pause ${i + 1}`);
-      input.addEventListener("change", () => { settings.pauses[i] = input.value; });
-      const spacer = document.createElement("span");
-      spacer.className = "grow";
-      const del = document.createElement("button");
-      del.type = "button"; del.className = "btn danger"; del.textContent = "Retirer";
-      del.addEventListener("click", () => { settings.pauses.splice(i, 1); renderPauses(); });
-      [input, spacer, del].forEach(el => row.appendChild(el));
+      row.className = "day-row";
+      const label = document.createElement("span");
+      label.className = "day-name";
+      label.textContent = name;
+      const box = document.createElement("div");
+      box.className = "times";
+      if (!times.length) {
+        const none = document.createElement("span");
+        none.className = "no-pause";
+        none.textContent = "Pas de pause";
+        box.appendChild(none);
+      }
+      times.forEach((p, i) => {
+        const chip = document.createElement("span");
+        chip.className = "time-chip";
+        const input = document.createElement("input");
+        input.type = "time";
+        input.value = p;
+        input.id = `pause-${d}-${i}`;
+        input.setAttribute("aria-label", `${name}, pause ${i + 1}`);
+        input.addEventListener("change", () => { times[i] = input.value; });
+        const del = document.createElement("button");
+        del.type = "button";
+        del.textContent = "×";
+        del.setAttribute("aria-label", `Retirer la pause de ${p} le ${name.toLowerCase()}`);
+        del.addEventListener("click", () => { times.splice(i, 1); renderPauses(); });
+        chip.appendChild(input);
+        chip.appendChild(del);
+        box.appendChild(chip);
+      });
+      const add = document.createElement("button");
+      add.type = "button";
+      add.className = "btn";
+      add.id = `pause-add-${d}`;
+      add.textContent = "+ Ajouter";
+      add.setAttribute("aria-label", `Ajouter une pause le ${name.toLowerCase()}`);
+      add.addEventListener("click", () => {
+        // Nouvelle pause : 2 h après la dernière, ou 10:00
+        const last = times.length ? times[times.length - 1].split(":").map(Number) : null;
+        times.push(last ? `${pad2(Math.min(23, last[0] + 2))}:${pad2(last[1])}` : "10:00");
+        renderPauses();
+      });
+      row.appendChild(label);
+      row.appendChild(box);
+      row.appendChild(add);
       list.appendChild(row);
     });
   }
-  $("pause-add").addEventListener("click", () => { settings.pauses.push("15:00"); renderPauses(); });
+  $("pause-copy").addEventListener("click", () => {
+    for (let d = 2; d <= 5; d++) settings.pauses[d] = settings.pauses[1].slice();
+    renderPauses();
+    toast("Horaires du lundi copiés. Pense à enregistrer.");
+  });
   $("pauses-save").addEventListener("click", () => {
-    const clean = settings.pauses.filter(p => /^\d{2}:\d{2}$/.test(p)).filter((p, i, a) => a.indexOf(p) === i).sort();
-    if (!clean.length) { toast("Ajoute au moins une pause.", true); return; }
+    const clean = {};
+    for (let d = 0; d < 7; d++) {
+      clean[d] = settings.pauses[d].filter(p => /^\d{2}:\d{2}$/.test(p)).filter((p, i, a) => a.indexOf(p) === i).sort();
+    }
     settings.pauses = clean;
     renderPauses();
     attempt(() => store.saveSetting("pauses", clean), "Pauses enregistrées.");

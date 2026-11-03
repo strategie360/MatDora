@@ -506,7 +506,11 @@
     margin-bottom: 0;
   }
   .happy-place { font-weight: 800; font-size: clamp(1rem, min(3vw, 3vh), 1.4rem); color: #ff9ccb; margin-bottom: 0; }
-  .happy-desc { max-width: 52ch; font-size: clamp(.95rem, min(2.6vw, 2.6vh), 1.2rem); color: #d9d5f5; margin-bottom: 0; }
+  .happy-desc { max-width: 52ch; font-size: clamp(.95rem, min(2.6vw, 2.6vh), 1.2rem); color: #d9d5f5; margin-bottom: 0; white-space: pre-line; overflow-wrap: anywhere; }
+  /* Texte long : aligné à gauche et plus large ; la taille est réduite par le script pour tout faire tenir */
+  .happy-desc.long { max-width: 78ch; text-align: left; line-height: 1.45; }
+  .happy-desc.cut { overflow: hidden; -webkit-mask-image: linear-gradient(#000 80%, transparent); mask-image: linear-gradient(#000 80%, transparent); }
+  .s-happy h2 { overflow-wrap: anywhere; }
   .happy-in { font-family: var(--display); font-size: clamp(1.6rem, min(5vw, 6vh), 3rem); color: #ffc145; margin-bottom: 0; font-variant-numeric: tabular-nums; }
 
   /* ---------- Slide Photos d'events : mosaïque, les photos changent une par une ---------- */
@@ -780,7 +784,7 @@
 
   <!-- Slide 5 : prochain happiness event (données du dashboard) -->
   <section class="slide s-happy" data-id="happiness" data-tone="dark" aria-label="Prochain happiness event">
-    <div class="inner">
+    <div class="inner" id="happy-inner">
       <div class="eyebrow">Prochain happiness event</div>
       <h2 id="happy-title">Bientôt annoncé</h2>
       <p class="happy-when" id="happy-when" hidden></p>
@@ -878,18 +882,18 @@
   });
 
   /* ---------- Slide Pause ---------- */
-  let PAUSES = [[10, 0], [12, 0], [16, 0]];    // heures des pauses, heure locale (modifiables dans le dashboard)
-  const WORKDAYS = [1, 2, 3, 4, 5];            // lundi → vendredi
+  // Horaires par jour de la semaine (0 = dimanche … 6 = samedi), heure locale, modifiables dans le dashboard
+  let SCHEDULE = {};
 
   function nextPause(now = new Date()) {
     for (let add = 0; add < 8; add++) {
       const day = new Date(now.getFullYear(), now.getMonth(), now.getDate() + add);
-      if (!WORKDAYS.includes(day.getDay())) continue;
-      for (const [h, m] of PAUSES) {
+      for (const [h, m] of SCHEDULE[day.getDay()] || []) {
         const t = new Date(day.getFullYear(), day.getMonth(), day.getDate(), h, m);
         if (t > now) return t;
       }
     }
+    return null;  // aucune pause dans la semaine
   }
 
   function dayLabel(t, now) {
@@ -908,34 +912,53 @@
     return `${m} min ${pad(s % 60)} s`;
   }
 
-  let pauseItems = [];
-  function setPauses(list) {
-    const parsed = list
+  function parseTimes(list) {
+    return (Array.isArray(list) ? list : [])
       .map(t => /^(\d{1,2}):(\d{2})$/.exec(t))
       .filter(Boolean)
       .map(m => [Number(m[1]), Number(m[2])])
       .filter(([h, m]) => h < 24 && m < 60)
       .sort((a, b) => a[0] * 60 + a[1] - (b[0] * 60 + b[1]));
-    if (!parsed.length) return;
-    if (parsed.join() === PAUSES.join() && pauseItems.length) return;
-    PAUSES = parsed;
-    $("pause-list").innerHTML = "";
-    pauseItems = PAUSES.map(([h, m]) => {
-      const li = document.createElement("li");
-      li.textContent = `${pad(h)}:${pad(m)}`;
-      $("pause-list").appendChild(li);
-      return li;
-    });
+  }
+  // Accepte l'ancien format (une liste pour lundi → vendredi) et le nouveau (une liste par jour)
+  function setPauses(byDay) {
+    const days = store.withDefaults({ pauses: byDay }).pauses;
+    const next = {};
+    for (let d = 0; d < 7; d++) next[d] = parseTimes(days[d]);
+    SCHEDULE = next;
   }
   setPauses(store.DEFAULTS.pauses);
 
+  // Les pastilles montrent les pauses du jour de la prochaine pause
+  let pauseItems = [], chipsKey = "";
   function renderPause(now = new Date()) {
     const t = nextPause(now);
+    $("pause-day").hidden = !t;
+    if (!t) {
+      $("pause-time").textContent = "–";
+      $("pause-in").textContent = "Aucune pause prévue cette semaine";
+      $("pause-list").innerHTML = "";
+      pauseItems = [];
+      chipsKey = "";
+      return;
+    }
+    const list = SCHEDULE[t.getDay()];
+    const key = t.toDateString() + "|" + list.join(";");
+    if (key !== chipsKey) {
+      chipsKey = key;
+      $("pause-list").innerHTML = "";
+      pauseItems = list.map(([h, m]) => {
+        const li = document.createElement("li");
+        li.textContent = `${pad(h)}:${pad(m)}`;
+        $("pause-list").appendChild(li);
+        return li;
+      });
+    }
     const sameDay = t.toDateString() === now.toDateString();
     $("pause-day").textContent = dayLabel(t, now);
     $("pause-time").textContent = `${pad(t.getHours())}:${pad(t.getMinutes())}`;
     $("pause-in").innerHTML = `dans <strong>${duration(t - now)}</strong>`;
-    PAUSES.forEach(([h, m], i) => {
+    list.forEach(([h, m], i) => {
       const isNext = h === t.getHours() && m === t.getMinutes();
       pauseItems[i].className = isNext ? "next" : (sameDay && (h < t.getHours() || (h === t.getHours() && m < t.getMinutes())) ? "past" : "");
     });
@@ -971,7 +994,37 @@
     $("happy-when").textContent = `${when.charAt(0).toUpperCase() + when.slice(1)} · ${pad(start.getHours())}:${pad(start.getMinutes())}`;
     $("happy-place").textContent = ev.place ? `📍 ${ev.place}` : "";
     $("happy-in").textContent = ongoing ? "C'est maintenant !" : `dans ${duration(start - now)}`;
+    fitHappiness();
   }
+
+  // Réduit le titre et la description jusqu'à ce que tout tienne dans l'écran.
+  // Ne recalcule que si le texte ou la taille de l'écran change.
+  let happyFitKey = "";
+  function fitHappiness(force) {
+    const inner = $("happy-inner"), title = $("happy-title"), desc = $("happy-desc");
+    const key = [title.textContent, desc.textContent, desc.hidden, $("happy-place").textContent, innerWidth, innerHeight].join("|");
+    if (!force && key === happyFitKey) return;
+    happyFitKey = key;
+    title.style.fontSize = desc.style.fontSize = desc.style.maxHeight = "";
+    desc.classList.remove("cut");
+    desc.classList.toggle("long", desc.textContent.length > 240 || desc.textContent.indexOf("\n") !== -1);
+    const overflows = () => inner.scrollHeight > inner.clientHeight + 1;
+    if (!overflows()) return;
+    const baseTitle = parseFloat(getComputedStyle(title).fontSize);
+    const baseDesc = parseFloat(getComputedStyle(desc).fontSize);
+    for (let scale = 0.94; scale >= 0.4 && overflows(); scale -= 0.06) {
+      title.style.fontSize = Math.max(20, baseTitle * scale) + "px";
+      desc.style.fontSize = Math.max(12, baseDesc * scale) + "px";
+    }
+    // Toujours trop long à la taille minimale : on coupe la description en fondu
+    if (overflows() && !desc.hidden) {
+      const extra = inner.scrollHeight - inner.clientHeight;
+      desc.style.maxHeight = Math.max(40, desc.offsetHeight - extra - 4) + "px";
+      desc.classList.add("cut");
+    }
+  }
+  window.fitHappiness = fitHappiness;
+  window.addEventListener("resize", () => fitHappiness(true));
 
   /* ---------- Slide Photos d'events : mosaïque ---------- */
   // Jusqu'à 5 photos à l'écran. Toutes les 3 s, une case change de photo (fondu),

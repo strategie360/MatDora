@@ -355,13 +355,52 @@
 
     ad.querySelector('[data-tab="pauses"]').click();
     check(g, "dashboard : onglet Pauses s'ouvre", !ad.getElementById("tab-pauses").hidden && ad.getElementById("tab-slides").hidden);
-    ad.getElementById("pause-0").value = "09:30";
-    ad.getElementById("pause-0").dispatchEvent(new aw.Event("change"));
+    check(g, "dashboard : 7 jours dans l'onglet Pauses", ad.querySelectorAll("#pauses-list .day-row").length === 7);
+    check(g, "dashboard : week-end sans pause par défaut", ad.querySelectorAll("#pauses-list .no-pause").length === 2);
+    const setTime = (id, v) => { const el = ad.getElementById(id); el.value = v; el.dispatchEvent(new aw.Event("change")); };
+    // Lundi : 09:30 au lieu de 10:00
+    setTime("pause-1-0", "09:30");
+    // Mercredi : plus aucune pause
+    while (ad.querySelector("#pause-3-0")) ad.querySelector("#pause-3-0").nextElementSibling.click();
+    // Samedi : une pause ajoutée (10:00 par défaut), passée à 11:15
+    ad.getElementById("pause-add-6").click();
+    check(g, "dashboard : ajouter une pause un samedi", !!ad.getElementById("pause-6-0") && ad.getElementById("pause-6-0").value === "10:00");
+    setTime("pause-6-0", "11:15");
+    // Vendredi : une 4e pause ajoutée après 16:00 → 18:00
+    ad.getElementById("pause-add-5").click();
+    check(g, "dashboard : nouvelle pause 2 h après la dernière", ad.getElementById("pause-5-3").value === "18:00", ad.getElementById("pause-5-3").value);
     ad.getElementById("pauses-save").click();
     await sleep(400);
     await tw.refresh();
-    const pauseChips = [...td.querySelectorAll("#pause-list li")].map(li => li.textContent).join(" ");
-    check(g, "dashboard → écran : horaires de pause mis à jour", pauseChips === "09:30 12:00 16:00", pauseChips);
+    const at2 = s2 => new tw.Date(s2);
+    const hm2 = t => t ? `${String(t.getHours()).padStart(2, "0")}:${String(t.getMinutes()).padStart(2, "0")} ${t.getDate()}` : "aucune";
+    const np = s2 => hm2(tw.nextPause(at2(s2)));
+    check(g, "dashboard → écran : lundi 08:00 → 09:30", np("2026-11-02T08:00:00") === "09:30 2", np("2026-11-02T08:00:00"));
+    check(g, "dashboard → écran : mardi inchangé (10:00)", np("2026-11-03T08:00:00") === "10:00 3", np("2026-11-03T08:00:00"));
+    check(g, "dashboard → écran : mercredi sans pause → jeudi 10:00", np("2026-11-04T08:00:00") === "10:00 5", np("2026-11-04T08:00:00"));
+    check(g, "dashboard → écran : vendredi 17:00 → 18:00", np("2026-11-06T17:00:00") === "18:00 6", np("2026-11-06T17:00:00"));
+    check(g, "dashboard → écran : samedi 09:00 → 11:15", np("2026-11-07T09:00:00") === "11:15 7", np("2026-11-07T09:00:00"));
+    tw.renderPause(at2("2026-11-06T16:30:00"));
+    const friChips = [...td.querySelectorAll("#pause-list li")].map(li => `${li.textContent}${li.className ? ":" + li.className : ""}`).join(" ");
+    check(g, "écran : pastilles du vendredi (4 pauses)", friChips === "10:00:past 12:00:past 16:00:past 18:00:next", friChips);
+    tw.renderPause(at2("2026-11-06T19:00:00"));
+    const satChips = [...td.querySelectorAll("#pause-list li")].map(li => `${li.textContent}${li.className ? ":" + li.className : ""}`).join(" ");
+    check(g, "écran : vendredi soir → pastilles du samedi", satChips === "11:15:next" && td.getElementById("pause-day").textContent === "Demain", `${td.getElementById("pause-day").textContent} ${satChips}`);
+
+    // Copier lundi sur la semaine
+    ad.getElementById("pause-copy").click();
+    check(g, "dashboard : copier lundi → vendredi", ad.getElementById("pause-5-0").value === "09:30" && ad.getElementById("pause-3-0").value === "09:30" && !ad.getElementById("pause-5-3"));
+
+    // Ancien format (une liste) toujours compris
+    const legacy = aw.MatDoraStore.withDefaults({ pauses: ["09:00", "15:00"] }).pauses;
+    check(g, "ancien format de pauses : lundi → vendredi, week-end vide", legacy[1].join() === "09:00,15:00" && legacy[5].join() === "09:00,15:00" && legacy[0].length === 0 && legacy[6].length === 0);
+
+    // Aucune pause de la semaine
+    tw.setPauses({ 0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] });
+    tw.renderPause();
+    check(g, "écran : aucune pause → message clair", td.getElementById("pause-in").textContent === "Aucune pause prévue cette semaine" && td.getElementById("pause-day").hidden);
+    await tw.refresh();
+    tw.renderPause();
 
     ad.getElementById("happy-title").value = "Bowling de l'équipe";
     const soon = new Date(Date.now() + 3 * 86400000);
@@ -373,6 +412,28 @@
     await tw.refresh();
     check(g, "dashboard → écran : happiness event mis à jour", td.getElementById("happy-title").textContent === "Bowling de l'équipe" && td.getElementById("happy-place").textContent.indexOf("Bowling du centre") !== -1 && td.getElementById("happy-when").textContent.indexOf("19:00") !== -1,
       `${td.getElementById("happy-title").textContent} / ${td.getElementById("happy-when").textContent}`);
+
+    // Happiness : texte très long (plus de limite), il doit tenir à l'écran
+    const para = "Programme de la soirée : accueil à 19 h, tournoi de bowling par équipes, puis buffet et remise des prix. Pensez à vous inscrire auprès de l'équipe organisatrice avant vendredi. ";
+    const longText = (para.repeat(6) + "\n\nÀ apporter : bonne humeur, chaussettes et votre meilleure chanson pour le blind test.\n").repeat(2);
+    check(g, "dashboard : description sans limite de caractères", !ad.getElementById("happy-desc").hasAttribute("maxlength") || ad.getElementById("happy-desc").maxLength > 5000);
+    ad.getElementById("happy-desc").value = longText;
+    ad.getElementById("happy-form").dispatchEvent(new aw.Event("submit", { cancelable: true }));
+    await sleep(400);
+    await tw.refresh();
+    const hd = td.getElementById("happy-desc"), hi = td.getElementById("happy-inner");
+    check(g, `happiness : texte long (${longText.length} caractères) reçu en entier`, hd.textContent === longText.trim() || hd.textContent === longText, `${hd.textContent.length} caractères`);
+    check(g, "happiness : retours à la ligne gardés", tw.getComputedStyle(hd).whiteSpace === "pre-line");
+    tw.deck.show(tw.deck.ids.indexOf("happiness"));
+    tw.fitHappiness(true);
+    check(g, "happiness texte long : tout tient à l'écran (1280×800)", hi.scrollHeight <= hi.clientHeight + 1, `${hi.scrollHeight} > ${hi.clientHeight}`);
+    check(g, "happiness texte long : texte réduit, pas trop petit", parseFloat(hd.style.fontSize || tw.getComputedStyle(hd).fontSize) >= 12, hd.style.fontSize);
+    tv.width = 375; tv.height = 667;
+    await sleep(300);
+    tw.fitHappiness(true);
+    check(g, "happiness texte long : tout tient à l'écran (375×667)", hi.scrollHeight <= hi.clientHeight + 1, `${hi.scrollHeight} > ${hi.clientHeight}`);
+    tv.width = 1280; tv.height = 800;
+    await sleep(300);
 
     // Ajout d'une photo par le formulaire (fichier généré)
     const c = document.createElement("canvas");

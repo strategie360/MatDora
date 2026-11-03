@@ -19,11 +19,24 @@
     { id: "photos", label: "Photos d'events" },
     { id: "lunch", label: "Repas du midi" }
   ];
+  // Pauses : une liste d'horaires par jour (0 = dimanche … 6 = samedi)
+  const WEEKDAY_PAUSES = ["10:00", "12:00", "16:00"];
   const DEFAULTS = {
     slides: SLIDES.map(s => ({ id: s.id, enabled: true, duration: 15 })),
-    pauses: ["10:00", "12:00", "16:00"],
+    pauses: { 0: [], 1: WEEKDAY_PAUSES, 2: WEEKDAY_PAUSES, 3: WEEKDAY_PAUSES, 4: WEEKDAY_PAUSES, 5: WEEKDAY_PAUSES, 6: [] },
     happiness: null
   };
+
+  // Ancien format (une seule liste pour lundi → vendredi) ou nouveau (par jour) → par jour
+  function normPauses(p) {
+    const out = {};
+    for (let d = 0; d < 7; d++) {
+      if (Array.isArray(p)) out[d] = d >= 1 && d <= 5 ? p.slice() : [];
+      else if (p && typeof p === "object") out[d] = Array.isArray(p[d]) ? p[d].slice() : [];
+      else out[d] = DEFAULTS.pauses[d].slice();
+    }
+    return out;
+  }
 
   function today(d) {
     d = d || new Date();
@@ -44,7 +57,7 @@
     const list = Array.isArray(out.slides) ? out.slides.filter(s => SLIDES.some(d => d.id === s.id)) : [];
     SLIDES.forEach(d => { if (!list.some(s => s.id === d.id)) list.push({ id: d.id, enabled: true, duration: 15 }); });
     out.slides = list;
-    if (!Array.isArray(out.pauses) || !out.pauses.length) out.pauses = DEFAULTS.pauses.slice();
+    out.pauses = normPauses(saved && saved.pauses);
     return out;
   }
 
