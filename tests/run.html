@@ -1,0 +1,190 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Tests MatDora</title>
+<style>
+  body { font: 14px/1.4 system-ui, sans-serif; margin: 16px; background: #fff; color: #222; }
+  h1 { font-size: 18px; margin: 0 0 8px; }
+  #summary { font-weight: 700; margin: 8px 0 12px; }
+  .pass { color: #1b7a3a; }
+  .fail { color: #b3261e; }
+  table { border-collapse: collapse; }
+  td { padding: 2px 10px 2px 0; vertical-align: top; }
+  #frames { position: absolute; left: -10000px; top: 0; }
+  iframe { border: 0; display: block; }
+</style>
+<h1>Tests MatDora</h1>
+<p>Servir le dossier en HTTP (<code>python -m http.server 8000</code>) puis ouvrir <code>http://localhost:8000/tests/run.html</code>.</p>
+<div id="summary">Tests en cours…</div>
+<table id="results"></table>
+<div id="frames"></div>
+
+<script>
+  // Tailles d'écran testées : ordinateurs, tablettes Fire (Silk), téléphones
+  const VIEWPORTS = [
+    [1920, 1080], [1366, 768], [1280, 800], [800, 1280],
+    [768, 1024], [412, 915], [375, 812], [375, 667], [360, 640]
+  ];
+  const results = [];
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+  function check(group, name, ok, detail = "") {
+    results.push({ group, name, ok: !!ok, detail });
+  }
+
+  function load(src, w, h) {
+    return new Promise((resolve, reject) => {
+      const f = document.createElement("iframe");
+      f.width = w; f.height = h; f.src = src;
+      f.onload = () => resolve(f);
+      f.onerror = reject;
+      document.getElementById("frames").appendChild(f);
+    });
+  }
+
+  async function imagesReady(doc) {
+    const imgs = [...doc.images];
+    await Promise.all(imgs.map(i => i.complete ? null : new Promise(r => { i.onload = i.onerror = r; })));
+    return imgs;
+  }
+
+  async function testViewport(w, h) {
+    const g = `${w}×${h}`;
+    const f = await load("../index.html", w, h);
+    const win = f.contentWindow, doc = f.contentDocument;
+    await win.document.fonts?.ready;
+    const imgs = await imagesReady(doc);
+    check(g, "script chargé (diaporama prêt)", typeof win.deck === "object");
+    if (typeof win.deck !== "object") return;
+    win.deck.pause(true);
+
+    check(g, "toutes les images s'affichent", imgs.every(i => i.naturalWidth > 0),
+      imgs.filter(i => !i.naturalWidth).map(i => i.getAttribute("src")).join(", "));
+
+    const root = doc.documentElement;
+    check(g, "pas de scroll vertical", root.scrollHeight <= win.innerHeight + 1, `${root.scrollHeight} > ${win.innerHeight}`);
+    check(g, "pas de scroll horizontal", root.scrollWidth <= win.innerWidth + 1, `${root.scrollWidth} > ${win.innerWidth}`);
+
+    // Chaque diapo : son contenu tient dans l'écran, rien n'est coupé
+    for (let k = 0; k < win.deck.count; k++) {
+      win.deck.show(k);
+      const slide = doc.querySelectorAll(".slide")[k];
+      const label = slide.getAttribute("aria-label");
+      const active = doc.querySelectorAll(".slide.active");
+      check(g, `diapo ${k + 1} (${label}) seule active`, active.length === 1 && active[0] === slide);
+      const inner = slide.querySelector(".inner");
+      if (inner) {
+        check(g, `diapo ${k + 1} (${label}) : contenu non coupé`,
+          inner.scrollHeight <= inner.clientHeight + 1 && inner.scrollWidth <= inner.clientWidth + 1,
+          `${inner.scrollWidth}×${inner.scrollHeight} dans ${inner.clientWidth}×${inner.clientHeight}`);
+        const bar = doc.querySelector(".bar").getBoundingClientRect();
+        const first = inner.firstElementChild.getBoundingClientRect();
+        if (k > 0) check(g, `diapo ${k + 1} (${label}) : titre sous la barre du haut`, first.top >= bar.bottom - 1,
+          `titre à ${Math.round(first.top)}px, barre jusqu'à ${Math.round(bar.bottom)}px`);
+      }
+      // Rien ne dépasse à droite (texte trop long, grille trop large) ;
+      // un élément rogné par un parent en overflow hidden (zoom des photos) ne compte pas
+      const clipped = el => {
+        for (let p = el.parentElement; p && p !== slide; p = p.parentElement) {
+          if (win.getComputedStyle(p).overflow !== "visible") return p.getBoundingClientRect().right <= win.innerWidth + 1;
+        }
+        return false;
+      };
+      const wide = [...slide.querySelectorAll("*")].filter(el => {
+        const r = el.getBoundingClientRect();
+        return r.width && r.right > win.innerWidth + 1 && !el.classList.contains("bg") && !clipped(el);
+      });
+      check(g, `diapo ${k + 1} (${label}) : rien ne dépasse à droite`, wide.length === 0,
+        wide.slice(0, 3).map(el => el.className || el.tagName).join(", "));
+    }
+    win.deck.show(0);
+    f.remove();
+  }
+
+  async function testLogic() {
+    const g = "logique";
+    const f = await load("../index.html", 1280, 800);
+    const win = f.contentWindow, doc = f.contentDocument;
+    const TARGET = win.eval("TARGET");
+
+    const fmt = new Intl.DateTimeFormat("fr-FR", { timeZone: "Europe/Paris", weekday: "long", day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" });
+    const when = fmt.format(TARGET);
+    check(g, "cible = dimanche 8 novembre 2026, 10:00 heure de Paris", when === "dimanche 8 novembre 2026 à 10:00", when);
+
+    const shown = ["d", "h", "m", "s"].map(id => Number(doc.getElementById(id).textContent));
+    const shownSec = shown[0] * 86400 + shown[1] * 3600 + shown[2] * 60 + shown[3];
+    const expected = Math.max(0, Math.floor((TARGET - Date.now()) / 1000));
+    check(g, "compte à rebours juste (±2 s)", Math.abs(shownSec - expected) <= 2, `affiché ${shownSec} s, attendu ${expected} s`);
+    check(g, "heures/minutes/secondes dans les bornes", shown[1] < 24 && shown[2] < 60 && shown[3] < 60, shown.join(":"));
+    check(g, "rappel en haut cohérent", doc.getElementById("mini").textContent.startsWith(`${shown[0]} j `), doc.getElementById("mini").textContent);
+
+    // Textes clés
+    const text = doc.body.textContent;
+    for (const word of ["Matthieu", "Dounia", "Dora", "Eurasier", "Dimanche"]) {
+      check(g, `le texte mentionne « ${word} »`, text.includes(word));
+    }
+
+    // Navigation
+    const d = win.deck;
+    d.pause(true);
+    d.show(0); d.next();
+    check(g, "suivante : 1 → 2", d.index === 1);
+    d.show(d.count - 1); d.next();
+    check(g, "suivante après la dernière revient à la 1re", d.index === 0);
+    d.prev();
+    check(g, "précédente depuis la 1re va à la dernière", d.index === d.count - 1);
+    win.document.dispatchEvent(new win.KeyboardEvent("keydown", { key: "ArrowRight" }));
+    check(g, "flèche droite = suivante", d.index === 0);
+
+    // Rotation automatique
+    d.pause(false);
+    d.duration = 300;
+    d.show(0);
+    await sleep(450);
+    check(g, "rotation automatique toute seule", d.index === 1, `index ${d.index}`);
+    await sleep(300);
+    check(g, "la rotation continue", d.index === 2, `index ${d.index}`);
+    d.pause(true);
+    const before = d.index;
+    await sleep(450);
+    check(g, "pause = plus de rotation", d.index === before);
+
+    // État final quand Dora est arrivée
+    win.eval("render(TARGET + 1000)");
+    check(g, "après dimanche 10 h : message d'arrivée visible", !doc.getElementById("done").hidden && doc.getElementById("clock").hidden);
+    f.remove();
+
+    // Mode Silk
+    const fs = await load("../index.html#simple", 1280, 800);
+    check(g, "mode simple (Silk) activé avec #simple", fs.contentDocument.documentElement.classList.contains("simple"));
+    const pic = fs.contentDocument.querySelector(".s-photo .pic");
+    check(g, "mode simple : pas de zoom sur les photos", fs.contentWindow.getComputedStyle(pic).animationName === "none");
+    fs.remove();
+  }
+
+  function report() {
+    const failed = results.filter(r => !r.ok);
+    const table = document.getElementById("results");
+    for (const r of [...failed, ...results.filter(r => r.ok)]) {
+      const tr = table.insertRow();
+      tr.className = r.ok ? "pass" : "fail";
+      tr.insertCell().textContent = r.ok ? "OK" : "ÉCHEC";
+      tr.insertCell().textContent = r.group;
+      tr.insertCell().textContent = r.name;
+      tr.insertCell().textContent = r.ok ? "" : r.detail;
+    }
+    const s = document.getElementById("summary");
+    s.textContent = failed.length ? `${failed.length} échec(s) sur ${results.length} tests` : `Tout est bon : ${results.length} tests réussis`;
+    s.className = failed.length ? "fail" : "pass";
+    window.testResults = { total: results.length, failed: failed.map(r => `${r.group} — ${r.name} — ${r.detail}`) };
+  }
+
+  (async () => {
+    try {
+      await testLogic();
+      for (const [w, h] of VIEWPORTS) await testViewport(w, h);
+    } catch (e) {
+      check("erreur", "les tests ont planté", false, String(e));
+    }
+    report();
+  })();
+</script>
