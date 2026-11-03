@@ -58,7 +58,7 @@
   }
   .slide {
     position: absolute;
-    inset: 0;
+    top: 0; right: 0; bottom: 0; left: 0;
     opacity: 0;
     visibility: hidden;
     transition: opacity .8s ease, visibility 0s linear .8s;
@@ -86,7 +86,6 @@
     left: 0; right: 0; bottom: 0;
     z-index: 5;
     display: flex;
-    gap: 6px;
     padding-top: 10px;
     padding-bottom: calc(14px + env(safe-area-inset-bottom, 0px));
     padding-left: var(--gutter-l);
@@ -100,6 +99,7 @@
     background: var(--track);
     overflow: hidden;
   }
+  .seg + .seg { margin-left: 6px; }
   .seg i { display: block; height: 100%; width: 0; background: var(--fur); }
   .seg.done i { width: 100%; }
   .seg.active i { animation: fill var(--dur, 15s) linear forwards; }
@@ -146,7 +146,6 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 2px;
   }
   .num {
     font-family: var(--display);
@@ -177,9 +176,9 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: clamp(14px, 3.5vh, 32px);
     min-width: 0;
   }
+  .info > * + * { margin-top: clamp(14px, 3.5vh, 32px); }
   #countdown { width: 100%; display: flex; justify-content: center; }
   .when { font-weight: 600; color: var(--muted); margin: 0; }
   .done {
@@ -198,7 +197,6 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 14px;
     height: 100%;
     min-height: 0;
     min-width: 0;
@@ -215,7 +213,7 @@
   figure {
     margin: 0;
     position: absolute;
-    inset: 0;
+    top: 0; right: 0; bottom: 0; left: 0;
     background: var(--surface);
     padding: 12px 12px 14px;
     border-radius: 6px;
@@ -258,7 +256,8 @@
     to   { transform: scale(1.12) translate(-2%, -3%); }
   }
   figcaption { margin-top: 8px; font-weight: 600; font-size: .9rem; color: var(--muted); }
-  .dots { display: flex; gap: 8px; }
+  .dots { display: flex; margin-top: 14px; }
+  .dots span + span { margin-left: 8px; }
   .dots span {
     width: 8px; height: 8px; border-radius: 50%;
     background: var(--line);
@@ -269,21 +268,30 @@
     .stack { width: min(320px, calc(100% - 30px)); }
   }
 
-  /* ---------- Slide Pause ---------- */
+  /* Couleurs de la barre selon la slide affichée */
+  body[data-tone="dark"] .seg { background: rgba(246, 239, 227, .22); }
+  body[data-tone="dark"] .seg i { background: #ffd27a; }
+  body[data-tone="ink"] .seg { background: rgba(29, 27, 58, .2); }
+  body[data-tone="ink"] .seg i { background: #1d1b3a; }
+
+  /* ---------- Slide Pause : vert sapin et jaune café, même look en clair et en sombre ---------- */
+  .s-pause { background: #1e4a43; color: #f6efe3; }
+  .s-pause .eyebrow { color: #9cc9bd; }
+  .s-pause h2 { color: #f6efe3; }
   .s-pause .inner {
     max-width: 900px;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: clamp(14px, 3.5vh, 32px);
   }
+  .s-pause .inner > * + * { margin-top: clamp(14px, 3.5vh, 32px); }
   .big-time {
     font-family: var(--display);
     font-size: clamp(4.5rem, min(22vw, 26vh), 13rem);
     line-height: .9;
     font-variant-numeric: tabular-nums;
-    color: var(--fg);
+    color: #ffd27a;
     margin: 0;
   }
   .day {
@@ -292,8 +300,8 @@
     text-transform: uppercase;
     letter-spacing: .1em;
     font-size: .85rem;
-    color: var(--bg);
-    background: var(--fur);
+    color: #1e4a43;
+    background: #ffd27a;
     border-radius: 999px;
     padding: 4px 14px;
   }
@@ -301,10 +309,10 @@
     margin: 0;
     font-weight: 800;
     font-size: clamp(1.1rem, min(4vw, 3.6vh), 1.8rem);
-    color: var(--muted);
+    color: #cfe3dc;
     font-variant-numeric: tabular-nums;
   }
-  .in strong { color: var(--fur); }
+  .in strong { color: #ffd27a; }
   .schedule {
     list-style: none;
     margin: 0;
@@ -312,20 +320,144 @@
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
-    gap: 12px;
   }
   .schedule li {
+    margin: 6px;
     font-family: var(--display);
     font-size: clamp(1.1rem, min(4vw, 4vh), 1.7rem);
     font-variant-numeric: tabular-nums;
     padding: 6px 20px;
     border-radius: 999px;
-    border: 2px solid var(--line);
-    background: var(--surface);
-    color: var(--fg);
+    border: 2px solid rgba(246, 239, 227, .3);
+    color: #f6efe3;
   }
-  .schedule li.past { color: var(--muted); text-decoration: line-through; background: transparent; }
-  .schedule li.next { border-color: var(--fur); color: var(--fur); }
+  .schedule li.past { opacity: .45; text-decoration: line-through; }
+  .schedule li.next { background: #ffd27a; border-color: #ffd27a; color: #1e4a43; }
+
+  /* ---------- Slide Imputations : post-it jaune, encre bleu nuit ---------- */
+  .s-jira { background: #ffd84d; color: #1d1b3a; }
+  .s-jira .inner {
+    max-width: 1080px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: left;
+  }
+  .jira-head { flex: 1 1 55%; min-width: 0; margin-right: clamp(20px, 4vw, 56px); }
+  .s-jira h2 {
+    color: #1d1b3a;
+    font-size: clamp(2.2rem, min(7vw, 11vh), 5.6rem);
+    margin: 14px 0 0;
+  }
+  .today {
+    display: inline-block;
+    background: #1d1b3a;
+    color: #ffd84d;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    font-size: .85rem;
+    border-radius: 6px;
+    padding: 4px 12px;
+  }
+  .jira-hint { margin: 14px 0 0; font-weight: 700; font-size: clamp(1rem, 2.6vh, 1.35rem); }
+  .tickets { flex: 1 1 45%; min-width: 0; list-style: none; margin: 0; padding: 0; }
+  .ticket {
+    display: flex;
+    align-items: center;
+    background: #ffffff;
+    border: 3px solid #1d1b3a;
+    border-radius: 14px;
+    box-shadow: 6px 6px 0 #1d1b3a;
+    padding: clamp(12px, 2.6vh, 22px) 20px;
+    margin: 0 6px clamp(14px, 3vh, 26px) 0;
+  }
+  .ticket:last-child { margin-bottom: 0; }
+  .box {
+    flex: none;
+    width: 34px; height: 34px;
+    border: 3px solid #1d1b3a;
+    border-radius: 8px;
+    margin-right: 16px;
+  }
+  .ticket strong { display: block; font-family: var(--display); font-weight: 400; font-size: clamp(1.5rem, min(4.5vw, 5vh), 2.4rem); line-height: 1.05; }
+  .ticket small { display: block; font-weight: 700; font-size: .9rem; color: #57527a; }
+
+  /* ---------- Slide RDV : lavande et violet, façon conversation ---------- */
+  body[data-tone="violet"] .seg { background: rgba(45, 30, 107, .18); }
+  body[data-tone="violet"] .seg i { background: #6b4eff; }
+  .s-help { background: #ece8ff; color: #2d1e6b; }
+  .s-help .inner {
+    max-width: 1080px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: left;
+  }
+  .help-text { flex: 1 1 55%; min-width: 0; margin-right: clamp(20px, 4vw, 56px); }
+  .s-help .eyebrow { color: #6b4eff; }
+  .s-help h2 { color: #2d1e6b; font-size: clamp(2rem, min(6vw, 9vh), 4.6rem); margin-top: 12px; }
+  .steps {
+    list-style: none;
+    counter-reset: step;
+    margin: clamp(16px, 3.5vh, 32px) 0 0;
+    padding: 0;
+  }
+  .steps li {
+    counter-increment: step;
+    display: flex;
+    align-items: center;
+    font-weight: 700;
+    font-size: clamp(1.05rem, min(3vw, 3vh), 1.45rem);
+    margin-top: clamp(8px, 1.6vh, 14px);
+  }
+  .steps li::before {
+    content: counter(step);
+    flex: none;
+    width: 2em; height: 2em;
+    line-height: 2em;
+    text-align: center;
+    border-radius: 50%;
+    background: #6b4eff;
+    color: #ffffff;
+    font-family: var(--display);
+    font-weight: 400;
+    margin-right: 14px;
+  }
+  .steps strong { color: #6b4eff; }
+  .chat { flex: 1 1 45%; min-width: 0; max-width: 420px; }
+  .msg {
+    padding: 14px 18px;
+    border-radius: 20px;
+    font-weight: 600;
+    font-size: clamp(.95rem, min(2.6vw, 2.6vh), 1.15rem);
+    line-height: 1.35;
+    max-width: 85%;
+  }
+  .msg.me { background: #6b4eff; color: #ffffff; margin-left: auto; border-bottom-right-radius: 6px; }
+  .msg.him { background: #ffffff; color: #2d1e6b; border-bottom-left-radius: 6px; }
+  .from { display: flex; align-items: center; font-size: .85rem; font-weight: 800; color: #6d5fb0; margin: 18px 0 8px; }
+  .avatar {
+    width: 30px; height: 30px; line-height: 30px;
+    border-radius: 50%;
+    background: #2d1e6b;
+    color: #ece8ff;
+    font-size: .72rem;
+    text-align: center;
+    margin-right: 8px;
+  }
+  .typing { display: inline-block; background: #ffffff; border-radius: 16px; padding: 10px 14px; margin-top: 10px; }
+  .typing span {
+    display: inline-block;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: #6d5fb0;
+    margin: 0 2px;
+    animation: blink 1.2s ease-in-out infinite;  /* opacité seulement : léger pour Silk */
+  }
+  .typing span:nth-child(2) { animation-delay: .2s; }
+  .typing span:nth-child(3) { animation-delay: .4s; }
+  @keyframes blink { 0%, 100% { opacity: .25; } 50% { opacity: 1; } }
 
   @keyframes wag { 0%,100% { transform: rotate(-6deg); } 50% { transform: rotate(6deg); } }
   .paw { display: inline-block; animation: wag 1.6s ease-in-out infinite; transform-origin: 50% 80%; }
@@ -337,9 +469,15 @@
       grid-template-rows: auto minmax(0, 1fr);
       gap: 12px;
     }
-    .info { gap: clamp(8px, 2vh, 18px); }
+    .info > * + * { margin-top: clamp(8px, 2vh, 18px); }
     .lede { font-size: 1rem; margin-top: 8px; }
     .note { display: none; }
+    .s-jira .inner { flex-direction: column; align-items: stretch; }
+    .jira-head { flex: none; margin: 0 0 clamp(18px, 4vh, 36px); }
+    .tickets { flex: none; }
+    .s-help .inner { flex-direction: column; align-items: stretch; }
+    .help-text { flex: none; margin: 0 0 clamp(16px, 3vh, 28px); }
+    .chat { flex: none; max-width: none; }
   }
   @media (max-height: 640px) and (max-aspect-ratio: 1/1) {
     .s-dora .lede, .s-dora .eyebrow { display: none; }
@@ -411,7 +549,7 @@
   </section>
 
   <!-- Slide 2 : prochaine pause avec l'équipe -->
-  <section class="slide s-pause" aria-label="Prochaine pause">
+  <section class="slide s-pause" data-tone="dark" aria-label="Prochaine pause">
     <div class="inner">
       <div>
         <div class="eyebrow">Pause avec l'équipe</div>
@@ -421,6 +559,42 @@
       <p class="big-time" id="pause-time">–</p>
       <p class="in" id="pause-in">dans <strong>–</strong></p>
       <ul class="schedule" id="pause-list"></ul>
+    </div>
+  </section>
+
+  <!-- Slide 3 : rappel des imputations Jira -->
+  <section class="slide s-jira" data-tone="ink" aria-label="Rappel imputations Jira">
+    <div class="inner">
+      <div class="jira-head">
+        <span class="today" id="jira-day">–</span>
+        <h2>Tes imputations, c'est fait&nbsp;?</h2>
+        <p class="jira-hint" id="jira-hint">Saisis ta journée avant de partir.</p>
+      </div>
+      <ul class="tickets">
+        <li class="ticket"><span class="box" aria-hidden="true"></span><span><strong>Jira TTE</strong><small>Temps du jour saisi</small></span></li>
+        <li class="ticket"><span class="box" aria-hidden="true"></span><span><strong>Jira CGI</strong><small>Temps du jour saisi</small></span></li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- Slide 4 : prendre rendez-vous avec Matthieu Hunel -->
+  <section class="slide s-help" data-tone="violet" aria-label="Rendez-vous avec Matthieu Hunel">
+    <div class="inner">
+      <div class="help-text">
+        <div class="eyebrow">Besoin d'un coup de main&nbsp;?</div>
+        <h2>Prends rendez-vous avec Matthieu&nbsp;Hunel</h2>
+        <ol class="steps">
+          <li><span>Ouvre <strong>Teams</strong></span></li>
+          <li><span>Écris à <strong>Matthieu Hunel</strong></span></li>
+          <li><span>Propose-lui un créneau</span></li>
+        </ol>
+      </div>
+      <div class="chat" aria-hidden="true">
+        <div class="msg me">Salut Matthieu, tu aurais 30&nbsp;min pour m'aider&nbsp;?</div>
+        <div class="from"><span class="avatar">MH</span>Matthieu Hunel</div>
+        <div class="msg him">Avec plaisir&nbsp;! Dis-moi quand 🙂</div>
+        <div class="typing"><span></span><span></span><span></span></div>
+      </div>
     </div>
   </section>
 
@@ -537,12 +711,25 @@
     });
   }
 
+  /* ---------- Slide Imputations ---------- */
+  function renderJira(now = new Date()) {
+    const label = now.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
+    $("jira-day").textContent = label.charAt(0).toUpperCase() + label.slice(1);
+    const day = now.getDay();
+    $("jira-hint").textContent =
+      day === 5 ? "C'est vendredi : vérifie toute ta semaine avant de partir." :
+      day === 0 || day === 6 ? "Lundi matin, pense à vérifier ta semaine passée." :
+      "Saisis ta journée avant de partir.";
+  }
+
   /* ---------- Horloge commune ---------- */
   let doraRunning = render();
   renderPause();
+  renderJira();
   setInterval(() => {
     if (doraRunning) doraRunning = render();
     renderPause();
+    renderJira();
   }, 1000);
 
   /* ---------- Diaporama ---------- */
@@ -582,6 +769,7 @@
     void progress.offsetWidth;  // relance l'animation de la barre
     segs[index].classList.add("active");
     document.body.dataset.slide = index;
+    document.body.dataset.tone = slides[index].dataset.tone || "light";
     clearTimeout(timer);
     if (!paused) timer = setTimeout(deck.next, deck.duration);
   }

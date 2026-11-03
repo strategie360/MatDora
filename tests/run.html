@@ -169,6 +169,38 @@
       `${doc.getElementById("pause-day").textContent} / ${doc.getElementById("pause-in").textContent}`);
     win.renderPause();
 
+    // Slide Imputations
+    check(g, "slide Imputations : Jira TTE et Jira CGI affichés", text.includes("Jira TTE") && text.includes("Jira CGI"));
+    const jira = now => { win.renderJira(at(now)); return `${doc.getElementById("jira-day").textContent} | ${doc.getElementById("jira-hint").textContent}`; };
+    let j = jira("2026-11-03T15:00:00");
+    check(g, "imputations un mardi : date + saisir la journée", j === "Mardi 3 novembre | Saisis ta journée avant de partir.", j);
+    j = jira("2026-11-06T15:00:00");
+    check(g, "imputations un vendredi : vérifier la semaine", j === "Vendredi 6 novembre | C'est vendredi : vérifie toute ta semaine avant de partir.", j);
+    j = jira("2026-11-07T15:00:00");
+    check(g, "imputations le week-end : rappel pour lundi", j.endsWith("Lundi matin, pense à vérifier ta semaine passée."), j);
+    win.renderJira();
+
+    // Barre de progression : couleur adaptée à chaque slide
+    const tones = [];
+    for (let k = 0; k < win.deck.count; k++) { win.deck.show(k); tones.push(doc.body.dataset.tone); }
+    check(g, "barre de progression : couleur selon la slide", tones.join(",") === "light,dark,ink,violet", tones.join(","));
+
+    // Slide RDV
+    check(g, "slide RDV : Matthieu Hunel et Teams affichés", text.includes("Matthieu Hunel") && text.includes("Teams"));
+    const steps = [...doc.querySelectorAll(".steps li")].map(li => li.innerText.replace(/\s+/g, " ").trim());
+    check(g, "slide RDV : étapes lisibles, espaces compris", steps.join(" / ") === "Ouvre Teams / Écris à Matthieu Hunel / Propose-lui un créneau", steps.join(" / "));
+    win.deck.show(0);
+
+    // Compatibilité vieux Silk / vieux Chromium : pas de syntaxe ou de CSS trop récents
+    const src = await (await fetch("../index.html")).text();
+    const css = src.slice(src.indexOf("<style>"), src.indexOf("</style>"));
+    const js = src.slice(src.lastIndexOf("<script>"), src.lastIndexOf("<\/script>"));
+    check(g, "Silk : pas de « inset » en CSS (Chrome < 87)", !/\binset\s*:/.test(css));
+    const flexGap = [...css.matchAll(/\{[^}]*display:\s*flex[^}]*\}/g)].filter(m => /[^-]gap\s*:/.test(m[0]));
+    check(g, "Silk : pas de « gap » sur du flex (Chrome < 84)", flexGap.length === 0, flexGap.map(m => m[0].slice(0, 60)).join(" / "));
+    check(g, "Silk : pas de ?. ni ?? en JavaScript (Chrome < 80)", !/\?\.|\?\?/.test(js));
+    check(g, "Silk : pas de backdrop-filter", !/backdrop-filter/.test(css));
+
     // Navigation
     const d = win.deck;
     d.pause(true);
