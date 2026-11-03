@@ -1,0 +1,322 @@
+<title>Dora arrive</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bagel+Fat+One&family=Nunito:wght@400;600;800&display=swap">
+<style>
+  /* Layout: une colonne centrée — titre, compte à rebours en "pattes", puis trois photos posées comme des tirages */
+  :root {
+    --bg: #fbf3e8;          /* crème de sous-poil */
+    --surface: #ffffff;
+    --fg: #3a2a1f;          /* brun museau */
+    --muted: #8a6f5c;
+    --fur: #c9874a;         /* fauve de Dora */
+    --smoke: #6d6560;       /* masque gris fumé */
+    --tongue: #e58aa0;      /* langue rose */
+    --line: #ead9c4;
+    --display: "Bagel Fat One", "Arial Rounded MT Bold", system-ui, sans-serif;
+    --body: "Nunito", system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #1f1915; --surface: #2b231d; --fg: #f5e9da; --muted: #bba48f;
+      --fur: #e0a368; --smoke: #a39a93; --tongue: #f09fb3; --line: #3e3229;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #1f1915; --surface: #2b231d; --fg: #f5e9da; --muted: #bba48f;
+    --fur: #e0a368; --smoke: #a39a93; --tongue: #f09fb3; --line: #3e3229;
+    color-scheme: dark;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--body);
+    font-size: 16px;
+    line-height: 1.5;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    padding-block: 40px 56px;
+    overflow-x: hidden;
+  }
+  main {
+    max-width: 920px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 36px;
+    text-align: center;
+  }
+
+  .eyebrow {
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .14em;
+    font-size: .8rem;
+    color: var(--muted);
+  }
+  h1 {
+    font-family: var(--display);
+    font-weight: 400;
+    font-size: clamp(2.6rem, 9vw, 5.2rem);
+    line-height: 1;
+    margin: 8px 0 0;
+    text-wrap: balance;
+    color: var(--fur);
+  }
+  h1 .who { color: var(--fg); }
+  .lede {
+    margin: 14px auto 0;
+    max-width: 34ch;
+    font-size: 1.1rem;
+    color: var(--muted);
+  }
+  .lede strong { color: var(--fg); }
+
+  /* Compte à rebours */
+  .clock {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+    width: 100%;
+    max-width: 640px;
+  }
+  .unit {
+    background: var(--surface);
+    border: 2px solid var(--line);
+    border-radius: 999px 999px 28px 28px;  /* forme de coussinet */
+    padding: 22px 6px 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+  }
+  .num {
+    font-family: var(--display);
+    font-size: clamp(2rem, 8vw, 3.6rem);
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    color: var(--fg);
+  }
+  .lbl {
+    font-size: .75rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    color: var(--muted);
+  }
+  .unit.sec .num { color: var(--fur); }
+
+  .when {
+    font-weight: 600;
+    color: var(--muted);
+    margin-top: -18px;
+  }
+
+  .done {
+    font-family: var(--display);
+    font-size: clamp(2rem, 7vw, 3.4rem);
+    color: var(--tongue);
+    line-height: 1.1;
+    text-wrap: balance;
+  }
+
+  /* Photos */
+  /* Pile de tirages : la photo du dessus s'envole et repasse derrière */
+  .photos {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    padding-top: 8px;
+    width: 100%;
+  }
+  .stack {
+    position: relative;
+    width: min(340px, 100%);
+    aspect-ratio: 34 / 39;
+    cursor: pointer;
+    touch-action: pan-y;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .stack:focus-visible { outline: 3px solid var(--fur); outline-offset: 10px; border-radius: 8px; }
+  figure {
+    margin: 0;
+    position: absolute;
+    inset: 0;
+    background: var(--surface);
+    padding: 12px 12px 14px;
+    border-radius: 6px;
+    box-shadow: 0 14px 30px -14px rgba(58, 42, 31, .55);
+    display: flex;
+    flex-direction: column;
+    transition: transform .55s cubic-bezier(.2, .8, .2, 1), opacity .45s ease;
+  }
+  figure[data-pos="0"] { z-index: 3; transform: rotate(-2deg); }
+  figure[data-pos="1"] { z-index: 2; transform: translate(14px, 8px) rotate(5deg); }
+  figure[data-pos="2"] { z-index: 1; transform: translate(-14px, 12px) rotate(-8deg); }
+  figure.fly { z-index: 4; transform: translate(var(--fly-x, 130%), -30px) rotate(var(--fly-r, 20deg)); opacity: 0; }
+  .frame {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    border-radius: 3px;
+  }
+  figure img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  figure[data-pos="0"] img { animation: kenburns 7s ease-in-out infinite alternate; }
+  @keyframes kenburns {
+    from { transform: scale(1) translate(0, 0); }
+    to   { transform: scale(1.12) translate(-2%, -3%); }
+  }
+  .dots { display: flex; gap: 8px; }
+  .dots span {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--line);
+    transition: background .3s, transform .3s;
+  }
+  .dots span.on { background: var(--fur); transform: scale(1.3); }
+  .hint { font-size: .8rem; color: var(--muted); }
+  figcaption {
+    margin-top: 8px;
+    font-weight: 600;
+    font-size: .9rem;
+    color: var(--muted);
+  }
+
+  footer { font-size: .85rem; color: var(--muted); }
+
+  @keyframes wag { 0%,100% { transform: rotate(-6deg); } 50% { transform: rotate(6deg); } }
+  .paw { display: inline-block; animation: wag 1.6s ease-in-out infinite; transform-origin: 50% 80%; }
+
+  @media (max-width: 480px) {
+    .clock { gap: 8px; }
+    .unit { padding: 16px 2px 12px; border-radius: 999px 999px 20px 20px; }
+    .lbl { font-size: .62rem; letter-spacing: .06em; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .paw, figure img { animation: none !important; }
+    figure { transition: none; }
+  }
+</style>
+
+<main>
+  <header>
+    <div class="eyebrow">Eurasier · fauve · à adopter</div>
+    <h1><span class="who">Matthieu, Dounia</span> &amp; Dora</h1>
+    <p class="lede">Encore un peu de patience. <strong>Dimanche à 10 h</strong>, Dora rejoint ses parents à la maison.</p>
+  </header>
+
+  <section id="countdown" aria-live="polite">
+    <div class="clock" id="clock">
+      <div class="unit"><span class="num" id="d">–</span><span class="lbl">jours</span></div>
+      <div class="unit"><span class="num" id="h">–</span><span class="lbl">heures</span></div>
+      <div class="unit"><span class="num" id="m">–</span><span class="lbl">minutes</span></div>
+      <div class="unit sec"><span class="num" id="s">–</span><span class="lbl">secondes</span></div>
+    </div>
+    <p class="done" id="done" hidden>Dora est arrivée ! <span class="paw">🐾</span></p>
+  </section>
+
+  <p class="when" id="when">Dimanche 8 novembre 2026 · 10:00</p>
+
+  <section class="photos" aria-label="Photos de Dora">
+    <div class="stack" id="stack" tabindex="0" role="button" aria-label="Photo suivante">
+      <figure data-pos="0">
+        <div class="frame"><img src="img/2.jpg" alt="Dora, la langue tirée, dans les bras de l'éleveuse"></div>
+        <figcaption>Le sourire officiel</figcaption>
+      </figure>
+      <figure data-pos="1">
+        <div class="frame"><img src="img/1.jpg" alt="Dora assise dans l'herbe sous une barrière en bois"></div>
+        <figcaption>Regard de boule de poils</figcaption>
+      </figure>
+      <figure data-pos="2">
+        <div class="frame"><img src="img/3.jpg" alt="Dora allongée sur un lit pour chien, la queue en panache"></div>
+        <figcaption>Déjà la pose de star</figcaption>
+      </figure>
+    </div>
+    <div class="dots" id="dots" aria-hidden="true"><span class="on"></span><span></span><span></span></div>
+    <div class="hint">Touche ou glisse pour la photo suivante</div>
+  </section>
+
+  <footer>Fait pour Matthieu et Dounia, avec beaucoup de poils.</footer>
+</main>
+
+<script>
+  // Dimanche 8 novembre 2026, 10:00 heure de Paris (CET, UTC+1)
+  const TARGET = new Date("2026-11-08T10:00:00+01:00").getTime();
+  const $ = id => document.getElementById(id);
+  const pad = n => String(n).padStart(2, "0");
+
+  function tick() {
+    const left = TARGET - Date.now();
+    if (left <= 0) {
+      $("clock").hidden = true;
+      $("done").hidden = false;
+      $("when").textContent = "Bienvenue à la maison, Dora.";
+      document.title = "Dora est arrivée !";
+      return false;
+    }
+    const s = Math.floor(left / 1000);
+    $("d").textContent = Math.floor(s / 86400);
+    $("h").textContent = pad(Math.floor(s / 3600) % 24);
+    $("m").textContent = pad(Math.floor(s / 60) % 60);
+    $("s").textContent = pad(s % 60);
+    return true;
+  }
+
+  if (tick()) {
+    const timer = setInterval(() => { if (!tick()) clearInterval(timer); }, 1000);
+  }
+
+  // Pile de photos
+  const stack = $("stack");
+  const cards = [...stack.querySelectorAll("figure")];
+  const dots = [...$("dots").children];
+  const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  let current = 0, busy = false, auto;
+
+  function next(dir = 1) {
+    if (busy) return;
+    busy = true;
+    const top = cards.find(c => c.dataset.pos === "0");
+    top.style.setProperty("--fly-x", dir > 0 ? "130%" : "-130%");
+    top.style.setProperty("--fly-r", dir > 0 ? "20deg" : "-20deg");
+    top.classList.add("fly");
+    cards.forEach(c => { if (c !== top) c.dataset.pos = Number(c.dataset.pos) - 1; });
+    current = (current + 1) % cards.length;
+    dots.forEach((d, i) => d.classList.toggle("on", i === current));
+    setTimeout(() => {
+      top.classList.remove("fly");
+      top.dataset.pos = cards.length - 1;
+      busy = false;
+    }, reduceMotion ? 0 : 450);
+  }
+
+  function restartAuto() {
+    clearInterval(auto);
+    if (!reduceMotion) auto = setInterval(() => next(1), 4000);
+  }
+
+  stack.addEventListener("keydown", e => {
+    if (e.key === "Enter" || e.key === " " || e.key === "ArrowRight") { e.preventDefault(); next(1); restartAuto(); }
+    if (e.key === "ArrowLeft") { e.preventDefault(); next(-1); restartAuto(); }
+  });
+  let startX = null;
+  stack.addEventListener("pointerdown", e => { startX = e.clientX; });
+  stack.addEventListener("pointerup", e => {
+    if (startX === null) return;
+    const dx = e.clientX - startX;
+    startX = null;
+    // Petit mouvement = toucher, grand mouvement = glisser dans ce sens
+    next(Math.abs(dx) > 40 && dx < 0 ? -1 : 1);
+    restartAuto();
+  });
+  restartAuto();
+</script>
