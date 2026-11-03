@@ -203,6 +203,16 @@
   }
   figure:nth-child(2) img { animation-delay: -2.3s; }
   figure:nth-child(3) img { animation-delay: -4.6s; }
+  /* Mode simple (Silk) : fondu enchaîné à plat, sans rotation ni zoom */
+  .simple figure {
+    transform: none !important;
+    transition: opacity .7s ease;
+    will-change: opacity;
+  }
+  .simple figure[data-pos="1"],
+  .simple figure[data-pos="2"],
+  .simple figure.fly { opacity: 0; }
+  .simple figure img { animation: none; will-change: auto; }
   @supports not (aspect-ratio: 1) {
     .stack { width: min(320px, calc(100% - 30px)); }
   }
@@ -322,7 +332,10 @@
     const timer = setInterval(() => { if (!tick()) clearInterval(timer); }, 1000);
   }
 
-  // Pile de photos
+  // Pile de photos (Silk gère mal les cartes inclinées : fondu simple à la place ; #simple pour tester)
+  if (/Silk/.test(navigator.userAgent) || location.hash === "#simple") {
+    document.documentElement.classList.add("simple");
+  }
   const stack = $("stack");
   const cards = [...stack.querySelectorAll("figure")];
   const dots = [...$("dots").children];
