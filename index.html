@@ -171,6 +171,11 @@
     display: flex;
     flex-direction: column;
     transition: transform .55s cubic-bezier(.2, .8, .2, 1), opacity .45s ease;
+    /* Couche GPU dédiée : évite scintillement et bords crénelés (Silk, vieux Chromium) */
+    will-change: transform, opacity;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    outline: 1px solid transparent;
   }
   figure[data-pos="0"] { z-index: 3; transform: rotate(-2deg); }
   figure[data-pos="1"] { z-index: 2; transform: translate(14px, 8px) rotate(5deg); }
@@ -181,6 +186,7 @@
     min-height: 0;
     overflow: hidden;
     border-radius: 3px;
+    transform: translateZ(0);  /* garde le zoom bien rogné pendant l'animation */
   }
   figure img {
     display: block;
@@ -188,7 +194,18 @@
     height: 100%;
     object-fit: cover;
   }
-  figure[data-pos="0"] img { animation: kenburns 7s ease-in-out infinite alternate; }
+  /* Zoom lent sur toutes les photos en continu, pour qu'aucune ne "saute" en changeant de place */
+  figure img {
+    animation: kenburns 7s ease-in-out infinite alternate;
+    will-change: transform;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+  }
+  figure:nth-child(2) img { animation-delay: -2.3s; }
+  figure:nth-child(3) img { animation-delay: -4.6s; }
+  @supports not (aspect-ratio: 1) {
+    .stack { width: min(320px, calc(100% - 30px)); }
+  }
   @keyframes kenburns {
     from { transform: scale(1) translate(0, 0); }
     to   { transform: scale(1.12) translate(-2%, -3%); }
