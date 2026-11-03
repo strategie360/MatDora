@@ -353,9 +353,11 @@
     current = (current + 1) % cards.length;
     dots.forEach((d, i) => d.classList.toggle("on", i === current));
     setTimeout(() => {
+      // Repasse derrière sans traverser l'écran : la position change d'un coup, seule l'opacité est animée
+      top.style.transition = "opacity .45s ease";
       top.classList.remove("fly");
       top.dataset.pos = cards.length - 1;
-      busy = false;
+      setTimeout(() => { top.style.transition = ""; busy = false; }, 500);
     }, reduceMotion ? 0 : 450);
   }
 
