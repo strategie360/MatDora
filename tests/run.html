@@ -277,7 +277,39 @@
     check(g, "repas : 3 propositions, la plus votée en tête", lunchRows().length === 3 && lunchRows()[0].indexOf("Pizzeria") !== -1 && td.querySelector("#lunch-list li").classList.contains("lead"), lunchRows().join(" | "));
     check(g, "repas : QR code vers la page de vote", !!td.querySelector("#qr-vote img, #qr-vote canvas") && tw.LINKS.vote.endsWith("vote.html#mock"), tw.LINKS.vote);
     check(g, "photos : QR code vers le dashboard", !!td.querySelector("#qr-photos img, #qr-photos canvas") && tw.LINKS.admin.endsWith("admin.html#mock,photos"), tw.LINKS.admin);
-    check(g, "photos : 3 photos dans la galerie, la 1re affichée", td.querySelectorAll("#gallery img").length === 3 && td.querySelector("#gallery img.on") && td.getElementById("gallery-text").textContent !== "");
+    // Mosaïque : plusieurs photos à la fois
+    const tilesShown = () => [...td.querySelectorAll("#gallery .tile")].map(t => {
+      const on = t.querySelector("img.on");
+      return on ? on.getAttribute("src") : null;
+    });
+    await waitFor(() => tilesShown().every(Boolean));
+    check(g, "photos : les 3 photos affichées en même temps", td.querySelectorAll("#gallery .tile").length === 3 && tilesShown().every(Boolean) && new Set(tilesShown()).size === 3, tilesShown().join(", "));
+    check(g, "photos : légendes sur les cases", [...td.querySelectorAll("#gallery .tile-cap")].every(c => c.textContent.indexOf("Exemple") !== -1));
+    check(g, "photos : 3 photos = 1 grande + 2 petites", td.getElementById("gallery").dataset.count === "3");
+
+    // 9 photos : 5 cases, et les photos tournent sans doublon à l'écran
+    const fake = Array.from({ length: 9 }, (_, i) => ({ id: "f" + i, url: `../img/${(i % 3) + 1}.jpg?${i}`, caption: "Photo " + i, event: "Test" }));
+    tw.setEventPhotos(fake);
+    await waitFor(() => tilesShown().every(Boolean));
+    check(g, "photos : 9 photos → 5 cases (1 grande + 4 petites)", td.querySelectorAll("#gallery .tile").length === 5 && td.getElementById("gallery").dataset.count === "5");
+    const before = tilesShown().join();
+    const seen = new Set(tilesShown());
+    let dupes = false;
+    for (let k = 0; k < 9; k++) {
+      tw.swapTile();
+      await waitFor(() => new Set(tilesShown()).size === 5, 2000);
+      const now = tilesShown();
+      if (new Set(now).size !== now.length) dupes = true;
+      now.forEach(u => seen.add(u));
+    }
+    check(g, "photos : une case change à la fois, sans doublon à l'écran", !dupes && tilesShown().join() !== before, tilesShown().join(", "));
+    check(g, "photos : toutes les photos finissent par passer", seen.size === 9, `${seen.size} / 9`);
+    const captions = [...td.querySelectorAll("#gallery .tile-cap")].map(c => c.textContent);
+    const shownNames = tilesShown().map(u => "Photo " + u.split("?")[1]);
+    check(g, "photos : chaque légende va avec sa photo", captions.every((c, k) => c.endsWith(shownNames[k])), captions.join(" | "));
+    // Retour aux photos de la démo
+    tw.eval("eventPhotos = []");
+    await tw.refresh();
     const happyEmpty = await (async () => {
       tw.eval("happiness = null"); tw.renderHappiness();
       const t = td.getElementById("happy-title").textContent;
@@ -357,7 +389,9 @@
     for (let i = 0; i < 20 && ad.querySelectorAll("#photo-grid .photo").length < 4; i++) await sleep(100);
     check(g, "dashboard : photo ajoutée (réduite en JPEG)", ad.querySelectorAll("#photo-grid .photo").length === 4 && ad.querySelector("#photo-grid img").src.indexOf("data:image/jpeg") === 0);
     await tw.refresh();
-    check(g, "dashboard → écran : nouvelle photo dans la galerie", td.querySelectorAll("#gallery img").length === 4 && td.getElementById("gallery-text").textContent === "Photo de test", td.getElementById("gallery-text").textContent);
+    await waitFor(() => td.querySelector("#gallery .tile-cap").textContent.indexOf("Photo de test") !== -1);
+    const firstCap = td.querySelector("#gallery .tile-cap").textContent;
+    check(g, "dashboard → écran : nouvelle photo en grand dans la mosaïque", td.querySelectorAll("#gallery .tile").length === 4 && firstCap === "Séminaire testPhoto de test", firstCap);
 
     const delBtn = ad.querySelector("#photo-grid .photo .btn.danger");
     delBtn.click();

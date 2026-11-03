@@ -509,36 +509,68 @@
   .happy-desc { max-width: 52ch; font-size: clamp(.95rem, min(2.6vw, 2.6vh), 1.2rem); color: #d9d5f5; margin-bottom: 0; }
   .happy-in { font-family: var(--display); font-size: clamp(1.6rem, min(5vw, 6vh), 3rem); color: #ffc145; margin-bottom: 0; font-variant-numeric: tabular-nums; }
 
-  /* ---------- Slide Photos d'events : plein écran, fondu entre les photos ---------- */
+  /* ---------- Slide Photos d'events : mosaïque, les photos changent une par une ---------- */
   .s-gallery { background: #0e0d0c; color: #fff8ef; }
-  .gallery { position: absolute; top: 0; right: 0; bottom: 0; left: 0; }
-  .gallery img {
+  .gallery {
+    position: absolute;
+    top: 0; right: 0; bottom: 0; left: 0;
+    box-sizing: border-box;
+    padding-top: 16px;
+    padding-bottom: 40px;
+    padding-left: var(--gutter-l);
+    padding-right: var(--gutter-r);
+    display: grid;
+    gap: 10px;
+    /* 5 photos : une grande à gauche, quatre petites */
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-rows: repeat(2, minmax(0, 1fr));
+  }
+  .gallery[data-count="1"] { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
+  .gallery[data-count="2"] { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: minmax(0, 1fr); }
+  .gallery[data-count="3"] { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
+  .gallery[data-count="4"] { grid-template-columns: minmax(0, 2fr) repeat(2, minmax(0, 1fr)); }
+  .gallery[data-count="3"] .tile:first-child,
+  .gallery[data-count="4"] .tile:first-child { grid-row: span 2; }
+  .gallery[data-count="4"] .tile:last-child { grid-column: span 2; }
+  .gallery[data-count="5"] .tile:first-child { grid-column: span 2; grid-row: span 2; }
+  .tile {
+    position: relative;
+    overflow: hidden;
+    border-radius: 10px;
+    background: #1b1917;
+    min-width: 0;
+    min-height: 0;
+  }
+  .tile img {
     position: absolute;
     top: 0; left: 0;
     width: 100%; height: 100%;
-    object-fit: contain;
+    object-fit: cover;
     opacity: 0;
     transition: opacity 1s ease;
   }
-  .gallery img.on { opacity: 1; }
-  .gallery-cap {
+  .tile img.on { opacity: 1; }
+  .tile-cap {
     position: absolute;
     left: 0; right: 0; bottom: 0;
-    padding-top: 70px;
-    padding-bottom: 44px;
-    padding-left: var(--gutter-l);
-    padding-right: calc(var(--gutter-r) + 150px);
-    background: linear-gradient(transparent, rgba(0, 0, 0, .7));
+    padding: 28px 12px 10px;
+    background: linear-gradient(transparent, rgba(0, 0, 0, .72));
+    font-weight: 700;
+    font-size: clamp(.75rem, min(1.6vw, 2vh), .95rem);
+    line-height: 1.25;
+    transition: opacity .6s ease;
   }
-  .gallery-event {
+  .tile-cap:empty { display: none; }
+  .tile-cap b {
     display: block;
     font-weight: 800;
     text-transform: uppercase;
-    letter-spacing: .12em;
-    font-size: .8rem;
+    letter-spacing: .1em;
+    font-size: .72em;
     color: #ffc145;
   }
-  .gallery-text { display: block; font-family: var(--display); font-size: clamp(1.3rem, min(4vw, 5vh), 2.4rem); line-height: 1.1; margin-top: 4px; }
+  .tile:first-child .tile-cap { font-family: var(--display); font-weight: 400; font-size: clamp(1.1rem, min(3vw, 4vh), 2rem); padding: 50px 16px 14px; }
+  .tile:first-child .tile-cap b { font-family: var(--body); font-size: .45em; }
   .gallery-add {
     position: absolute;
     right: var(--gutter-r);
@@ -547,6 +579,12 @@
     text-align: center;
     font-weight: 800;
     font-size: .75rem;
+  }
+  .gallery-add {
+    background: rgba(14, 13, 12, .78);
+    border-radius: 12px;
+    padding: 8px 8px 6px;
+    z-index: 2;
   }
   .gallery-add .qr { background: #ffffff; padding: 6px; border-radius: 8px; margin-bottom: 6px; }
 
@@ -607,7 +645,15 @@
     .lunch-qr { width: 120px; margin: 14px auto 0; }
     .lunch-qr p { display: none; }
     .gallery-add { width: 84px; }
-    .gallery-cap { padding-right: calc(var(--gutter-r) + 100px); }
+    .gallery[data-count="2"] { grid-template-columns: minmax(0, 1fr); grid-template-rows: repeat(2, minmax(0, 1fr)); }
+    .gallery[data-count="3"],
+    .gallery[data-count="4"] { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: minmax(0, 1.4fr) minmax(0, 1fr); }
+    .gallery[data-count="4"] { grid-template-rows: minmax(0, 1.4fr) repeat(2, minmax(0, 1fr)); }
+    .gallery[data-count="5"] { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: minmax(0, 1.4fr) repeat(2, minmax(0, 1fr)); }
+    .gallery[data-count="3"] .tile:first-child,
+    .gallery[data-count="4"] .tile:first-child,
+    .gallery[data-count="5"] .tile:first-child { grid-column: span 2; grid-row: auto; }
+    .gallery[data-count="4"] .tile:last-child { grid-column: span 2; }
   }
   @media (max-height: 700px) and (max-aspect-ratio: 1/1) {
     .chat .from, .chat .msg.him, .chat .typing { display: none; }
@@ -747,10 +793,6 @@
   <!-- Slide 6 : photos des events passés -->
   <section class="slide s-gallery" data-id="photos" data-tone="dark" aria-label="Photos des events passés">
     <div class="gallery" id="gallery"></div>
-    <div class="gallery-cap">
-      <span class="gallery-event" id="gallery-event"></span>
-      <span class="gallery-text" id="gallery-text"></span>
-    </div>
     <div class="gallery-add"><div class="qr" id="qr-photos"></div>Ajoute tes photos</div>
   </section>
 
@@ -931,36 +973,79 @@
     $("happy-in").textContent = ongoing ? "C'est maintenant !" : `dans ${duration(start - now)}`;
   }
 
-  /* ---------- Slide Photos d'events ---------- */
-  let eventPhotos = [], galleryIndex = 0, galleryImgs = [];
+  /* ---------- Slide Photos d'events : mosaïque ---------- */
+  // Jusqu'à 5 photos à l'écran. Toutes les 3 s, une case change de photo (fondu),
+  // à tour de rôle, en prenant la prochaine photo qui n'est pas déjà affichée.
+  const MAX_TILES = 5;
+  let eventPhotos = [], tiles = [], nextPhotoIdx = 0, nextTile = 0;
+
   function setEventPhotos(list) {
     list = list.slice(0, 40);  // les plus récentes, pour ménager la mémoire de la Fire TV
     if (list.map(p => p.id).join() === eventPhotos.map(p => p.id).join()) return;
     eventPhotos = list;
-    $("gallery").innerHTML = "";
-    galleryImgs = list.map(p => {
-      const img = document.createElement("img");
-      img.alt = p.caption || "Photo d'event";
-      img.dataset.src = p.url;
-      $("gallery").appendChild(img);
-      return img;
-    });
-    galleryIndex = 0;
-    showGalleryPhoto(0);
+    const gallery = $("gallery");
+    gallery.innerHTML = "";
+    const count = Math.min(list.length, MAX_TILES);
+    gallery.dataset.count = count;
+    tiles = [];
+    for (let k = 0; k < count; k++) {
+      const el = document.createElement("div");
+      el.className = "tile";
+      const a = document.createElement("img"), b = document.createElement("img");
+      const cap = document.createElement("div");
+      cap.className = "tile-cap";
+      el.appendChild(a);
+      el.appendChild(b);
+      el.appendChild(cap);
+      gallery.appendChild(el);
+      const tile = { el, layers: [a, b], front: 0, cap, photo: -1 };
+      tiles.push(tile);
+      putPhoto(tile, k, true);
+    }
+    nextPhotoIdx = count % Math.max(1, list.length);
+    nextTile = 0;
   }
-  function showGalleryPhoto(i) {
-    if (!galleryImgs.length) return;
-    galleryIndex = (i + galleryImgs.length) % galleryImgs.length;
-    // On ne charge que la photo affichée et la suivante
-    [galleryIndex, (galleryIndex + 1) % galleryImgs.length].forEach(k => {
-      if (!galleryImgs[k].getAttribute("src")) galleryImgs[k].src = galleryImgs[k].dataset.src;
-    });
-    galleryImgs.forEach((img, k) => img.classList.toggle("on", k === galleryIndex));
-    const p = eventPhotos[galleryIndex];
-    $("gallery-event").textContent = p.event || "";
-    $("gallery-text").textContent = p.caption || "";
+
+  function caption(p) {
+    return (p.event ? `<b>${escapeHtml(p.event)}</b>` : "") + escapeHtml(p.caption || "");
   }
-  setInterval(() => showGalleryPhoto(galleryIndex + 1), 5000);
+  function escapeHtml(t) {
+    return String(t).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+  }
+
+  // Charge la photo sur le calque caché de la case, puis fait le fondu une fois l'image prête
+  function putPhoto(tile, i, instant) {
+    const p = eventPhotos[i];
+    tile.photo = i;
+    const back = tile.layers[1 - tile.front];
+    back.alt = p.caption || "Photo d'event";
+    const reveal = () => {
+      back.onload = back.onerror = null;
+      tile.layers[tile.front].classList.remove("on");
+      back.classList.add("on");
+      tile.front = 1 - tile.front;
+      tile.cap.innerHTML = caption(p);
+    };
+    if (instant) back.style.transition = "none";
+    back.onload = back.onerror = reveal;
+    back.src = p.url;
+    if (back.complete && back.naturalWidth) reveal();
+    if (instant) setTimeout(() => { back.style.transition = ""; }, 50);
+  }
+
+  function swapTile() {
+    if (eventPhotos.length <= tiles.length) return false;  // tout est déjà affiché
+    const shown = tiles.map(t => t.photo);
+    let i = nextPhotoIdx, guard = 0;
+    while (shown.indexOf(i) !== -1 && guard++ < eventPhotos.length) i = (i + 1) % eventPhotos.length;
+    nextPhotoIdx = (i + 1) % eventPhotos.length;
+    putPhoto(tiles[nextTile], i, false);
+    nextTile = (nextTile + 1) % tiles.length;
+    return true;
+  }
+  window.setEventPhotos = setEventPhotos;
+  window.swapTile = swapTile;
+  setInterval(swapTile, 3000);
 
   /* ---------- Slide Repas ---------- */
   function renderLunch(data, now = new Date()) {
