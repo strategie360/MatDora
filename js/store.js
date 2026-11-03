@@ -162,8 +162,50 @@
       },
       deleteOption(id) {
         return api(`/rest/v1/lunch_options?id=eq.${id}`, { method: "DELETE" });
+      },
+
+      // Liste permanente des restos (jours d'ouverture, "pas dispo")
+      // Tant que les tables ne sont pas créées (404), on renvoie du vide : le reste marche.
+      listRestaurants() {
+        return orEmpty(api("/rest/v1/restaurants?select=*&order=name"), []);
+      },
+      async addRestaurant(name) {
+        try {
+          const rows = await api("/rest/v1/restaurants", {
+            method: "POST",
+            headers: { Prefer: "return=representation" },
+            json: { name, days: [1, 2, 3, 4, 5], unavailable: false }
+          });
+          return rows[0];
+        } catch (e) {
+          if (e.status === 409) throw new Error(`« ${name} » est déjà dans la liste.`);
+          if (e.status === 404) throw new Error("La table des restos n'existe pas encore : relance supabase/setup.sql dans Supabase.");
+          throw e;
+        }
+      },
+      updateRestaurant(id, patch) {
+        return api(`/rest/v1/restaurants?id=eq.${id}`, { method: "PATCH", json: patch });
+      },
+      deleteRestaurant(id) {
+        return api(`/rest/v1/restaurants?id=eq.${id}`, { method: "DELETE" });
+      },
+      async getDraw(day) {
+        const rows = await orEmpty(api(`/rest/v1/lunch_draws?select=*&day=eq.${day}`), []);
+        return rows[0] || null;
+      },
+      // replace = false : n'écrit que s'il n'y a pas encore de tirage (le premier gagne)
+      saveDraw(day, resto, replace) {
+        return api("/rest/v1/lunch_draws?on_conflict=day", {
+          method: "POST",
+          headers: { Prefer: replace ? "resolution=merge-duplicates" : "resolution=ignore-duplicates" },
+          json: { day, restaurant_id: resto.id, name: resto.name, drawn_at: new Date().toISOString() }
+        });
       }
     };
+  }
+
+  async function orEmpty(promise, empty) {
+    try { return await promise; } catch (e) { if (e.status === 404) return empty; throw e; }
   }
 
   /* ---------- Démo locale (#mock) ---------- */
@@ -198,13 +240,29 @@
           { day, voter: "demo-a", option_id: "o1" },
           { day, voter: "demo-b", option_id: "o1" },
           { day, voter: "demo-c", option_id: "o2" }
-        ]
+        ],
+        restaurants: seedRestaurants(),
+        draws: []
       };
+    }
+    function seedRestaurants() {
+      return [
+        { id: "r1", name: "Exemple : Pizzeria", days: [1, 2, 3, 4, 5], unavailable: false },
+        { id: "r2", name: "Exemple : Sushi", days: [1, 2, 3, 4, 5], unavailable: false },
+        { id: "r3", name: "Exemple : Food truck", days: [2, 4], unavailable: false },
+        { id: "r4", name: "Exemple : Brasserie", days: [1, 2, 3, 4, 5], unavailable: true }
+      ];
     }
     function load() {
       try {
         const raw = localStorage.getItem(KEY);
-        if (raw) return JSON.parse(raw);
+        if (raw) {
+          const state = JSON.parse(raw);
+          // Données de démo d'une version précédente : on complète
+          if (!state.restaurants) state.restaurants = seedRestaurants();
+          if (!state.draws) state.draws = [];
+          return state;
+        }
       } catch (e) { /* stockage indisponible : mémoire */ }
       if (!memory) memory = seed();
       return memory;
@@ -263,12 +321,121 @@
         s.votes = s.votes.filter(v => v.option_id !== optionId);
         save(s);
         return later(null);
+      },
+      listRestaurants() {
+        return later(load().restaurants.slice().sort((a, b) => a.name.localeCompare(b.name)).map(r => Object.assign({}, r, { days: r.days.slice() })));
+      },
+      addRestaurant(name) {
+        const s = load();
+        if (s.restaurants.some(r => r.name.toLowerCase() === name.toLowerCase())) {
+          return Promise.reject(new Error(`« ${name} » est déjà dans la liste.`));
+        }
+        const r = { id: id(), name, days: [1, 2, 3, 4, 5], unavailable: false };
+        s.restaurants.push(r);
+        save(s);
+        return later(r);
+      },
+      updateRestaurant(rid, patch) {
+        const s = load();
+        s.restaurants = s.restaurants.map(r => r.id === rid ? Object.assign({}, r, patch) : r);
+        save(s);
+        return later(null);
+      },
+      deleteRestaurant(rid) {
+        const s = load();
+        s.restaurants = s.restaurants.filter(r => r.id !== rid);
+        save(s);
+        return later(null);
+      },
+      getDraw(day) {
+        return later(load().draws.filter(d => d.day === day)[0] || null);
+      },
+      saveDraw(day, resto, replace) {
+        const s = load();
+        const exists = s.draws.some(d => d.day === day);
+        if (exists && !replace) return later(null);
+        s.draws = s.draws.filter(d => d.day !== day);
+        s.draws.push({ day, restaurant_id: resto.id, name: resto.name, drawn_at: new Date().toISOString() });
+        save(s);
+        return later(null);
       }
     };
   }
 
   const impl = mode === "supabase" ? supabaseStore() : mode === "demo" ? demoStore() : null;
-  window.MatDoraStore = Object.assign({ mode, SLIDES, DEFAULTS, today, voterId, withDefaults, resizeImage }, impl || {
-    getSettings: () => Promise.resolve(withDefaults(null))
-  });
+
+  /* ---------- Repas : logique commune aux deux modes ---------- */
+  const DRAW_HOUR = 11, DRAW_MINUTE = 30;  // tirage au sort quotidien à 11:30
+
+  function weekday(day) { return new Date(day + "T12:00:00").getDay(); }
+  function openOn(resto, day) {
+    return !resto.unavailable && Array.isArray(resto.days) && resto.days.indexOf(weekday(day)) !== -1;
+  }
+  function drawTime(day) {
+    const d = new Date(day + "T00:00:00");
+    d.setHours(DRAW_HOUR, DRAW_MINUTE, 0, 0);
+    return d;
+  }
+  const sameName = (a, b) => a.trim().toLowerCase() === b.trim().toLowerCase();
+
+  // Choix du jour = restos ouverts ce jour-là + propositions du jour, avec les votes et le tirage
+  async function lunch(day, voter) {
+    const all = await Promise.all([impl.lunch(day, voter), impl.listRestaurants(), impl.getDraw(day)]);
+    const base = all[0], restos = all[1], draw = all[2];
+    const open = restos.filter(r => openOn(r, day));
+    const options = base.options.map(o => Object.assign({}, o));
+    open.forEach(r => {
+      const found = options.filter(o => sameName(o.name, r.name))[0];
+      if (found) found.restaurant_id = r.id;
+      else options.push({ id: null, name: r.name, votes: 0, restaurant_id: r.id });
+    });
+    return { options, total: base.total, myVote: base.myVote, draw, candidates: open, restaurants: restos, drawTime: drawTime(day) };
+  }
+
+  function pickRandom(list) { return list[Math.floor(Math.random() * list.length)]; }
+
+  // À partir de 11:30, le premier écran ou téléphone qui passe fait le tirage du jour
+  async function ensureDraw(day, now) {
+    now = now || new Date();
+    const existing = await impl.getDraw(day);
+    if (existing || now < drawTime(day)) return existing;
+    const open = (await impl.listRestaurants()).filter(r => openOn(r, day));
+    if (!open.length) return null;
+    await impl.saveDraw(day, pickRandom(open), false);
+    return impl.getDraw(day);  // si un autre a tiré en même temps, c'est son tirage qui compte
+  }
+
+  // Bouton "Relancer" : nouveau tirage, différent du précédent quand c'est possible
+  async function reroll(day) {
+    const current = await impl.getDraw(day);
+    const open = (await impl.listRestaurants()).filter(r => openOn(r, day));
+    if (!open.length) throw new Error("Aucun resto ouvert ce jour-là : ajoute-en ou coche leurs jours dans le dashboard.");
+    const pool = current && open.length > 1 ? open.filter(r => !sameName(r.name, current.name)) : open;
+    await impl.saveDraw(day, pickRandom(pool), true);
+    return impl.getDraw(day);
+  }
+
+  // Voter pour un choix : crée d'abord l'option du jour si c'est un resto de la liste pas encore proposé
+  async function voteFor(day, option, voter) {
+    let optionId = option.id;
+    if (!optionId) {
+      try {
+        optionId = (await impl.propose(day, option.name)).id;
+      } catch (e) {
+        const again = await impl.lunch(day, voter);
+        const found = again.options.filter(o => sameName(o.name, option.name))[0];
+        if (!found) throw e;
+        optionId = found.id;
+      }
+    }
+    await impl.vote(day, optionId, voter);
+    return optionId;
+  }
+
+  const lunchApi = impl ? { lunch, ensureDraw, reroll, voteFor, lunchRaw: impl.lunch } : {};
+  window.MatDoraStore = Object.assign(
+    { mode, SLIDES, DEFAULTS, today, voterId, withDefaults, resizeImage, openOn, drawTime, weekday, DRAW_HOUR, DRAW_MINUTE },
+    impl || { getSettings: () => Promise.resolve(withDefaults(null)) },
+    lunchApi
+  );
 })();

@@ -120,6 +120,16 @@
   .toast.error { background: var(--danger); color: #ffffff; }
   .empty { color: var(--muted); margin: 8px 0 0; }
   .votes { font-weight: 800; color: var(--accent); font-variant-numeric: tabular-nums; }
+  h2.sub { margin-top: 24px; padding-top: 18px; border-top: 2px solid var(--line); }
+  .draw-now { font-family: var(--display); font-weight: 400; font-size: 1.5rem; color: var(--accent); }
+  .table-wrap { overflow-x: auto; }
+  table.restos { width: 100%; border-collapse: collapse; }
+  .restos th { font-size: .8rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); text-align: center; padding: 4px 6px; }
+  .restos th:first-child { text-align: left; }
+  .restos td { padding: 6px; border-top: 1px solid var(--line); text-align: center; }
+  .restos td:first-child { text-align: left; font-weight: 700; overflow-wrap: anywhere; }
+  .restos tr.off td:first-child { color: var(--muted); text-decoration: line-through; }
+  .restos .off-cell { white-space: nowrap; }
 </style>
 
 <div class="wrap">
@@ -195,12 +205,33 @@
 
   <!-- Repas -->
   <section class="panel" id="tab-lunch" role="tabpanel" hidden>
-    <h2>Repas du jour</h2>
-    <p class="help">Chacun vote et propose depuis son téléphone (QR code sur l'écran). Ici, tu peux retirer une proposition.</p>
+    <h2>Resto du jour</h2>
+    <p class="help">Tiré au sort tous les jours à 11:30 parmi les restos ouverts ce jour-là et disponibles.</p>
+    <div class="row">
+      <span class="grow draw-now" id="draw-now">–</span>
+      <button class="btn" type="button" id="draw-reroll">🎲 Relancer</button>
+    </div>
+
+    <h2 class="sub">Liste des restos</h2>
+    <p class="help">Coche les jours d'ouverture. « Pas dispo » retire le resto du tirage et des votes (vacances, travaux…). Chaque changement est enregistré tout de suite.</p>
+    <div class="table-wrap">
+      <table class="restos">
+        <thead><tr><th scope="col">Resto</th><th scope="col" title="Lundi">L</th><th scope="col" title="Mardi">M</th><th scope="col" title="Mercredi">Me</th><th scope="col" title="Jeudi">J</th><th scope="col" title="Vendredi">V</th><th scope="col">Pas dispo</th><th scope="col"><span hidden>Supprimer</span></th></tr></thead>
+        <tbody id="restos-body"></tbody>
+      </table>
+    </div>
+    <p class="empty" id="restos-empty" hidden>Aucun resto pour l'instant : ajoute le premier ci-dessous.</p>
+    <form class="actions" id="resto-form">
+      <input id="resto-name" maxlength="60" placeholder="Nom du resto" aria-label="Nom du resto à ajouter à la liste" required>
+      <button class="btn primary" type="submit">Ajouter à la liste</button>
+    </form>
+
+    <h2 class="sub">Votes du jour</h2>
+    <p class="help">Chacun vote et propose depuis son téléphone (QR code sur l'écran). Ici, tu peux retirer une proposition du jour.</p>
     <div id="lunch-list"></div>
-    <p class="empty" id="lunch-empty" hidden>Aucune proposition aujourd'hui.</p>
+    <p class="empty" id="lunch-empty" hidden>Aucun vote ni proposition aujourd'hui.</p>
     <form class="actions" id="lunch-form">
-      <input id="lunch-name" maxlength="60" placeholder="Proposer un resto" aria-label="Nom du resto à proposer" required>
+      <input id="lunch-name" maxlength="60" placeholder="Proposer un resto pour aujourd'hui" aria-label="Nom du resto à proposer aujourd'hui" required>
       <button class="btn primary" type="submit">Proposer</button>
     </form>
   </section>
@@ -461,12 +492,73 @@
   });
 
   /* ---------- Repas ---------- */
+  const WEEK = [[1, "lundi"], [2, "mardi"], [3, "mercredi"], [4, "jeudi"], [5, "vendredi"]];
+  let restosKey = "";
+
+  function renderRestos(restos) {
+    // Ne reconstruit le tableau que si la liste a changé (évite de perdre un clic en cours)
+    const key = JSON.stringify(restos);
+    if (key === restosKey) return;
+    restosKey = key;
+    const body = $("restos-body");
+    body.innerHTML = "";
+    $("restos-empty").hidden = restos.length > 0;
+    restos.forEach(r => {
+      const tr = document.createElement("tr");
+      if (r.unavailable) tr.className = "off";
+      const name = document.createElement("td");
+      name.textContent = r.name;
+      tr.appendChild(name);
+      WEEK.forEach(([d, dayName]) => {
+        const td = document.createElement("td");
+        const cb = document.createElement("input");
+        cb.type = "checkbox";
+        cb.id = `resto-${r.id}-d${d}`;
+        cb.checked = r.days.indexOf(d) !== -1;
+        cb.setAttribute("aria-label", `${r.name} ouvert le ${dayName}`);
+        cb.addEventListener("change", () => {
+          const days = WEEK.map(w => w[0]).filter(x => $(`resto-${r.id}-d${x}`).checked);
+          attempt(async () => { await store.updateRestaurant(r.id, { days }); await loadLunch(); }, `${r.name} : jours enregistrés.`);
+        });
+        td.appendChild(cb);
+        tr.appendChild(td);
+      });
+      const off = document.createElement("td");
+      off.className = "off-cell";
+      const offCb = document.createElement("input");
+      offCb.type = "checkbox";
+      offCb.id = `resto-${r.id}-off`;
+      offCb.checked = !!r.unavailable;
+      offCb.setAttribute("aria-label", `${r.name} pas dispo`);
+      offCb.addEventListener("change", () => {
+        attempt(async () => { await store.updateRestaurant(r.id, { unavailable: offCb.checked }); await loadLunch(); },
+          offCb.checked ? `${r.name} : pas dispo, retiré du tirage.` : `${r.name} : de nouveau dispo.`);
+      });
+      off.appendChild(offCb);
+      tr.appendChild(off);
+      const del = document.createElement("td");
+      del.appendChild(confirmButton("Supprimer", () => attempt(async () => { await store.deleteRestaurant(r.id); await loadLunch(); }, `${r.name} supprimé de la liste.`)));
+      tr.appendChild(del);
+      body.appendChild(tr);
+    });
+  }
+
   async function loadLunch() {
-    const data = await store.lunch(store.today(), store.voterId());
+    const day = store.today();
+    await store.ensureDraw(day);
+    const data = await store.lunch(day, store.voterId());
+    $("draw-now").textContent = data.draw ? `🎲 ${data.draw.name}`
+      : data.candidates.length ? "Pas encore tiré (11:30)" : "Aucun resto ouvert aujourd'hui";
+    $("draw-reroll").textContent = data.draw ? "🎲 Relancer" : "🎲 Tirer au sort maintenant";
+    $("draw-reroll").disabled = !data.candidates.length;
+    renderRestos(data.restaurants);
+
+    // Votes du jour : seulement les choix qui existent pour aujourd'hui (proposés ou votés)
     const list = $("lunch-list");
     list.innerHTML = "";
-    $("lunch-empty").hidden = data.options.length > 0;
-    data.options.slice().sort((a, b) => b.votes - a.votes).forEach(o => {
+    const today = data.options.filter(o => o.id);
+    $("lunch-empty").hidden = today.length > 0;
+    today.sort((a, b) => b.votes - a.votes).forEach(o => {
       const row = document.createElement("div");
       row.className = "row";
       const name = document.createElement("span");
@@ -481,11 +573,22 @@
       list.appendChild(row);
     });
   }
+  window.loadLunch = loadLunch;
+
+  $("draw-reroll").addEventListener("click", () => {
+    attempt(async () => { const d = await store.reroll(store.today()); await loadLunch(); toast(`Nouveau tirage : ${d.name}.`); });
+  });
+  $("resto-form").addEventListener("submit", e => {
+    e.preventDefault();
+    const name = $("resto-name").value.trim().replace(/\s+/g, " ");
+    if (!name) return;
+    attempt(async () => { await store.addRestaurant(name); $("resto-name").value = ""; await loadLunch(); }, `${name} ajouté (ouvert du lundi au vendredi).`);
+  });
   $("lunch-form").addEventListener("submit", e => {
     e.preventDefault();
     const name = $("lunch-name").value.trim().replace(/\s+/g, " ");
     if (!name) return;
-    attempt(async () => { await store.propose(store.today(), name); $("lunch-name").value = ""; await loadLunch(); }, "Resto proposé.");
+    attempt(async () => { await store.propose(store.today(), name); $("lunch-name").value = ""; await loadLunch(); }, "Resto proposé pour aujourd'hui.");
   });
 
   /* ---------- Démarrage ---------- */

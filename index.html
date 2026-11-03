@@ -599,34 +599,60 @@
   body[data-tone="lunch"] .seg { background: rgba(33, 58, 23, .18); }
   body[data-tone="lunch"] .seg i { background: #4f9a2b; }
   .s-lunch { background: #e9f5dc; color: #213a17; }
+  /* Condensé pour tenir sur un écran 16:9 : en-tête, resto du jour, votes sur 2 colonnes, QR à droite */
   .s-lunch .inner {
-    max-width: 1080px;
+    max-width: 1280px;
     display: flex;
     align-items: center;
     justify-content: center;
     text-align: left;
   }
-  .lunch-main { flex: 1 1 60%; min-width: 0; margin-right: clamp(20px, 4vw, 56px); }
+  .lunch-main { flex: 1 1 auto; min-width: 0; margin-right: clamp(16px, 3vw, 40px); }
+  .lunch-head { display: flex; align-items: baseline; flex-wrap: wrap; }
+  .lunch-head h2 { margin: 0 16px 0 0; }
   .s-lunch .eyebrow { color: #4f9a2b; }
-  .s-lunch h2 { color: #213a17; font-size: clamp(2rem, min(6vw, 9vh), 4.4rem); }
-  .lunch-list { list-style: none; margin: clamp(14px, 3vh, 28px) 0 0; padding: 0; }
+  .s-lunch h2 { color: #213a17; font-size: clamp(1.6rem, min(4.6vw, 7vh), 3.4rem); }
+  .draw {
+    display: flex;
+    align-items: center;
+    background: #213a17;
+    color: #e9f5dc;
+    border-radius: 14px;
+    padding: clamp(8px, 1.6vh, 14px) 18px;
+    margin-top: clamp(10px, 2vh, 18px);
+  }
+  .draw-icon { font-size: clamp(1.6rem, min(4vw, 6vh), 2.8rem); margin-right: 14px; line-height: 1; }
+  .draw-text { min-width: 0; }
+  .draw-label { display: block; font-weight: 800; text-transform: uppercase; letter-spacing: .1em; font-size: clamp(.65rem, 1.5vh, .8rem); color: #a8d98a; }
+  .draw-name { display: block; font-family: var(--display); font-weight: 400; font-size: clamp(1.3rem, min(3.6vw, 5.4vh), 2.6rem); line-height: 1.1; overflow-wrap: anywhere; }
+  .draw.waiting .draw-name { color: #e9f5dc; opacity: .85; }
+  .lunch-list {
+    list-style: none;
+    margin: clamp(8px, 1.6vh, 14px) 0 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: clamp(6px, 1.2vh, 10px) 12px;
+  }
   .lunch-list li {
     background: #ffffff;
-    border-radius: 14px;
-    padding: clamp(8px, 1.6vh, 12px) 16px;
-    margin-top: clamp(8px, 1.4vh, 12px);
+    border-radius: 10px;
+    padding: clamp(5px, 1vh, 9px) 12px;
     border: 2px solid transparent;
+    min-width: 0;
   }
   .lunch-list li.lead { border-color: #4f9a2b; }
+  .lunch-list li.drawn .lunch-name::before { content: "🎲 "; }
   .lunch-row { display: flex; align-items: baseline; justify-content: space-between; }
-  .lunch-name { font-weight: 800; font-size: clamp(1rem, min(3vw, 3vh), 1.4rem); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-right: 12px; }
-  .lunch-count { flex: none; font-weight: 800; color: #4f9a2b; font-variant-numeric: tabular-nums; }
-  .lunch-bar { height: 8px; border-radius: 4px; background: rgba(79, 154, 43, .15); margin-top: 6px; overflow: hidden; }
-  .lunch-bar i { display: block; height: 100%; background: #4f9a2b; border-radius: 4px; transition: width .6s ease; }
-  .lunch-empty { margin: clamp(14px, 3vh, 28px) 0 0; font-weight: 700; font-size: clamp(1rem, 2.6vh, 1.3rem); }
-  .lunch-qr { flex: 0 0 auto; width: clamp(150px, min(24vw, 34vh), 260px); text-align: center; font-weight: 800; }
-  .lunch-qr .qr { background: #ffffff; padding: 10px; border-radius: 16px; border: 3px solid #213a17; }
-  .lunch-qr p { margin: 10px 0 0; font-size: clamp(.85rem, 2vh, 1rem); }
+  .lunch-name { font-weight: 800; font-size: clamp(.85rem, min(2vw, 2.4vh), 1.15rem); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-right: 10px; }
+  .lunch-count { flex: none; font-weight: 800; font-size: clamp(.75rem, min(1.7vw, 2vh), 1rem); color: #4f9a2b; font-variant-numeric: tabular-nums; }
+  .lunch-bar { height: 5px; border-radius: 3px; background: rgba(79, 154, 43, .15); margin-top: 4px; overflow: hidden; }
+  .lunch-bar i { display: block; height: 100%; background: #4f9a2b; border-radius: 3px; transition: width .6s ease; }
+  .lunch-more { margin: 6px 0 0; font-weight: 700; font-size: clamp(.75rem, 1.8vh, .95rem); color: #4f7a3a; }
+  .lunch-empty { margin: clamp(10px, 2vh, 18px) 0 0; font-weight: 700; font-size: clamp(.95rem, 2.4vh, 1.2rem); }
+  .lunch-qr { flex: 0 0 auto; width: clamp(130px, min(18vw, 30vh), 220px); text-align: center; font-weight: 800; }
+  .lunch-qr .qr { background: #ffffff; padding: 8px; border-radius: 14px; border: 3px solid #213a17; }
+  .lunch-qr p { margin: 8px 0 0; font-size: clamp(.75rem, 1.8vh, .95rem); }
 
   /* ---------- Téléphone / écran en hauteur ---------- */
   @media (max-width: 760px), (max-aspect-ratio: 1/1) {
@@ -646,7 +672,8 @@
     .chat { flex: none; max-width: none; }
     .s-lunch .inner { flex-direction: column; align-items: stretch; }
     .lunch-main { flex: none; margin: 0; }
-    .lunch-qr { width: 120px; margin: 14px auto 0; }
+    .lunch-list { grid-template-columns: minmax(0, 1fr); }
+    .lunch-qr { width: 110px; margin: 12px auto 0; }
     .lunch-qr p { display: none; }
     .gallery-add { width: 84px; }
     .gallery[data-count="2"] { grid-template-columns: minmax(0, 1fr); grid-template-rows: repeat(2, minmax(0, 1fr)); }
@@ -802,14 +829,21 @@
 
   <!-- Slide 7 : repas du midi, vote par QR code -->
   <section class="slide s-lunch" data-id="lunch" data-tone="lunch" aria-label="Où on mange à midi">
-    <div class="inner">
+    <div class="inner" id="lunch-inner">
       <div class="lunch-main">
-        <div class="eyebrow" id="lunch-day">–</div>
-        <h2>On mange où à midi&nbsp;?</h2>
+        <div class="lunch-head">
+          <h2>On mange où à midi&nbsp;?</h2>
+          <div class="eyebrow" id="lunch-day">–</div>
+        </div>
+        <div class="draw" id="lunch-draw" hidden>
+          <span class="draw-icon" aria-hidden="true">🎲</span>
+          <span class="draw-text"><span class="draw-label" id="draw-label">Resto du jour</span><strong class="draw-name" id="draw-name">–</strong></span>
+        </div>
         <ol class="lunch-list" id="lunch-list"></ol>
+        <p class="lunch-more" id="lunch-more" hidden></p>
         <p class="lunch-empty" id="lunch-empty">Pas encore de proposition. Scanne le QR code pour proposer un resto&nbsp;!</p>
       </div>
-      <div class="lunch-qr"><div class="qr" id="qr-vote"></div><p>Scanne pour voter ou proposer un resto</p></div>
+      <div class="lunch-qr"><div class="qr" id="qr-vote"></div><p>Scanne pour voter, proposer ou relancer le tirage</p></div>
     </div>
   </section>
 
@@ -1101,21 +1135,53 @@
   setInterval(swapTile, 3000);
 
   /* ---------- Slide Repas ---------- */
+  let lunchData = null;
+  // Encart "resto du jour" : le tirage, ou l'heure du tirage (11:30) tant qu'il n'a pas eu lieu
+  function renderDraw(data, now = new Date()) {
+    const card = $("lunch-draw");
+    const day = now.getDay();
+    if (!data || day === 0 || day === 6) { card.hidden = true; return; }
+    card.hidden = false;
+    if (data.draw) {
+      card.className = "draw";
+      $("draw-label").textContent = "Resto du jour · tiré au sort";
+      $("draw-name").textContent = data.draw.name;
+    } else if (!data.candidates.length) {
+      card.className = "draw waiting";
+      $("draw-label").textContent = "Tirage au sort à 11:30";
+      $("draw-name").textContent = data.restaurants.length ? "Aucun resto ouvert aujourd'hui" : "Ajoute des restos dans le dashboard";
+    } else {
+      card.className = "draw waiting";
+      $("draw-label").textContent = "Tirage au sort du resto du jour";
+      const left = data.drawTime - now;
+      $("draw-name").textContent = left > 0 ? `à 11:30 · dans ${duration(left)}` : "en cours…";
+    }
+  }
+
   function renderLunch(data, now = new Date()) {
     const label = now.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
     $("lunch-day").textContent = label.charAt(0).toUpperCase() + label.slice(1);
-    const options = (data ? data.options : []).slice().sort((a, b) => b.votes - a.votes).slice(0, 5);
+    renderDraw(data, now);
+    const drawn = data && data.draw ? data.draw.name.toLowerCase() : "";
+    // Les plus votés d'abord ; à égalité, le resto tiré au sort, puis l'ordre alphabétique
+    const all = (data ? data.options : []).slice().sort((a, b) =>
+      b.votes - a.votes || (b.name.toLowerCase() === drawn) - (a.name.toLowerCase() === drawn) || a.name.localeCompare(b.name));
+    const limit = innerWidth > innerHeight ? 8 : 5;
+    const options = all.slice(0, limit);
     const max = Math.max(1, ...options.map(o => o.votes));
-    $("lunch-empty").hidden = options.length > 0;
+    $("lunch-empty").hidden = all.length > 0;
     $("lunch-list").innerHTML = "";
     options.forEach((o, i) => {
       const li = document.createElement("li");
-      if (i === 0 && o.votes > 0) li.className = "lead";
+      const classes = [];
+      if (i === 0 && o.votes > 0) classes.push("lead");
+      if (o.name.toLowerCase() === drawn) classes.push("drawn");
+      li.className = classes.join(" ");
       const row = document.createElement("div");
       row.className = "lunch-row";
       const name = document.createElement("span");
       name.className = "lunch-name";
-      name.textContent = (li.className ? "👑 " : "") + o.name;
+      name.textContent = (i === 0 && o.votes > 0 ? "👑 " : "") + o.name;
       const count = document.createElement("span");
       count.className = "lunch-count";
       count.textContent = `${o.votes} vote${o.votes > 1 ? "s" : ""}`;
@@ -1130,7 +1196,16 @@
       li.appendChild(bar);
       $("lunch-list").appendChild(li);
     });
+    // Filet de sécurité : si ça dépasse quand même (petit écran), on retire des lignes
+    const inner = $("lunch-inner"), list = $("lunch-list");
+    while (inner.scrollHeight > inner.clientHeight + 1 && list.children.length > 1) list.removeChild(list.lastChild);
+    const hiddenCount = all.length - list.children.length;
+    $("lunch-more").hidden = hiddenCount <= 0;
+    $("lunch-more").textContent = `+ ${hiddenCount} autre${hiddenCount > 1 ? "s" : ""} choix sur la page de vote`;
+    if (hiddenCount > 0 && inner.scrollHeight > inner.clientHeight + 1 && list.children.length > 1) list.removeChild(list.lastChild);
   }
+  window.renderLunch = renderLunch;
+  window.addEventListener("resize", () => { if (lunchData) renderLunch(lunchData); });
 
   /* ---------- QR codes vers le vote et le dashboard ---------- */
   const pageBase = location.href.split("#")[0].replace(/[^/]*$/, "");
@@ -1162,6 +1237,7 @@
     renderPause();
     renderJira();
     renderHappiness();
+    if (lunchData) renderDraw(lunchData);
   }, 1000);
 
   /* ---------- Diaporama (liste et durées réglées dans le dashboard) ---------- */
@@ -1264,10 +1340,10 @@
   setSlides(store.DEFAULTS.slides);
 
   /* ---------- Données (Supabase ou démo), relues toutes les 20 s ---------- */
-  let lunchData = null;
   async function refresh() {
     if (store.mode === "off") return;
     try {
+      await store.ensureDraw(store.today()).catch(e => console.warn("MatDora : tirage impossible", e));
       const [settings, photos, lunch] = await Promise.all([
         store.getSettings(), store.listPhotos(), store.lunch(store.today(), "ecran")
       ]);

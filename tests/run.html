@@ -25,6 +25,7 @@
     [768, 1024], [412, 915], [375, 812], [375, 667], [360, 640]
   ];
   const results = [];
+  const RUN = Date.now().toString(36);
   const sleep = ms => new Promise(r => setTimeout(r, ms));
   // Attend qu'une condition soit vraie (les onglets en arrière-plan ralentissent les minuteries)
   async function waitFor(cond, timeout = 4000) {
@@ -43,7 +44,8 @@
   function load(src, w, h) {
     return new Promise((resolve, reject) => {
       const f = document.createElement("iframe");
-      f.width = w; f.height = h; f.src = src;
+      // ?v=… : toujours la dernière version des pages, jamais celle du cache
+      f.width = w; f.height = h; f.src = src.replace(".html", ".html?v=" + RUN);
       f.onload = () => resolve(f);
       f.onerror = reject;
       document.getElementById("frames").appendChild(f);
@@ -206,7 +208,7 @@
     win.deck.show(0);
 
     // Compatibilité vieux Silk / vieux Chromium : pas de syntaxe ou de CSS trop récents
-    const src = await (await fetch("../index.html")).text();
+    const src = await (await fetch("../index.html", { cache: "no-store" })).text();
     const css = src.slice(src.indexOf("<style>"), src.indexOf("</style>"));
     const js = src.slice(src.lastIndexOf("<script>"), src.lastIndexOf("<\/script>"));
     check(g, "Silk : pas de « inset » en CSS (Chrome < 87)", !/\binset\s*:/.test(css));
@@ -469,9 +471,146 @@
     tv.remove();
 
     // Compatibilité Silk du code partagé
-    const storeSrc = await (await fetch("../js/store.js")).text();
+    const storeSrc = await (await fetch("../js/store.js", { cache: "no-store" })).text();
     check(g, "Silk : pas de ?. ni ?? dans js/store.js", !/\?\.|\?\?/.test(storeSrc.replace(/\/\*[\s\S]*?\*\//g, "")));
 
+    localStorage.removeItem("matdora-demo");
+  }
+
+  // Repas : liste des restos, jours d'ouverture, "Pas dispo", tirage de 11:30, affichage condensé
+  async function testLunch() {
+    const g = "repas (démo)";
+    localStorage.removeItem("matdora-demo");
+    const tv = await load("../index.html#mock", 1920, 1080);
+    const tw = tv.contentWindow, td = tv.contentDocument, s = tw.MatDoraStore;
+    tw.deck.pause(true);
+    await tw.refresh();
+    const at = x => new tw.Date(x);
+    const MON = "2030-01-07", TUE = "2030-01-08", SAT = "2030-01-12";  // dates fixes, hors données du jour
+    const names = list => list.map(r => r.name).sort().join(", ");
+
+    // Jours d'ouverture et "Pas dispo"
+    let d = await s.lunch(MON, "t");
+    check(g, "lundi : restos ouverts = Pizzeria, Sushi (Food truck fermé, Brasserie pas dispo)", names(d.candidates) === "Exemple : Pizzeria, Exemple : Sushi", names(d.candidates));
+    check(g, "lundi : les restos ouverts apparaissent dans les choix (0 vote)", d.options.length === 2 && d.options.every(o => o.id === null && o.votes === 0));
+    d = await s.lunch(TUE, "t");
+    check(g, "mardi : le Food truck est ouvert", names(d.candidates) === "Exemple : Food truck, Exemple : Pizzeria, Exemple : Sushi", names(d.candidates));
+    d = await s.lunch(SAT, "t");
+    check(g, "samedi : aucun resto ouvert", d.candidates.length === 0);
+
+    // Tirage de 11:30
+    check(g, "tirage : rien avant 11:30", (await s.ensureDraw(MON, at(MON + "T11:29:00"))) === null);
+    const first = await s.ensureDraw(MON, at(MON + "T11:30:00"));
+    check(g, "tirage : fait à 11:30 parmi les restos ouverts", !!first && ["Exemple : Pizzeria", "Exemple : Sushi"].indexOf(first.name) !== -1, first ? first.name : "aucun");
+    const again = await s.ensureDraw(MON, at(MON + "T12:10:00"));
+    check(g, "tirage : un seul par jour (pas de nouveau tirage plus tard)", again && again.name === first.name);
+    await s.saveDraw(MON, { id: "x", name: "Autre écran" }, false);
+    check(g, "tirage : si deux écrans tirent en même temps, le premier gagne", (await s.getDraw(MON)).name === first.name);
+    const re1 = await s.reroll(MON);
+    check(g, "relancer : donne un autre resto", re1.name !== first.name, `${first.name} → ${re1.name}`);
+    const re2 = await s.reroll(MON);
+    check(g, "relancer encore : change à nouveau", re2.name !== re1.name, `${re1.name} → ${re2.name}`);
+    let msg = "";
+    try { await s.reroll(SAT); } catch (e) { msg = e.message; }
+    check(g, "relancer sans resto ouvert : message clair", /Aucun resto ouvert/.test(msg), msg);
+    check(g, "samedi : pas de tirage automatique", (await s.ensureDraw(SAT, at(SAT + "T12:00:00"))) === null);
+
+    // "Pas dispo" retire du tirage
+    await s.updateRestaurant("r2", { unavailable: true });
+    d = await s.lunch(MON, "t");
+    check(g, "Pas dispo : Sushi retiré des choix et du tirage", names(d.candidates) === "Exemple : Pizzeria" && !d.options.some(o => o.name === "Exemple : Sushi"));
+    check(g, "Pas dispo : le tirage ne peut tomber que sur Pizzeria", (await s.reroll(MON)).name === "Exemple : Pizzeria");
+    await s.updateRestaurant("r2", { unavailable: false });
+
+    // Voter pour un resto de la liste (pas encore proposé ce jour-là)
+    const pizza = (await s.lunch(MON, "t")).options.filter(o => o.name === "Exemple : Pizzeria")[0];
+    await s.voteFor(MON, pizza, "votant-1");
+    await s.voteFor(MON, pizza, "votant-2");
+    d = await s.lunch(MON, "votant-1");
+    const pz = d.options.filter(o => o.name === "Exemple : Pizzeria")[0];
+    check(g, "voter pour un resto de la liste : option créée, 2 votes", pz.id && pz.votes === 2 && d.myVote === pz.id && d.options.filter(o => o.name === "Exemple : Pizzeria").length === 1);
+
+    // Pour l'affichage d'aujourd'hui, tous les restos ouverts tous les jours (le test ne dépend pas du jour réel)
+    for (const r of await s.listRestaurants()) await s.updateRestaurant(r.id, { days: [0, 1, 2, 3, 4, 5, 6] });
+    const today = s.today();
+    const weekend = [0, 6].indexOf(new Date().getDay()) !== -1;
+    const drawToday = await s.reroll(today);
+    await tw.refresh();
+    if (weekend) {
+      check(g, "écran : pas d'encart de tirage le week-end", td.getElementById("lunch-draw").hidden);
+    } else {
+      check(g, "écran : encart « resto du jour » avec le tirage", !td.getElementById("lunch-draw").hidden && td.getElementById("draw-name").textContent === drawToday.name, td.getElementById("draw-name").textContent);
+    }
+    check(g, "écran : le resto tiré au sort est marqué 🎲 dans la liste", [...td.querySelectorAll("#lunch-list li.drawn")].some(li => li.textContent.indexOf(drawToday.name) !== -1));
+
+    // Beaucoup de choix aux noms longs : tout doit tenir sur un écran 16:9
+    for (let i = 1; i <= 12; i++) await s.propose(today, `Restaurant au nom vraiment très long numéro ${i}`);
+    await tw.refresh();
+    const li = td.getElementById("lunch-inner");
+    for (const [w, h] of [[1920, 1080], [1366, 768], [1280, 720], [375, 667]]) {
+      tv.width = w; tv.height = h;
+      await sleep(250);
+      tw.renderLunch(await s.lunch(today, "ecran"));
+      const shown = td.querySelectorAll("#lunch-list li").length;
+      check(g, `écran ${w}×${h} : la slide Repas tient sans dépasser`, li.scrollHeight <= li.clientHeight + 1 && li.scrollWidth <= li.clientWidth + 1, `${li.scrollWidth}×${li.scrollHeight} dans ${li.clientWidth}×${li.clientHeight}, ${shown} lignes`);
+      check(g, `écran ${w}×${h} : « + N autres » pour le reste`, !td.getElementById("lunch-more").hidden && shown >= 2, `${shown} lignes, ${td.getElementById("lunch-more").textContent}`);
+    }
+    tv.width = 1920; tv.height = 1080;
+    await sleep(250);
+    tw.renderLunch(await s.lunch(today, "ecran"));
+    check(g, "écran 16:9 : 8 choix sur 2 colonnes", td.querySelectorAll("#lunch-list li").length === 8 && tw.getComputedStyle(td.getElementById("lunch-list")).gridTemplateColumns.split(" ").length === 2);
+
+    // Page de vote : tirage + bouton Relancer, vote pour un resto de la liste
+    await s.addRestaurant("Exemple : Crêperie");
+    await s.updateRestaurant((await s.listRestaurants()).filter(r => r.name === "Exemple : Crêperie")[0].id, { days: [0, 1, 2, 3, 4, 5, 6] });
+    const vote = await load("../vote.html#mock", 375, 812);
+    const vw = vote.contentWindow, vd = vote.contentDocument;
+    await waitFor(() => vd.querySelectorAll(".option").length > 0);
+    check(g, "vote : encart du tirage avec le resto du jour", !vd.getElementById("draw").hidden && vd.getElementById("draw-name").textContent === drawToday.name || weekend, vd.getElementById("draw-name").textContent);
+    const before = vd.getElementById("draw-name").textContent;
+    vd.getElementById("reroll").click();
+    await waitFor(() => vd.getElementById("draw-name").textContent !== before);
+    check(g, "vote : « Relancer » change le resto du jour", vd.getElementById("draw-name").textContent !== before, `${before} → ${vd.getElementById("draw-name").textContent}`);
+    const crepe = [...vd.querySelectorAll(".option")].filter(b => b.textContent.indexOf("Crêperie") !== -1)[0];
+    check(g, "vote : un resto de la liste apparaît même sans proposition", !!crepe);
+    crepe.click();
+    await waitFor(() => vd.querySelector(".option.mine") && vd.querySelector(".option.mine").textContent.indexOf("Crêperie") !== -1);
+    check(g, "vote : voter pour ce resto marche", !!vd.querySelector(".option.mine") && vd.querySelector(".option.mine").textContent.indexOf("Crêperie") !== -1);
+    vote.remove();
+
+    // Dashboard : liste des restos
+    const adm = await load("../admin.html#mock,lunch", 1280, 900);
+    const aw = adm.contentWindow, ad = adm.contentDocument;
+    await aw.ready;
+    await waitFor(() => ad.querySelectorAll("#restos-body tr").length === 5);
+    check(g, "dashboard : 5 restos dans la liste", ad.querySelectorAll("#restos-body tr").length === 5);
+    check(g, "dashboard : Brasserie cochée « Pas dispo » et barrée", ad.getElementById("resto-r4-off").checked && ad.getElementById("resto-r4-off").closest("tr").classList.contains("off"));
+    ad.getElementById("resto-r3-d3").click();  // Food truck : décoche mercredi
+    await sleep(400);
+    let truck = (await s.listRestaurants()).filter(r => r.id === "r3")[0];
+    check(g, "dashboard : décocher un jour l'enregistre", truck.days.join() === "1,2,4,5", truck.days.join());
+    ad.getElementById("resto-r1-off").click();  // Pizzeria pas dispo
+    await sleep(400);
+    check(g, "dashboard : cocher « Pas dispo » l'enregistre", (await s.listRestaurants()).filter(r => r.id === "r1")[0].unavailable === true);
+    ad.getElementById("resto-name").value = "Le Bistrot";
+    ad.getElementById("resto-form").dispatchEvent(new aw.Event("submit", { cancelable: true }));
+    await waitFor(() => ad.querySelectorAll("#restos-body tr").length === 6);
+    const bistrot = (await s.listRestaurants()).filter(r => r.name === "Le Bistrot")[0];
+    check(g, "dashboard : ajouter un resto (ouvert du lundi au vendredi)", !!bistrot && bistrot.days.join() === "1,2,3,4,5" && !bistrot.unavailable);
+    ad.getElementById("resto-name").value = "le bistrot";
+    ad.getElementById("resto-form").dispatchEvent(new aw.Event("submit", { cancelable: true }));
+    await waitFor(() => !ad.getElementById("toast").hidden && ad.getElementById("toast").classList.contains("error"));
+    check(g, "dashboard : doublon refusé", ad.getElementById("toast").textContent.indexOf("déjà dans la liste") !== -1, ad.getElementById("toast").textContent);
+    const delBtn = ad.getElementById(`resto-${bistrot.id}-off`).closest("tr").querySelector(".btn.danger");
+    delBtn.click(); delBtn.click();
+    await waitFor(() => ad.querySelectorAll("#restos-body tr").length === 5);
+    check(g, "dashboard : supprimer un resto (avec confirmation)", ad.querySelectorAll("#restos-body tr").length === 5);
+    const drawBefore = ad.getElementById("draw-now").textContent;
+    ad.getElementById("draw-reroll").click();
+    await waitFor(() => ad.getElementById("draw-now").textContent !== drawBefore);
+    check(g, "dashboard : bouton Relancer", ad.getElementById("draw-now").textContent !== drawBefore, `${drawBefore} → ${ad.getElementById("draw-now").textContent}`);
+    adm.remove();
+    tv.remove();
     localStorage.removeItem("matdora-demo");
   }
 
@@ -560,6 +699,7 @@
       if (location.hash === "#live") await testLive();
       await testLogic();
       await testData();
+      await testLunch();
       localStorage.removeItem("matdora-demo");
       for (const [w, h] of VIEWPORTS) await testViewport(w, h);
       localStorage.removeItem("matdora-demo");

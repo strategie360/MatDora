@@ -64,3 +64,33 @@ drop policy if exists "photos : suppression" on storage.objects;
 create policy "photos : lecture" on storage.objects for select to anon using (bucket_id = 'photos');
 create policy "photos : ajout" on storage.objects for insert to anon with check (bucket_id = 'photos');
 create policy "photos : suppression" on storage.objects for delete to anon using (bucket_id = 'photos');
+
+-- ---------------------------------------------------------------------------
+-- Repas : liste permanente des restos et tirage au sort quotidien (11:30)
+-- Ajouté après coup : relancer tout ce fichier est sans risque (rien n'est effacé).
+-- ---------------------------------------------------------------------------
+
+-- days : jours d'ouverture (1 = lundi … 5 = vendredi) ; unavailable : "Pas dispo" (vacances…)
+create table if not exists restaurants (
+  id uuid primary key default gen_random_uuid(),
+  name text not null check (char_length(name) between 1 and 60),
+  days jsonb not null default '[1,2,3,4,5]',
+  unavailable boolean not null default false,
+  created_at timestamptz not null default now()
+);
+create unique index if not exists restaurants_name_unique on restaurants (lower(name));
+
+-- Un tirage par jour : le premier enregistré gagne, "Relancer" le remplace
+create table if not exists lunch_draws (
+  day date primary key,
+  restaurant_id uuid references restaurants (id) on delete set null,
+  name text not null,
+  drawn_at timestamptz not null default now()
+);
+
+alter table restaurants enable row level security;
+alter table lunch_draws enable row level security;
+drop policy if exists "tout le monde" on restaurants;
+drop policy if exists "tout le monde" on lunch_draws;
+create policy "tout le monde" on restaurants for all to anon using (true) with check (true);
+create policy "tout le monde" on lunch_draws for all to anon using (true) with check (true);

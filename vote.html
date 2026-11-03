@@ -103,6 +103,14 @@
   .status.error { color: var(--danger); }
   .empty { color: var(--muted); margin: 0; }
   .card { background: var(--surface); border-radius: 14px; padding: 14px; }
+  .draw { background: var(--fg); color: var(--bg); border-radius: 16px; padding: 14px 16px; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 12px; align-items: center; }
+  .draw-icon { font-size: 2rem; grid-row: span 2; }
+  .draw-label { font-size: .75rem; font-weight: 800; text-transform: uppercase; letter-spacing: .1em; opacity: .8; }
+  .draw-name { font-family: var(--display); font-weight: 400; font-size: 1.6rem; line-height: 1.1; overflow-wrap: anywhere; }
+  .draw button { grid-column: 1 / -1; margin-top: 8px; font: inherit; font-weight: 800; border: 2px solid var(--bg); background: transparent; color: var(--bg); border-radius: 12px; padding: 8px 12px; cursor: pointer; }
+  .draw button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  .draw button:disabled { opacity: .5; cursor: wait; }
+  .option .tag.drawn { color: var(--muted); }
   h2 { font-size: 1rem; margin: 0 0 8px; }
 </style>
 
@@ -112,6 +120,13 @@
     <h1>On mange où à midi&nbsp;?</h1>
     <p class="hint">Touche un resto pour voter. Tu peux changer d'avis jusqu'à midi.</p>
   </header>
+
+  <section class="draw" id="draw" aria-live="polite" hidden>
+    <span class="draw-icon" aria-hidden="true">🎲</span>
+    <span class="draw-label" id="draw-label">Resto du jour</span>
+    <strong class="draw-name" id="draw-name">–</strong>
+    <button type="button" id="reroll">🎲 Relancer le tirage</button>
+  </section>
 
   <p class="card" id="off" hidden>Le vote n'est pas encore branché : il faut d'abord configurer Supabase (voir SETUP.md). Pour essayer, ajoute <strong>#mock</strong> à la fin de l'adresse.</p>
 
@@ -159,9 +174,10 @@
       const li = document.createElement("li");
       const btn = document.createElement("button");
       btn.type = "button";
-      btn.className = "option" + (o.id === data.myVote ? " mine" : "");
-      btn.setAttribute("aria-pressed", o.id === data.myVote ? "true" : "false");
-      btn.dataset.id = o.id;
+      const mine = !!o.id && o.id === data.myVote;
+      btn.className = "option" + (mine ? " mine" : "");
+      btn.setAttribute("aria-pressed", mine ? "true" : "false");
+      btn.dataset.id = o.id || "";
       const name = document.createElement("span");
       name.className = "name";
       name.textContent = o.name;
@@ -176,10 +192,16 @@
       btn.appendChild(name);
       btn.appendChild(count);
       btn.appendChild(bar);
-      if (o.id === data.myVote) {
+      if (o.id && o.id === data.myVote) {
         const tag = document.createElement("span");
         tag.className = "tag";
         tag.textContent = "Ton vote";
+        btn.appendChild(tag);
+      }
+      if (data.draw && o.name.toLowerCase() === data.draw.name.toLowerCase()) {
+        const tag = document.createElement("span");
+        tag.className = "tag drawn";
+        tag.textContent = "🎲 Tiré au sort";
         btn.appendChild(tag);
       }
       btn.addEventListener("click", () => vote(o));
@@ -188,19 +210,50 @@
     });
   }
 
+  function renderDraw() {
+    const box = $("draw");
+    const weekend = [0, 6].indexOf(new Date().getDay()) !== -1;
+    box.hidden = weekend && !data.draw;
+    if (data.draw) {
+      $("draw-label").textContent = "Resto du jour · tiré au sort";
+      $("draw-name").textContent = data.draw.name;
+      $("reroll").textContent = "🎲 Relancer le tirage";
+    } else {
+      $("draw-label").textContent = "Tirage au sort à 11:30";
+      $("draw-name").textContent = data.candidates.length ? "Pas encore tiré" : "Aucun resto ouvert aujourd'hui";
+      $("reroll").textContent = "🎲 Tirer au sort maintenant";
+    }
+    $("reroll").disabled = !data.candidates.length;
+  }
+
   async function load() {
     try {
+      await store.ensureDraw(day);  // à partir de 11:30, fait le tirage s'il manque
       data = await store.lunch(day, voter);
       render();
+      renderDraw();
     } catch (e) {
       status("Impossible de charger le vote. Vérifie ta connexion puis recharge la page.", true);
     }
   }
 
+  $("reroll").addEventListener("click", async () => {
+    $("reroll").disabled = true;
+    status("Tirage en cours…");
+    try {
+      const draw = await store.reroll(day);
+      await load();
+      status(`Nouveau tirage : « ${draw.name} ».`);
+    } catch (e) {
+      status(e.message || "Le tirage n'est pas passé. Réessaie.", true);
+      $("reroll").disabled = false;
+    }
+  });
+
   async function vote(option) {
     status("Vote en cours…");
     try {
-      await store.vote(day, option.id, voter);
+      await store.voteFor(day, option, voter);
       await load();
       status(`Vote enregistré pour « ${option.name} ».`);
     } catch (e) {

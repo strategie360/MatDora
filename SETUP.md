@@ -21,6 +21,10 @@ seulement dans ce navigateur. Pratique pour essayer sans rien casser.
    Ne jamais y mettre la clé secrète (`sb_secret_…` / `service_role`).
 5. Lancer les tests, puis pousser.
 
+**Mise à jour du code qui ajoute des tables** (par exemple la liste des restos et le tirage
+au sort) : relancer `supabase/setup.sql` en entier dans le SQL Editor. C'est sans risque, rien
+n'est effacé. En attendant, le site marche mais ces nouveautés restent vides.
+
 Tant que `config.js` est vide, l'écran affiche uniquement les slides fixes
 (Dora, Pause, Imputations, RDV).
 
