@@ -42,16 +42,19 @@
   }
 
   async function imagesReady(doc) {
-    const imgs = [...doc.images];
+    const imgs = [...doc.images].filter(i => i.getAttribute("src"));
     await Promise.all(imgs.map(i => i.complete ? null : new Promise(r => { i.onload = i.onerror = r; })));
     return imgs;
   }
 
   async function testViewport(w, h) {
     const g = `${w}×${h}`;
-    const f = await load("../index.html", w, h);
+    // Mode démo : toutes les slides, y compris Happiness, Photos et Repas
+    const f = await load("../index.html#mock", w, h);
     const win = f.contentWindow, doc = f.contentDocument;
     await win.document.fonts?.ready;
+    await win.refresh();
+    check(g, "les 7 slides sont dans la rotation", win.deck.count === 7, win.deck.ids.join(", "));
     const imgs = await imagesReady(doc);
     check(g, "script chargé (diaporama prêt)", typeof win.deck === "object");
     if (typeof win.deck !== "object") return;
@@ -241,6 +244,131 @@
     fs.remove();
   }
 
+  // Données dynamiques en mode démo : écran, page de vote et dashboard ensemble
+  async function testData() {
+    const g = "données (démo)";
+    localStorage.removeItem("matdora-demo");
+
+    // Sans Supabase ni #mock : l'écran garde ses 4 slides fixes
+    const off = await load("../index.html", 1280, 800);
+    check(g, "sans configuration : 4 slides fixes seulement", off.contentWindow.deck.ids.join() === "dora,pause,jira,rdv", off.contentWindow.deck.ids.join());
+    off.remove();
+
+    // Écran en mode démo
+    const tv = await load("../index.html#mock", 1280, 800);
+    const tw = tv.contentWindow, td = tv.contentDocument;
+    tw.deck.pause(true);
+    await tw.refresh();
+    check(g, "écran : 7 slides avec les données", tw.deck.ids.join() === "dora,pause,jira,rdv,happiness,photos,lunch", tw.deck.ids.join());
+    check(g, "happiness : titre de l'event affiché", td.getElementById("happy-title").textContent.indexOf("apéro") !== -1, td.getElementById("happy-title").textContent);
+    check(g, "happiness : compte à rebours affiché", /^dans \d/.test(td.getElementById("happy-in").textContent), td.getElementById("happy-in").textContent);
+    const lunchRows = () => [...td.querySelectorAll("#lunch-list li")].map(li => li.textContent.replace(/\s+/g, " ").trim());
+    check(g, "repas : 3 propositions, la plus votée en tête", lunchRows().length === 3 && lunchRows()[0].indexOf("Pizzeria") !== -1 && td.querySelector("#lunch-list li").classList.contains("lead"), lunchRows().join(" | "));
+    check(g, "repas : QR code vers la page de vote", !!td.querySelector("#qr-vote img, #qr-vote canvas") && tw.LINKS.vote.endsWith("vote.html#mock"), tw.LINKS.vote);
+    check(g, "photos : QR code vers le dashboard", !!td.querySelector("#qr-photos img, #qr-photos canvas") && tw.LINKS.admin.endsWith("admin.html#mock,photos"), tw.LINKS.admin);
+    check(g, "photos : 3 photos dans la galerie, la 1re affichée", td.querySelectorAll("#gallery img").length === 3 && td.querySelector("#gallery img.on") && td.getElementById("gallery-text").textContent !== "");
+    const happyEmpty = await (async () => {
+      tw.eval("happiness = null"); tw.renderHappiness();
+      const t = td.getElementById("happy-title").textContent;
+      return t;
+    })();
+    check(g, "happiness sans event : « arrive bientôt »", happyEmpty === "Le prochain event arrive bientôt", happyEmpty);
+
+    // Page de vote
+    const vote = await load("../vote.html#mock", 375, 812);
+    const vw = vote.contentWindow, vd = vote.contentDocument;
+    await sleep(200);
+    check(g, "vote : 3 restos affichés", vd.querySelectorAll(".option").length === 3);
+    vd.getElementById("name").value = "  Resto   du test ";
+    vd.getElementById("propose").dispatchEvent(new vw.Event("submit", { cancelable: true }));
+    await sleep(300);
+    const mine = vd.querySelector(".option.mine .name");
+    check(g, "vote : proposer ajoute le resto avec mon vote", vd.querySelectorAll(".option").length === 4 && mine && mine.textContent === "Resto du test", mine ? mine.textContent : "aucun vote");
+    vd.getElementById("name").value = "resto du TEST";
+    vd.getElementById("propose").dispatchEvent(new vw.Event("submit", { cancelable: true }));
+    await sleep(200);
+    check(g, "vote : doublon refusé avec un message", vd.getElementById("status").classList.contains("error") && vd.querySelectorAll(".option").length === 4, vd.getElementById("status").textContent);
+    const sushi = [...vd.querySelectorAll(".option")].filter(b => b.textContent.indexOf("Sushi") !== -1)[0];
+    sushi.click();
+    await sleep(300);
+    const mine2 = vd.querySelector(".option.mine .name");
+    check(g, "vote : changer d'avis déplace mon vote", mine2 && mine2.textContent === "Exemple : Sushi" && vd.querySelectorAll(".option.mine").length === 1, mine2 ? mine2.textContent : "");
+    vote.remove();
+    await tw.refresh();
+    const sushiRow = lunchRows().filter(r => r.indexOf("Sushi") !== -1)[0] || "";
+    check(g, "écran : le vote apparaît sur la slide Repas", sushiRow.indexOf("2 votes") !== -1 && lunchRows().length === 4, lunchRows().join(" | "));
+
+    // Dashboard
+    const adm = await load("../admin.html#mock", 1280, 900);
+    const aw = adm.contentWindow, ad = adm.contentDocument;
+    await aw.ready;
+    check(g, "dashboard : mode démo indiqué", ad.getElementById("mode").textContent === "Mode démo (#mock)");
+    check(g, "dashboard : 7 slides listées", ad.querySelectorAll("#slides-list .row").length === 7);
+    ad.getElementById("slide-jira").click();
+    ad.getElementById("slides-save").click();
+    await sleep(150);
+    await tw.refresh();
+    check(g, "dashboard → écran : slide décochée retirée", tw.deck.ids.indexOf("jira") === -1 && tw.deck.count === 6, tw.deck.ids.join());
+
+    ad.querySelector('[data-tab="pauses"]').click();
+    check(g, "dashboard : onglet Pauses s'ouvre", !ad.getElementById("tab-pauses").hidden && ad.getElementById("tab-slides").hidden);
+    ad.getElementById("pause-0").value = "09:30";
+    ad.getElementById("pause-0").dispatchEvent(new aw.Event("change"));
+    ad.getElementById("pauses-save").click();
+    await sleep(150);
+    await tw.refresh();
+    const pauseChips = [...td.querySelectorAll("#pause-list li")].map(li => li.textContent).join(" ");
+    check(g, "dashboard → écran : horaires de pause mis à jour", pauseChips === "09:30 12:00 16:00", pauseChips);
+
+    ad.getElementById("happy-title").value = "Bowling de l'équipe";
+    const soon = new Date(Date.now() + 3 * 86400000);
+    const pad = n => String(n).padStart(2, "0");
+    ad.getElementById("happy-date").value = `${soon.getFullYear()}-${pad(soon.getMonth() + 1)}-${pad(soon.getDate())}T19:00`;
+    ad.getElementById("happy-place").value = "Bowling du centre";
+    ad.getElementById("happy-form").dispatchEvent(new aw.Event("submit", { cancelable: true }));
+    await sleep(150);
+    await tw.refresh();
+    check(g, "dashboard → écran : happiness event mis à jour", td.getElementById("happy-title").textContent === "Bowling de l'équipe" && td.getElementById("happy-place").textContent.indexOf("Bowling du centre") !== -1 && td.getElementById("happy-when").textContent.indexOf("19:00") !== -1,
+      `${td.getElementById("happy-title").textContent} / ${td.getElementById("happy-when").textContent}`);
+
+    // Ajout d'une photo par le formulaire (fichier généré)
+    const c = document.createElement("canvas");
+    c.width = 400; c.height = 300;
+    const ctx = c.getContext("2d");
+    ctx.fillStyle = "#c9874a"; ctx.fillRect(0, 0, 400, 300);
+    const blob = await new Promise(r => c.toBlob(r, "image/png"));
+    const dt = new aw.DataTransfer();
+    dt.items.add(new aw.File([blob], "test.png", { type: "image/png" }));
+    ad.getElementById("photo-files").files = dt.files;
+    ad.getElementById("photo-event").value = "Séminaire test";
+    ad.getElementById("photo-caption").value = "Photo de test";
+    ad.getElementById("photo-form").dispatchEvent(new aw.Event("submit", { cancelable: true }));
+    for (let i = 0; i < 20 && ad.querySelectorAll("#photo-grid .photo").length < 4; i++) await sleep(100);
+    check(g, "dashboard : photo ajoutée (réduite en JPEG)", ad.querySelectorAll("#photo-grid .photo").length === 4 && ad.querySelector("#photo-grid img").src.indexOf("data:image/jpeg") === 0);
+    await tw.refresh();
+    check(g, "dashboard → écran : nouvelle photo dans la galerie", td.querySelectorAll("#gallery img").length === 4 && td.getElementById("gallery-text").textContent === "Photo de test", td.getElementById("gallery-text").textContent);
+
+    const delBtn = ad.querySelector("#photo-grid .photo .btn.danger");
+    delBtn.click();
+    check(g, "dashboard : suppression demande confirmation", delBtn.textContent === "Confirmer ?" && ad.querySelectorAll("#photo-grid .photo").length === 4);
+    delBtn.click();
+    await sleep(150);
+    check(g, "dashboard : photo supprimée après confirmation", ad.querySelectorAll("#photo-grid .photo").length === 3);
+
+    const lunchDel = ad.querySelector("#lunch-list .btn.danger");
+    lunchDel.click(); lunchDel.click();
+    await sleep(150);
+    check(g, "dashboard : proposition de repas retirée", ad.querySelectorAll("#lunch-list .row").length === 3);
+    adm.remove();
+    tv.remove();
+
+    // Compatibilité Silk du code partagé
+    const storeSrc = await (await fetch("../js/store.js")).text();
+    check(g, "Silk : pas de ?. ni ?? dans js/store.js", !/\?\.|\?\?/.test(storeSrc.replace(/\/\*[\s\S]*?\*\//g, "")));
+
+    localStorage.removeItem("matdora-demo");
+  }
+
   function report() {
     const failed = results.filter(r => !r.ok);
     const table = document.getElementById("results");
@@ -261,7 +389,10 @@
   (async () => {
     try {
       await testLogic();
+      await testData();
+      localStorage.removeItem("matdora-demo");
       for (const [w, h] of VIEWPORTS) await testViewport(w, h);
+      localStorage.removeItem("matdora-demo");
     } catch (e) {
       check("erreur", "les tests ont planté", false, String(e));
     }

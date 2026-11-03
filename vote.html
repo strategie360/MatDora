@@ -1,0 +1,235 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>On mange où ?</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bagel+Fat+One&family=Nunito:wght@400;600;800&display=swap">
+<style>
+  /* Layout: page téléphone, une colonne — choix du jour à toucher, puis formulaire pour proposer */
+  :root {
+    --bg: #e9f5dc;
+    --surface: #ffffff;
+    --fg: #213a17;
+    --muted: #5b7350;
+    --accent: #4f9a2b;
+    --accent-fg: #ffffff;
+    --line: #cfe6bb;
+    --danger: #b3261e;
+    --display: "Bagel Fat One", "Arial Rounded MT Bold", system-ui, sans-serif;
+    --body: "Nunito", system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #141c10; --surface: #1f2a19; --fg: #e4f2d8; --muted: #a2b996;
+      --accent: #7cc451; --accent-fg: #10200a; --line: #2f4026; --danger: #ff8a80;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #141c10; --surface: #1f2a19; --fg: #e4f2d8; --muted: #a2b996;
+    --accent: #7cc451; --accent-fg: #10200a; --line: #2f4026; --danger: #ff8a80;
+    color-scheme: dark;
+  }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--body);
+    font-size: 16px;
+    line-height: 1.5;
+  }
+  main {
+    max-width: 520px;
+    margin: 0 auto;
+    padding-block: 28px 40px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+  .eyebrow { font-weight: 800; text-transform: uppercase; letter-spacing: .12em; font-size: .78rem; color: var(--accent); }
+  h1 { font-family: var(--display); font-weight: 400; font-size: 2.3rem; line-height: 1.05; margin: 4px 0 0; text-wrap: balance; }
+  .hint { color: var(--muted); margin: 6px 0 0; }
+  .options { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+  .option {
+    width: 100%;
+    text-align: left;
+    font: inherit;
+    color: inherit;
+    background: var(--surface);
+    border: 2px solid var(--line);
+    border-radius: 14px;
+    padding: 12px 14px;
+    cursor: pointer;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 4px 12px;
+    align-items: baseline;
+  }
+  .option:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  .option.mine { border-color: var(--accent); }
+  .option .name { font-weight: 800; font-size: 1.1rem; overflow-wrap: anywhere; }
+  .option .count { font-weight: 800; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .option .bar { grid-column: 1 / -1; height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; }
+  .option .bar i { display: block; height: 100%; background: var(--accent); }
+  .option .tag { grid-column: 1 / -1; font-size: .8rem; font-weight: 800; color: var(--accent); }
+  form { display: flex; gap: 8px; }
+  label.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  input {
+    flex: 1;
+    min-width: 0;
+    font: inherit;
+    color: inherit;
+    background: var(--surface);
+    border: 2px solid var(--line);
+    border-radius: 12px;
+    padding: 10px 12px;
+  }
+  input:focus-visible { outline: 3px solid var(--accent); outline-offset: 1px; }
+  button.primary {
+    font: inherit;
+    font-weight: 800;
+    background: var(--accent);
+    color: var(--accent-fg);
+    border: 0;
+    border-radius: 12px;
+    padding: 10px 16px;
+    cursor: pointer;
+  }
+  button.primary:focus-visible { outline: 3px solid var(--fg); outline-offset: 2px; }
+  .status { min-height: 1.5em; margin: 0; font-weight: 700; color: var(--muted); }
+  .status.error { color: var(--danger); }
+  .empty { color: var(--muted); margin: 0; }
+  .card { background: var(--surface); border-radius: 14px; padding: 14px; }
+  h2 { font-size: 1rem; margin: 0 0 8px; }
+</style>
+
+<main>
+  <header>
+    <div class="eyebrow" id="day">–</div>
+    <h1>On mange où à midi&nbsp;?</h1>
+    <p class="hint">Touche un resto pour voter. Tu peux changer d'avis jusqu'à midi.</p>
+  </header>
+
+  <p class="card" id="off" hidden>Le vote n'est pas encore branché : il faut d'abord configurer Supabase (voir SETUP.md). Pour essayer, ajoute <strong>#mock</strong> à la fin de l'adresse.</p>
+
+  <section id="vote-area" aria-label="Vote du jour">
+    <ul class="options" id="options"></ul>
+    <p class="empty" id="empty" hidden>Personne n'a encore proposé de resto. Lance-toi&nbsp;!</p>
+  </section>
+
+  <section class="card" id="propose-area">
+    <h2>Proposer un resto</h2>
+    <form id="propose">
+      <label class="sr" for="name">Nom du resto</label>
+      <input id="name" name="name" maxlength="60" placeholder="Ex. la pizzeria d'en face" autocomplete="off" required>
+      <button class="primary" type="submit">Proposer</button>
+    </form>
+  </section>
+
+  <p class="status" id="status" role="status"></p>
+</main>
+
+<script src="config.js"></script>
+<script src="js/store.js"></script>
+<script>
+  const store = window.MatDoraStore;
+  const $ = id => document.getElementById(id);
+  const voter = store.voterId();
+  const day = store.today();
+  let data = null;
+
+  const label = new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
+  $("day").textContent = label.charAt(0).toUpperCase() + label.slice(1);
+
+  function status(text, isError) {
+    $("status").textContent = text || "";
+    $("status").className = "status" + (isError ? " error" : "");
+  }
+
+  function render() {
+    const list = $("options");
+    list.innerHTML = "";
+    const options = data.options.slice().sort((a, b) => b.votes - a.votes || a.name.localeCompare(b.name));
+    const max = Math.max(1, ...options.map(o => o.votes));
+    $("empty").hidden = options.length > 0;
+    options.forEach(o => {
+      const li = document.createElement("li");
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "option" + (o.id === data.myVote ? " mine" : "");
+      btn.setAttribute("aria-pressed", o.id === data.myVote ? "true" : "false");
+      btn.dataset.id = o.id;
+      const name = document.createElement("span");
+      name.className = "name";
+      name.textContent = o.name;
+      const count = document.createElement("span");
+      count.className = "count";
+      count.textContent = `${o.votes} vote${o.votes > 1 ? "s" : ""}`;
+      const bar = document.createElement("span");
+      bar.className = "bar";
+      const fill = document.createElement("i");
+      fill.style.width = `${Math.round(o.votes / max * 100)}%`;
+      bar.appendChild(fill);
+      btn.appendChild(name);
+      btn.appendChild(count);
+      btn.appendChild(bar);
+      if (o.id === data.myVote) {
+        const tag = document.createElement("span");
+        tag.className = "tag";
+        tag.textContent = "Ton vote";
+        btn.appendChild(tag);
+      }
+      btn.addEventListener("click", () => vote(o));
+      li.appendChild(btn);
+      list.appendChild(li);
+    });
+  }
+
+  async function load() {
+    try {
+      data = await store.lunch(day, voter);
+      render();
+    } catch (e) {
+      status("Impossible de charger le vote. Vérifie ta connexion puis recharge la page.", true);
+    }
+  }
+
+  async function vote(option) {
+    status("Vote en cours…");
+    try {
+      await store.vote(day, option.id, voter);
+      await load();
+      status(`Vote enregistré pour « ${option.name} ».`);
+    } catch (e) {
+      status("Le vote n'est pas passé. Réessaie dans un instant.", true);
+    }
+  }
+
+  $("propose").addEventListener("submit", async e => {
+    e.preventDefault();
+    const name = $("name").value.trim().replace(/\s+/g, " ");
+    if (!name) return;
+    status("Ajout en cours…");
+    try {
+      const option = await store.propose(day, name);
+      await store.vote(day, option.id, voter);  // proposer = voter pour sa proposition
+      $("name").value = "";
+      await load();
+      status(`« ${name} » ajouté, avec ton vote.`);
+    } catch (err) {
+      status(err.message || "L'ajout n'est pas passé. Réessaie.", true);
+    }
+  });
+
+  if (store.mode === "off") {
+    $("off").hidden = false;
+    $("vote-area").hidden = true;
+    $("propose-area").hidden = true;
+  } else {
+    load();
+    setInterval(load, 10000);
+  }
+</script>

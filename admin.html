@@ -1,0 +1,447 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Dashboard MatDora</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bagel+Fat+One&family=Nunito:wght@400;600;700;800&display=swap">
+<style>
+  /* Layout: en-tête + onglets, une section visible à la fois ; colonne unique centrée */
+  :root {
+    --bg: #fbf3e8;
+    --surface: #ffffff;
+    --fg: #3a2a1f;
+    --muted: #8a6f5c;
+    --accent: #b8732f;
+    --accent-fg: #ffffff;
+    --line: #ead9c4;
+    --ok: #2f7d32;
+    --danger: #b3261e;
+    --display: "Bagel Fat One", "Arial Rounded MT Bold", system-ui, sans-serif;
+    --body: "Nunito", system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #1f1915; --surface: #2b231d; --fg: #f5e9da; --muted: #bba48f;
+      --accent: #e0a368; --accent-fg: #1f1915; --line: #3e3229; --ok: #81c784; --danger: #ff8a80;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #1f1915; --surface: #2b231d; --fg: #f5e9da; --muted: #bba48f;
+    --accent: #e0a368; --accent-fg: #1f1915; --line: #3e3229; --ok: #81c784; --danger: #ff8a80;
+    color-scheme: dark;
+  }
+  body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 16px; line-height: 1.5; }
+  .wrap {
+    max-width: 860px;
+    margin: 0 auto;
+    padding-block: 24px 48px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+  }
+  header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 16px; }
+  h1 { font-family: var(--display); font-weight: 400; font-size: 2rem; margin: 0; color: var(--accent); }
+  .mode { font-size: .85rem; font-weight: 800; border-radius: 999px; padding: 3px 12px; border: 2px solid var(--line); }
+  .mode.supabase { border-color: var(--ok); color: var(--ok); }
+  .mode.demo { border-color: var(--accent); color: var(--accent); }
+  .mode.off { border-color: var(--danger); color: var(--danger); }
+  .links { margin: 6px 0 0; color: var(--muted); font-size: .9rem; }
+  .links a { color: var(--accent); font-weight: 700; }
+
+  .tabs { display: flex; gap: 6px; overflow-x: auto; margin: 20px 0 16px; padding-bottom: 4px; }
+  .tabs button {
+    flex: none;
+    font: inherit;
+    font-weight: 800;
+    color: var(--muted);
+    background: transparent;
+    border: 2px solid var(--line);
+    border-radius: 999px;
+    padding: 6px 14px;
+    cursor: pointer;
+  }
+  .tabs button[aria-selected="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+  .tabs button:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+  section.panel { background: var(--surface); border: 2px solid var(--line); border-radius: 16px; padding: 18px; }
+  h2 { margin: 0 0 4px; font-size: 1.25rem; }
+  .help { margin: 0 0 14px; color: var(--muted); }
+  .row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+  .row:last-child { border-bottom: 0; }
+  .row .grow { flex: 1; min-width: 0; font-weight: 700; overflow-wrap: anywhere; }
+  .row small { display: block; font-weight: 600; color: var(--muted); }
+  label { font-weight: 700; }
+  .field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
+  input, textarea {
+    font: inherit;
+    color: inherit;
+    background: var(--bg);
+    border: 2px solid var(--line);
+    border-radius: 10px;
+    padding: 8px 10px;
+    min-width: 0;
+  }
+  input[type="checkbox"] { width: 20px; height: 20px; accent-color: var(--accent); }
+  input.secs { width: 4.5em; }
+  textarea { min-height: 80px; resize: vertical; }
+  button { font: inherit; cursor: pointer; }
+  .btn { font-weight: 800; border-radius: 10px; padding: 8px 14px; border: 2px solid var(--line); background: var(--surface); color: var(--fg); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+  .btn.danger { color: var(--danger); }
+  .btn.danger.confirm { background: var(--danger); border-color: var(--danger); color: var(--surface); }
+  .btn.icon { padding: 4px 10px; }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+  .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; margin-top: 16px; }
+  .photo { border: 2px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--bg); display: flex; flex-direction: column; }
+  .photo img { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; max-width: 100%; }
+  .photo .meta { padding: 8px 10px; font-size: .85rem; flex: 1; min-width: 0; overflow-wrap: anywhere; }
+  .photo .meta strong { display: block; color: var(--accent); font-size: .75rem; text-transform: uppercase; letter-spacing: .08em; }
+  .photo .btn { margin: 0 10px 10px; }
+  .two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 12px; }
+  @media (max-width: 560px) { .two { grid-template-columns: minmax(0, 1fr); } }
+  .toast { position: sticky; bottom: max(12px, env(safe-area-inset-bottom, 0px)); margin-top: 16px; padding: 10px 14px; border-radius: 12px; font-weight: 800; background: var(--fg); color: var(--bg); }
+  .toast.error { background: var(--danger); color: #ffffff; }
+  .empty { color: var(--muted); margin: 8px 0 0; }
+  .votes { font-weight: 800; color: var(--accent); font-variant-numeric: tabular-nums; }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Dashboard MatDora</h1>
+    <span class="mode" id="mode">–</span>
+  </header>
+  <p class="links">Les changements arrivent sur l'écran en moins de 20 secondes. <a id="link-tv" href="index.html">Voir l'écran</a> · <a id="link-vote" href="vote.html">Page de vote</a></p>
+
+  <p class="panel" id="off" hidden>Le dashboard n'est pas encore branché : il faut configurer Supabase (voir SETUP.md). Pour essayer avec des données d'exemple, ajoute <strong>#mock</strong> à la fin de l'adresse.</p>
+
+  <nav class="tabs" role="tablist" id="tabs">
+    <button role="tab" data-tab="slides">Slides</button>
+    <button role="tab" data-tab="pauses">Pauses</button>
+    <button role="tab" data-tab="happiness">Happiness event</button>
+    <button role="tab" data-tab="photos">Photos</button>
+    <button role="tab" data-tab="lunch">Repas</button>
+  </nav>
+
+  <!-- Slides -->
+  <section class="panel" id="tab-slides" role="tabpanel" hidden>
+    <h2>Slides affichées</h2>
+    <p class="help">Coche les slides à montrer, règle leur durée et leur ordre.</p>
+    <div id="slides-list"></div>
+    <div class="actions"><button class="btn primary" id="slides-save">Enregistrer les slides</button></div>
+  </section>
+
+  <!-- Pauses -->
+  <section class="panel" id="tab-pauses" role="tabpanel" hidden>
+    <h2>Horaires des pauses</h2>
+    <p class="help">Du lundi au vendredi. L'écran affiche la prochaine.</p>
+    <div id="pauses-list"></div>
+    <div class="actions">
+      <button class="btn" id="pause-add">Ajouter une pause</button>
+      <button class="btn primary" id="pauses-save">Enregistrer les pauses</button>
+    </div>
+  </section>
+
+  <!-- Happiness -->
+  <section class="panel" id="tab-happiness" role="tabpanel" hidden>
+    <h2>Prochain happiness event</h2>
+    <p class="help">La slide affiche un compte à rebours jusqu'à l'event, puis « C'est maintenant ! » pendant 4 heures.</p>
+    <form id="happy-form">
+      <div class="field"><label for="happy-title">Nom de l'event</label><input id="happy-title" maxlength="80" required placeholder="Ex. Apéro de fin d'année"></div>
+      <div class="two">
+        <div class="field"><label for="happy-date">Date et heure</label><input id="happy-date" type="datetime-local" required></div>
+        <div class="field"><label for="happy-place">Lieu</label><input id="happy-place" maxlength="80" placeholder="Ex. la terrasse du 3e"></div>
+      </div>
+      <div class="field"><label for="happy-desc">Description</label><textarea id="happy-desc" maxlength="220" placeholder="Ce qui est prévu, ce qu'il faut apporter…"></textarea></div>
+      <div class="actions">
+        <button class="btn primary" type="submit">Enregistrer l'event</button>
+        <button class="btn danger" type="button" id="happy-clear">Retirer l'event</button>
+      </div>
+    </form>
+  </section>
+
+  <!-- Photos -->
+  <section class="panel" id="tab-photos" role="tabpanel" hidden>
+    <h2>Photos des events passés</h2>
+    <p class="help">Les photos sont réduites avant l'envoi pour rester légères sur la Fire TV.</p>
+    <form id="photo-form">
+      <div class="field"><label for="photo-files">Photos</label><input id="photo-files" type="file" accept="image/*" multiple required></div>
+      <div class="two">
+        <div class="field"><label for="photo-event">Event</label><input id="photo-event" maxlength="80" placeholder="Ex. Séminaire d'octobre"></div>
+        <div class="field"><label for="photo-caption">Légende</label><input id="photo-caption" maxlength="120" placeholder="Ex. La photo de groupe"></div>
+      </div>
+      <div class="actions"><button class="btn primary" type="submit" id="photo-send">Ajouter les photos</button></div>
+    </form>
+    <div class="grid" id="photo-grid"></div>
+    <p class="empty" id="photo-empty" hidden>Aucune photo pour l'instant. La slide Photos s'affiche dès la première.</p>
+  </section>
+
+  <!-- Repas -->
+  <section class="panel" id="tab-lunch" role="tabpanel" hidden>
+    <h2>Repas du jour</h2>
+    <p class="help">Chacun vote et propose depuis son téléphone (QR code sur l'écran). Ici, tu peux retirer une proposition.</p>
+    <div id="lunch-list"></div>
+    <p class="empty" id="lunch-empty" hidden>Aucune proposition aujourd'hui.</p>
+    <form class="actions" id="lunch-form">
+      <input id="lunch-name" maxlength="60" placeholder="Proposer un resto" aria-label="Nom du resto à proposer" required>
+      <button class="btn primary" type="submit">Proposer</button>
+    </form>
+  </section>
+
+  <div class="toast" id="toast" role="status" hidden></div>
+</div>
+
+<script src="config.js"></script>
+<script src="js/store.js"></script>
+<script>
+  const store = window.MatDoraStore;
+  const $ = id => document.getElementById(id);
+  const flags = location.hash.replace("#", "").split(",");
+  const demo = store.mode === "demo" ? "#mock" : "";
+  let settings = store.withDefaults(null);
+
+  /* ---------- En-tête ---------- */
+  $("mode").textContent = { supabase: "Connecté à Supabase", demo: "Mode démo (#mock)", off: "Non configuré" }[store.mode];
+  $("mode").className = "mode " + store.mode;
+  $("link-tv").href = "index.html" + demo;
+  $("link-vote").href = "vote.html" + demo;
+
+  let toastTimer = null;
+  function toast(text, isError) {
+    $("toast").textContent = text;
+    $("toast").className = "toast" + (isError ? " error" : "");
+    $("toast").hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { $("toast").hidden = true; }, 4000);
+  }
+  async function attempt(action, okText) {
+    try {
+      await action();
+      if (okText) toast(okText);
+      return true;
+    } catch (e) {
+      toast(e.message || "Ça n'a pas marché. Vérifie ta connexion et réessaie.", true);
+      return false;
+    }
+  }
+  // Bouton de suppression en deux temps : 1er clic = "Confirmer ?", 2e clic = suppression
+  function confirmButton(label, onConfirm) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "btn danger";
+    b.textContent = label;
+    let armed = false, t = null;
+    b.addEventListener("click", () => {
+      if (!armed) {
+        armed = true;
+        b.classList.add("confirm");
+        b.textContent = "Confirmer ?";
+        t = setTimeout(() => { armed = false; b.classList.remove("confirm"); b.textContent = label; }, 3000);
+        return;
+      }
+      clearTimeout(t);
+      onConfirm();
+    });
+    return b;
+  }
+
+  /* ---------- Onglets ---------- */
+  const TABS = ["slides", "pauses", "happiness", "photos", "lunch"];
+  function openTab(name) {
+    TABS.forEach(t => {
+      $("tab-" + t).hidden = t !== name;
+      document.querySelector(`[data-tab="${t}"]`).setAttribute("aria-selected", t === name ? "true" : "false");
+    });
+  }
+  document.querySelectorAll("[data-tab]").forEach(b => b.addEventListener("click", () => openTab(b.dataset.tab)));
+  openTab(TABS.filter(t => flags.indexOf(t) !== -1)[0] || "slides");
+
+  /* ---------- Slides ---------- */
+  function renderSlides() {
+    const list = $("slides-list");
+    list.innerHTML = "";
+    settings.slides.forEach((s, i) => {
+      const info = store.SLIDES.filter(d => d.id === s.id)[0];
+      const row = document.createElement("div");
+      row.className = "row";
+      const cb = document.createElement("input");
+      cb.type = "checkbox";
+      cb.id = "slide-" + s.id;
+      cb.checked = s.enabled;
+      cb.addEventListener("change", () => { s.enabled = cb.checked; });
+      const name = document.createElement("label");
+      name.className = "grow";
+      name.htmlFor = cb.id;
+      name.textContent = info.label;
+      const secs = document.createElement("input");
+      secs.type = "number";
+      secs.min = 5; secs.max = 120;
+      secs.className = "secs";
+      secs.value = s.duration;
+      secs.setAttribute("aria-label", `Durée de ${info.label} en secondes`);
+      secs.addEventListener("change", () => { s.duration = Math.max(5, Math.min(120, Number(secs.value) || 15)); secs.value = s.duration; });
+      const unit = document.createElement("span");
+      unit.textContent = "s";
+      const up = document.createElement("button");
+      up.type = "button"; up.className = "btn icon"; up.textContent = "↑"; up.disabled = i === 0;
+      up.setAttribute("aria-label", `Monter ${info.label}`);
+      up.addEventListener("click", () => { settings.slides.splice(i - 1, 0, settings.slides.splice(i, 1)[0]); renderSlides(); });
+      const down = document.createElement("button");
+      down.type = "button"; down.className = "btn icon"; down.textContent = "↓"; down.disabled = i === settings.slides.length - 1;
+      down.setAttribute("aria-label", `Descendre ${info.label}`);
+      down.addEventListener("click", () => { settings.slides.splice(i + 1, 0, settings.slides.splice(i, 1)[0]); renderSlides(); });
+      [cb, name, secs, unit, up, down].forEach(el => row.appendChild(el));
+      list.appendChild(row);
+    });
+  }
+  $("slides-save").addEventListener("click", () => {
+    if (!settings.slides.some(s => s.enabled)) { toast("Garde au moins une slide cochée.", true); return; }
+    attempt(() => store.saveSetting("slides", settings.slides), "Slides enregistrées.");
+  });
+
+  /* ---------- Pauses ---------- */
+  function renderPauses() {
+    const list = $("pauses-list");
+    list.innerHTML = "";
+    settings.pauses.forEach((p, i) => {
+      const row = document.createElement("div");
+      row.className = "row";
+      const input = document.createElement("input");
+      input.type = "time";
+      input.value = p;
+      input.id = "pause-" + i;
+      input.setAttribute("aria-label", `Pause ${i + 1}`);
+      input.addEventListener("change", () => { settings.pauses[i] = input.value; });
+      const spacer = document.createElement("span");
+      spacer.className = "grow";
+      const del = document.createElement("button");
+      del.type = "button"; del.className = "btn danger"; del.textContent = "Retirer";
+      del.addEventListener("click", () => { settings.pauses.splice(i, 1); renderPauses(); });
+      [input, spacer, del].forEach(el => row.appendChild(el));
+      list.appendChild(row);
+    });
+  }
+  $("pause-add").addEventListener("click", () => { settings.pauses.push("15:00"); renderPauses(); });
+  $("pauses-save").addEventListener("click", () => {
+    const clean = settings.pauses.filter(p => /^\d{2}:\d{2}$/.test(p)).filter((p, i, a) => a.indexOf(p) === i).sort();
+    if (!clean.length) { toast("Ajoute au moins une pause.", true); return; }
+    settings.pauses = clean;
+    renderPauses();
+    attempt(() => store.saveSetting("pauses", clean), "Pauses enregistrées.");
+  });
+
+  /* ---------- Happiness ---------- */
+  function renderHappiness() {
+    const h = settings.happiness || {};
+    $("happy-title").value = h.title || "";
+    $("happy-date").value = h.date || "";
+    $("happy-place").value = h.place || "";
+    $("happy-desc").value = h.description || "";
+  }
+  $("happy-form").addEventListener("submit", e => {
+    e.preventDefault();
+    const value = {
+      title: $("happy-title").value.trim(),
+      date: $("happy-date").value,
+      place: $("happy-place").value.trim(),
+      description: $("happy-desc").value.trim()
+    };
+    attempt(async () => { await store.saveSetting("happiness", value); settings.happiness = value; }, "Event enregistré.");
+  });
+  $("happy-clear").addEventListener("click", () => {
+    attempt(async () => { await store.saveSetting("happiness", null); settings.happiness = null; renderHappiness(); }, "Event retiré.");
+  });
+
+  /* ---------- Photos ---------- */
+  async function loadPhotos() {
+    const photos = await store.listPhotos();
+    const grid = $("photo-grid");
+    grid.innerHTML = "";
+    $("photo-empty").hidden = photos.length > 0;
+    photos.forEach(p => {
+      const card = document.createElement("div");
+      card.className = "photo";
+      const img = document.createElement("img");
+      img.src = p.url;
+      img.alt = p.caption || "Photo d'event";
+      img.loading = "lazy";
+      const meta = document.createElement("div");
+      meta.className = "meta";
+      const ev = document.createElement("strong");
+      ev.textContent = p.event || "Sans event";
+      meta.appendChild(ev);
+      meta.appendChild(document.createTextNode(p.caption || ""));
+      card.appendChild(img);
+      card.appendChild(meta);
+      card.appendChild(confirmButton("Supprimer", () => attempt(async () => { await store.deletePhoto(p); await loadPhotos(); }, "Photo supprimée.")));
+      grid.appendChild(card);
+    });
+  }
+  $("photo-form").addEventListener("submit", async e => {
+    e.preventDefault();
+    const files = [...$("photo-files").files];
+    if (!files.length) return;
+    $("photo-send").disabled = true;
+    let done = 0;
+    for (const file of files) {
+      $("photo-send").textContent = `Envoi ${done + 1}/${files.length}…`;
+      const ok = await attempt(async () => {
+        const blob = await store.resizeImage(file);
+        await store.addPhoto(blob, $("photo-caption").value.trim(), $("photo-event").value.trim());
+      });
+      if (!ok) break;
+      done++;
+    }
+    $("photo-send").disabled = false;
+    $("photo-send").textContent = "Ajouter les photos";
+    if (done) {
+      toast(`${done} photo${done > 1 ? "s" : ""} ajoutée${done > 1 ? "s" : ""}.`);
+      $("photo-form").reset();
+      await loadPhotos();
+    }
+  });
+
+  /* ---------- Repas ---------- */
+  async function loadLunch() {
+    const data = await store.lunch(store.today(), store.voterId());
+    const list = $("lunch-list");
+    list.innerHTML = "";
+    $("lunch-empty").hidden = data.options.length > 0;
+    data.options.slice().sort((a, b) => b.votes - a.votes).forEach(o => {
+      const row = document.createElement("div");
+      row.className = "row";
+      const name = document.createElement("span");
+      name.className = "grow";
+      name.textContent = o.name;
+      const votes = document.createElement("span");
+      votes.className = "votes";
+      votes.textContent = `${o.votes} vote${o.votes > 1 ? "s" : ""}`;
+      row.appendChild(name);
+      row.appendChild(votes);
+      row.appendChild(confirmButton("Retirer", () => attempt(async () => { await store.deleteOption(o.id); await loadLunch(); }, "Proposition retirée.")));
+      list.appendChild(row);
+    });
+  }
+  $("lunch-form").addEventListener("submit", e => {
+    e.preventDefault();
+    const name = $("lunch-name").value.trim().replace(/\s+/g, " ");
+    if (!name) return;
+    attempt(async () => { await store.propose(store.today(), name); $("lunch-name").value = ""; await loadLunch(); }, "Resto proposé.");
+  });
+
+  /* ---------- Démarrage ---------- */
+  async function start() {
+    if (store.mode === "off") {
+      $("off").hidden = false;
+      document.querySelectorAll("form button, .actions button").forEach(b => { b.disabled = true; });
+      renderSlides(); renderPauses(); renderHappiness();
+      return;
+    }
+    const ok = await attempt(async () => { settings = await store.getSettings(); });
+    renderSlides(); renderPauses(); renderHappiness();
+    if (ok) await Promise.all([attempt(loadPhotos), attempt(loadLunch)]);
+    setInterval(() => { loadLunch().catch(() => {}); }, 15000);
+  }
+  window.ready = start();
+</script>
