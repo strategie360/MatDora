@@ -15,9 +15,10 @@ seulement dans ce navigateur. Pratique pour essayer sans rien casser.
 
 1. Créer un compte et un projet sur supabase.com (offre gratuite).
 2. Dans le projet : **SQL Editor** → coller le contenu de `supabase/setup.sql` → **Run**.
-3. **Project Settings → API** : copier la **Project URL** et la clé **anon public**.
+3. **Project Settings → API Keys** : copier la **Project URL** et la clé **publishable**
+   (`sb_publishable_…`, ou l'ancienne clé `anon`).
 4. Les coller dans `config.js` (`supabaseUrl` et `supabaseKey`).
-   Ne jamais y mettre la clé `service_role`.
+   Ne jamais y mettre la clé secrète (`sb_secret_…` / `service_role`).
 5. Lancer les tests, puis pousser.
 
 Tant que `config.js` est vide, l'écran affiche uniquement les slides fixes
@@ -30,6 +31,10 @@ python -m http.server 8000
 ```
 
 Puis ouvrir http://localhost:8000/tests/run.html. Le résumé s'affiche en haut.
+
+Ces tests utilisent le mode démo et ne touchent pas Supabase. Pour vérifier aussi le vrai
+Supabase, ouvrir http://localhost:8000/tests/run.html#live : ils proposent un resto, votent,
+envoient une photo, puis effacent tout (l'écran peut afficher le resto de test quelques secondes).
 
 ## Fire TV qui se met en veille
 

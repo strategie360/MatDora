@@ -6,7 +6,8 @@
 (function () {
   const cfg = window.MATDORA_CONFIG || {};
   const flags = location.hash.replace("#", "").split(",");
-  const mode = flags.indexOf("mock") !== -1 ? "demo" : (cfg.supabaseUrl && cfg.supabaseKey ? "supabase" : "off");
+  // #off force le mode sans données (utile pour les tests)
+  const mode = flags.indexOf("off") !== -1 ? "off" : flags.indexOf("mock") !== -1 ? "demo" : (cfg.supabaseUrl && cfg.supabaseKey ? "supabase" : "off");
   const pad = n => String(n).padStart(2, "0");
 
   const SLIDES = [

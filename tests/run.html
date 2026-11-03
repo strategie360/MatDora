@@ -26,6 +26,15 @@
   ];
   const results = [];
   const sleep = ms => new Promise(r => setTimeout(r, ms));
+  // Attend qu'une condition soit vraie (les onglets en arrière-plan ralentissent les minuteries)
+  async function waitFor(cond, timeout = 4000) {
+    const end = Date.now() + timeout;
+    while (Date.now() < end) {
+      try { if (cond()) return true; } catch (e) { /* pas encore prêt */ }
+      await sleep(50);
+    }
+    return false;
+  }
 
   function check(group, name, ok, detail = "") {
     results.push({ group, name, ok: !!ok, detail });
@@ -108,7 +117,7 @@
 
   async function testLogic() {
     const g = "logique";
-    const f = await load("../index.html", 1280, 800);
+    const f = await load("../index.html#off", 1280, 800);
     const win = f.contentWindow, doc = f.contentDocument;
     const TARGET = win.eval("TARGET");
 
@@ -222,9 +231,11 @@
     d.pause(false);
     d.duration = 300;
     d.show(0);
-    await sleep(450);
+    await waitFor(() => d.index === 1, 15000);
     check(g, "rotation automatique toute seule", d.index === 1, `index ${d.index}`);
-    await sleep(300);
+    // Relance une minuterie neuve : dans un onglet caché, Chrome bride les minuteries enchaînées à 1/min
+    d.show(d.index);
+    await waitFor(() => d.index === 2 % d.count, 15000);
     check(g, "la rotation continue (et reboucle)", d.index === 2 % d.count, `index ${d.index}`);
     d.pause(true);
     const before = d.index;
@@ -237,7 +248,7 @@
     f.remove();
 
     // Mode Silk
-    const fs = await load("../index.html#simple", 1280, 800);
+    const fs = await load("../index.html#off,simple", 1280, 800);
     check(g, "mode simple (Silk) activé avec #simple", fs.contentDocument.documentElement.classList.contains("simple"));
     const pic = fs.contentDocument.querySelector("figure img");
     check(g, "mode simple : pas de zoom sur les photos", fs.contentWindow.getComputedStyle(pic).animationName === "none");
@@ -250,7 +261,7 @@
     localStorage.removeItem("matdora-demo");
 
     // Sans Supabase ni #mock : l'écran garde ses 4 slides fixes
-    const off = await load("../index.html", 1280, 800);
+    const off = await load("../index.html#off", 1280, 800);
     check(g, "sans configuration : 4 slides fixes seulement", off.contentWindow.deck.ids.join() === "dora,pause,jira,rdv", off.contentWindow.deck.ids.join());
     off.remove();
 
@@ -281,16 +292,16 @@
     check(g, "vote : 3 restos affichés", vd.querySelectorAll(".option").length === 3);
     vd.getElementById("name").value = "  Resto   du test ";
     vd.getElementById("propose").dispatchEvent(new vw.Event("submit", { cancelable: true }));
-    await sleep(300);
+    await waitFor(() => vd.querySelector(".option.mine .name").textContent === "Resto du test");
     const mine = vd.querySelector(".option.mine .name");
     check(g, "vote : proposer ajoute le resto avec mon vote", vd.querySelectorAll(".option").length === 4 && mine && mine.textContent === "Resto du test", mine ? mine.textContent : "aucun vote");
     vd.getElementById("name").value = "resto du TEST";
     vd.getElementById("propose").dispatchEvent(new vw.Event("submit", { cancelable: true }));
-    await sleep(200);
+    await waitFor(() => vd.getElementById("status").classList.contains("error"));
     check(g, "vote : doublon refusé avec un message", vd.getElementById("status").classList.contains("error") && vd.querySelectorAll(".option").length === 4, vd.getElementById("status").textContent);
     const sushi = [...vd.querySelectorAll(".option")].filter(b => b.textContent.indexOf("Sushi") !== -1)[0];
     sushi.click();
-    await sleep(300);
+    await waitFor(() => vd.querySelector(".option.mine .name").textContent === "Exemple : Sushi");
     const mine2 = vd.querySelector(".option.mine .name");
     check(g, "vote : changer d'avis déplace mon vote", mine2 && mine2.textContent === "Exemple : Sushi" && vd.querySelectorAll(".option.mine").length === 1, mine2 ? mine2.textContent : "");
     vote.remove();
@@ -306,7 +317,7 @@
     check(g, "dashboard : 7 slides listées", ad.querySelectorAll("#slides-list .row").length === 7);
     ad.getElementById("slide-jira").click();
     ad.getElementById("slides-save").click();
-    await sleep(150);
+    await sleep(400);
     await tw.refresh();
     check(g, "dashboard → écran : slide décochée retirée", tw.deck.ids.indexOf("jira") === -1 && tw.deck.count === 6, tw.deck.ids.join());
 
@@ -315,7 +326,7 @@
     ad.getElementById("pause-0").value = "09:30";
     ad.getElementById("pause-0").dispatchEvent(new aw.Event("change"));
     ad.getElementById("pauses-save").click();
-    await sleep(150);
+    await sleep(400);
     await tw.refresh();
     const pauseChips = [...td.querySelectorAll("#pause-list li")].map(li => li.textContent).join(" ");
     check(g, "dashboard → écran : horaires de pause mis à jour", pauseChips === "09:30 12:00 16:00", pauseChips);
@@ -326,7 +337,7 @@
     ad.getElementById("happy-date").value = `${soon.getFullYear()}-${pad(soon.getMonth() + 1)}-${pad(soon.getDate())}T19:00`;
     ad.getElementById("happy-place").value = "Bowling du centre";
     ad.getElementById("happy-form").dispatchEvent(new aw.Event("submit", { cancelable: true }));
-    await sleep(150);
+    await sleep(400);
     await tw.refresh();
     check(g, "dashboard → écran : happiness event mis à jour", td.getElementById("happy-title").textContent === "Bowling de l'équipe" && td.getElementById("happy-place").textContent.indexOf("Bowling du centre") !== -1 && td.getElementById("happy-when").textContent.indexOf("19:00") !== -1,
       `${td.getElementById("happy-title").textContent} / ${td.getElementById("happy-when").textContent}`);
@@ -352,12 +363,12 @@
     delBtn.click();
     check(g, "dashboard : suppression demande confirmation", delBtn.textContent === "Confirmer ?" && ad.querySelectorAll("#photo-grid .photo").length === 4);
     delBtn.click();
-    await sleep(150);
+    await waitFor(() => ad.querySelectorAll("#photo-grid .photo").length === 3);
     check(g, "dashboard : photo supprimée après confirmation", ad.querySelectorAll("#photo-grid .photo").length === 3);
 
     const lunchDel = ad.querySelector("#lunch-list .btn.danger");
     lunchDel.click(); lunchDel.click();
-    await sleep(150);
+    await waitFor(() => ad.querySelectorAll("#lunch-list .row").length === 3);
     check(g, "dashboard : proposition de repas retirée", ad.querySelectorAll("#lunch-list .row").length === 3);
     adm.remove();
     tv.remove();
@@ -367,6 +378,69 @@
     check(g, "Silk : pas de ?. ni ?? dans js/store.js", !/\?\.|\?\?/.test(storeSrc.replace(/\/\*[\s\S]*?\*\//g, "")));
 
     localStorage.removeItem("matdora-demo");
+  }
+
+  // Vrai Supabase : seulement avec tests/run.html#live (écrit puis efface des données de test)
+  async function testLive() {
+    const g = "Supabase réel";
+    const f = await load("../index.html", 1280, 800);
+    const w = f.contentWindow, s = w.MatDoraStore;
+    check(g, "config.js branché sur Supabase", s.mode === "supabase", s.mode);
+    if (s.mode !== "supabase") { f.remove(); return; }
+    w.deck.pause(true);
+    await w.refresh();
+    check(g, "l'écran charge les données sans erreur", w.deck.ids.indexOf("lunch") !== -1, w.deck.ids.join());
+
+    const settings = await s.getSettings();
+    check(g, "lecture des réglages", Array.isArray(settings.slides) && settings.slides.length === 7);
+
+    const day = s.today();
+    const name = "Test automatique MatDora " + Date.now().toString(36);
+    let option = null;
+    try {
+      option = await s.propose(day, name);
+      check(g, "proposer un resto", !!option && option.name === name);
+      await s.vote(day, option.id, "test-auto");
+      await s.vote(day, option.id, "test-auto");  // revoter ne doit pas doubler
+      const data = await s.lunch(day, "test-auto");
+      const mine = data.options.filter(o => o.id === option.id)[0];
+      check(g, "voter (une seule voix par personne)", mine && mine.votes === 1 && data.myVote === option.id, mine ? `${mine.votes} vote(s)` : "introuvable");
+      let refused = false;
+      try { await s.propose(day, name); } catch (e) { refused = /déjà proposé/.test(e.message); }
+      check(g, "doublon refusé", refused);
+    } catch (e) {
+      check(g, "repas : écriture", false, String(e));
+    } finally {
+      if (option) await s.deleteOption(option.id);
+    }
+    const after = await s.lunch(day, "test-auto");
+    check(g, "nettoyage : resto de test supprimé (et son vote)", !after.options.some(o => o.name === name) && after.myVote === null);
+
+    let photo = null;
+    try {
+      const c = document.createElement("canvas");
+      c.width = 64; c.height = 48;
+      c.getContext("2d").fillRect(0, 0, 64, 48);
+      const blob = await new Promise(r => c.toBlob(r, "image/jpeg", 0.8));
+      photo = await s.addPhoto(blob, "Photo de test automatique", "Tests");
+      const res = await fetch(photo.url);
+      check(g, "photo envoyée et visible publiquement", res.ok && (await s.listPhotos()).some(p => p.id === photo.id), `HTTP ${res.status}`);
+    } catch (e) {
+      check(g, "photo : envoi", false, String(e));
+    } finally {
+      if (photo) await s.deletePhoto(photo);
+    }
+    if (photo) {
+      const cfg = w.MATDORA_CONFIG;
+      const objects = await (await fetch(`${cfg.supabaseUrl}/storage/v1/object/list/photos`, {
+        method: "POST",
+        headers: { apikey: cfg.supabaseKey, Authorization: "Bearer " + cfg.supabaseKey, "Content-Type": "application/json" },
+        body: JSON.stringify({ prefix: "", limit: 1000 })
+      })).json();
+      check(g, "nettoyage : photo de test supprimée (base et fichier)", !(await s.listPhotos()).some(p => p.id === photo.id) && !objects.some(o => o.name === photo.path),
+        `${objects.length} fichier(s) dans le bucket`);
+    }
+    f.remove();
   }
 
   function report() {
@@ -388,6 +462,7 @@
 
   (async () => {
     try {
+      if (location.hash === "#live") await testLive();
       await testLogic();
       await testData();
       localStorage.removeItem("matdora-demo");
