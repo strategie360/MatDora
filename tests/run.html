@@ -76,10 +76,13 @@
         check(g, `diapo ${k + 1} (${label}) : contenu non coupé`,
           inner.scrollHeight <= inner.clientHeight + 1 && inner.scrollWidth <= inner.clientWidth + 1,
           `${inner.scrollWidth}×${inner.scrollHeight} dans ${inner.clientWidth}×${inner.clientHeight}`);
-        const bar = doc.querySelector(".bar").getBoundingClientRect();
-        const first = inner.firstElementChild.getBoundingClientRect();
-        if (k > 0) check(g, `diapo ${k + 1} (${label}) : titre sous la barre du haut`, first.top >= bar.bottom - 1,
-          `titre à ${Math.round(first.top)}px, barre jusqu'à ${Math.round(bar.bottom)}px`);
+        // Le contenu ne passe pas sous la barre de progression
+        const bar = doc.getElementById("progress").getBoundingClientRect();
+        const lowest = Math.max(...[...inner.querySelectorAll("*")]
+          .filter(el => el.getClientRects().length && !el.closest("figure"))
+          .map(el => el.getBoundingClientRect().bottom));
+        check(g, `diapo ${k + 1} (${label}) : rien sous la barre de progression`, lowest <= bar.top + 6,
+          `contenu jusqu'à ${Math.round(lowest)}px, barre à ${Math.round(bar.top)}px`);
       }
       // Rien ne dépasse à droite (texte trop long, grille trop large) ;
       // un élément rogné par un parent en overflow hidden (zoom des photos) ne compte pas
@@ -115,13 +118,56 @@
     const expected = Math.max(0, Math.floor((TARGET - Date.now()) / 1000));
     check(g, "compte à rebours juste (±2 s)", Math.abs(shownSec - expected) <= 2, `affiché ${shownSec} s, attendu ${expected} s`);
     check(g, "heures/minutes/secondes dans les bornes", shown[1] < 24 && shown[2] < 60 && shown[3] < 60, shown.join(":"));
-    check(g, "rappel en haut cohérent", doc.getElementById("mini").textContent.startsWith(`${shown[0]} j `), doc.getElementById("mini").textContent);
 
     // Textes clés
     const text = doc.body.textContent;
-    for (const word of ["Matthieu", "Dounia", "Dora", "Eurasier", "Dimanche"]) {
+    for (const word of ["Matthieu", "Dounia", "Dora", "Eurasier", "Dimanche", "Prochaine pause"]) {
       check(g, `le texte mentionne « ${word} »`, text.includes(word));
     }
+
+    // Pile de photos : toucher change de photo, sans changer de slide
+    win.deck.pause(true);
+    win.deck.show(0);
+    const topBefore = doc.querySelector('figure[data-pos="0"] img').getAttribute("src");
+    doc.getElementById("stack").dispatchEvent(new win.PointerEvent("pointerup", { bubbles: true }));
+    await sleep(1100);
+    const topAfter = doc.querySelector('figure[data-pos="0"] img').getAttribute("src");
+    check(g, "toucher la pile change de photo", topAfter !== topBefore, `${topBefore} → ${topAfter}`);
+    check(g, "toucher la pile ne change pas de slide", win.deck.index === 0, `index ${win.deck.index}`);
+    check(g, "la pile garde 3 photos bien rangées", ["0", "1", "2"].every(p => doc.querySelectorAll(`figure[data-pos="${p}"]`).length === 1));
+
+    // Slide Pause : prochaine pause selon l'heure (10:00, 12:00, 16:00, lundi → vendredi)
+    const at = s => new win.Date(s);  // dates locales, comme sur l'écran
+    const hm = t => `${String(t.getHours()).padStart(2, "0")}:${String(t.getMinutes()).padStart(2, "0")}`;
+    const cases = [
+      ["mardi 08:00 → 10:00 aujourd'hui", "2026-11-03T08:00:00", "2026-11-03", "10:00", "Aujourd'hui"],
+      ["mardi 10:00 pile → 12:00", "2026-11-03T10:00:00", "2026-11-03", "12:00", "Aujourd'hui"],
+      ["mardi 11:59 → 12:00", "2026-11-03T11:59:00", "2026-11-03", "12:00", "Aujourd'hui"],
+      ["mardi 13:00 → 16:00", "2026-11-03T13:00:00", "2026-11-03", "16:00", "Aujourd'hui"],
+      ["mardi 17:00 → demain 10:00", "2026-11-03T17:00:00", "2026-11-04", "10:00", "Demain"],
+      ["vendredi 17:00 → lundi 10:00", "2026-11-06T17:00:00", "2026-11-09", "10:00", "Lundi"],
+      ["samedi 11:00 → lundi 10:00", "2026-11-07T11:00:00", "2026-11-09", "10:00", "Lundi"],
+      ["dimanche 23:00 → demain 10:00", "2026-11-08T23:00:00", "2026-11-09", "10:00", "Demain"],
+    ];
+    for (const [name, now, date, time, label] of cases) {
+      const t = win.nextPause(at(now));
+      const gotDate = `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, "0")}-${String(t.getDate()).padStart(2, "0")}`;
+      const gotLabel = win.dayLabel(t, at(now));
+      check(g, `pause : ${name}`, gotDate === date && hm(t) === time && gotLabel === label, `${gotLabel} ${gotDate} ${hm(t)}`);
+    }
+
+    // Affichage de la slide Pause à un instant donné
+    win.renderPause(at("2026-11-03T10:36:20"));
+    check(g, "pause affichée : 12:00", doc.getElementById("pause-time").textContent === "12:00", doc.getElementById("pause-time").textContent);
+    check(g, "pause affichée : dans 1 h 23 min 40 s", doc.getElementById("pause-in").textContent === "dans 1 h 23 min 40 s", doc.getElementById("pause-in").textContent);
+    const states = [...doc.querySelectorAll("#pause-list li")].map(li => `${li.textContent}:${li.className || "à venir"}`).join(" ");
+    check(g, "pauses du jour : 10:00 passée, 12:00 prochaine, 16:00 à venir", states === "10:00:past 12:00:next 16:00:à venir", states);
+    win.renderPause(at("2026-11-03T11:59:30"));
+    check(g, "moins d'une heure : dans 0 min 30 s", doc.getElementById("pause-in").textContent === "dans 0 min 30 s", doc.getElementById("pause-in").textContent);
+    win.renderPause(at("2026-11-06T17:00:00"));
+    check(g, "vendredi soir : lundi, dans 2 j 17 h 00 min", doc.getElementById("pause-day").textContent === "Lundi" && doc.getElementById("pause-in").textContent === "dans 2 j 17 h 00 min",
+      `${doc.getElementById("pause-day").textContent} / ${doc.getElementById("pause-in").textContent}`);
+    win.renderPause();
 
     // Navigation
     const d = win.deck;
@@ -142,7 +188,7 @@
     await sleep(450);
     check(g, "rotation automatique toute seule", d.index === 1, `index ${d.index}`);
     await sleep(300);
-    check(g, "la rotation continue", d.index === 2, `index ${d.index}`);
+    check(g, "la rotation continue (et reboucle)", d.index === 2 % d.count, `index ${d.index}`);
     d.pause(true);
     const before = d.index;
     await sleep(450);
@@ -156,7 +202,7 @@
     // Mode Silk
     const fs = await load("../index.html#simple", 1280, 800);
     check(g, "mode simple (Silk) activé avec #simple", fs.contentDocument.documentElement.classList.contains("simple"));
-    const pic = fs.contentDocument.querySelector(".s-photo .pic");
+    const pic = fs.contentDocument.querySelector("figure img");
     check(g, "mode simple : pas de zoom sur les photos", fs.contentWindow.getComputedStyle(pic).animationName === "none");
     fs.remove();
   }

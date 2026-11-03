@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bagel+Fat+One&family=Nunito:wght@400;600;800&display=swap">
 <style>
-  /* Layout: diaporama plein écran qui tourne tout seul — compte à rebours, photos, la race, la check-list */
+  /* Layout: slides plein écran qui tournent toutes seules ; chaque slide est une <section class="slide"> autonome */
   :root {
     --bg: #fbf3e8;          /* crème de sous-poil */
     --surface: #ffffff;
@@ -16,9 +16,7 @@
     --fur: #c9874a;         /* fauve de Dora */
     --tongue: #e58aa0;      /* langue rose */
     --line: #ead9c4;
-    --bar-bg: rgba(251, 243, 232, .82);
-    --photo-bg: #2b231d;
-    --on-photo: #fff8ef;
+    --track: rgba(138, 111, 92, .3);
     --display: "Bagel Fat One", "Arial Rounded MT Bold", system-ui, sans-serif;
     --body: "Nunito", system-ui, -apple-system, "Segoe UI", sans-serif;
     --gutter-l: max(16px, env(safe-area-inset-left, 0px));
@@ -27,15 +25,13 @@
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
       --bg: #1f1915; --surface: #2b231d; --fg: #f5e9da; --muted: #bba48f;
-      --fur: #e0a368; --tongue: #f09fb3; --line: #3e3229;
-      --bar-bg: rgba(31, 25, 21, .82); --photo-bg: #120e0b;
+      --fur: #e0a368; --tongue: #f09fb3; --line: #3e3229; --track: rgba(187, 164, 143, .25);
       color-scheme: dark;
     }
   }
   :root[data-theme="dark"] {
     --bg: #1f1915; --surface: #2b231d; --fg: #f5e9da; --muted: #bba48f;
-    --fur: #e0a368; --tongue: #f09fb3; --line: #3e3229;
-    --bar-bg: rgba(31, 25, 21, .82); --photo-bg: #120e0b;
+    --fur: #e0a368; --tongue: #f09fb3; --line: #3e3229; --track: rgba(187, 164, 143, .25);
     color-scheme: dark;
   }
 
@@ -50,32 +46,7 @@
     overflow: hidden;
   }
 
-  /* Barre du haut : rappel du compte à rebours, cachée sur la diapo principale */
-  .bar {
-    position: fixed;
-    top: 0; left: 0; right: 0;
-    z-index: 5;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 12px;
-    padding-top: calc(10px + env(safe-area-inset-top, 0px));
-    padding-bottom: 10px;
-    padding-left: var(--gutter-l);
-    padding-right: var(--gutter-r);
-    background: var(--bar-bg);
-    transition: opacity .5s ease;
-  }
-  body[data-slide="0"] .bar { opacity: 0; pointer-events: none; }
-  .brand { font-family: var(--display); color: var(--fur); font-size: 1.1rem; line-height: 1.1; }
-  .mini {
-    font-weight: 800;
-    font-variant-numeric: tabular-nums;
-    font-size: .9rem;
-    white-space: nowrap;
-  }
-
-  /* Diapos */
+  /* ---------- Diaporama ---------- */
   .deck {
     position: relative;
     height: 100%;
@@ -91,9 +62,6 @@
     opacity: 0;
     visibility: hidden;
     transition: opacity .8s ease, visibility 0s linear .8s;
-    display: flex;
-    align-items: center;
-    justify-content: center;
   }
   .slide.active {
     opacity: 1;
@@ -102,191 +70,14 @@
   }
   .inner {
     box-sizing: border-box;
-    width: 100%;
-    max-width: 980px;
-    max-height: 100%;
+    height: 100%;
+    margin: 0 auto;
     overflow: hidden;
-    padding-top: 64px;
+    padding-top: 20px;
     padding-bottom: 40px;
     padding-left: var(--gutter-l);
     padding-right: var(--gutter-r);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: clamp(12px, 3vh, 28px);
     text-align: center;
-  }
-  .s-count .inner { padding-top: 24px; }
-
-  .eyebrow {
-    font-weight: 800;
-    text-transform: uppercase;
-    letter-spacing: .14em;
-    font-size: .8rem;
-    color: var(--muted);
-  }
-  h1, h2 {
-    font-family: var(--display);
-    font-weight: 400;
-    line-height: 1;
-    margin: 0;
-    text-wrap: balance;
-    color: var(--fur);
-  }
-  h1 { font-size: clamp(2.2rem, min(8vw, 11vh), 5.4rem); margin-top: 8px; }
-  h2 { font-size: clamp(1.8rem, min(6vw, 7vh), 3.4rem); }
-  h1 .who { color: var(--fg); }
-  .lede {
-    margin: 12px auto 0;
-    max-width: 36ch;
-    font-size: clamp(1rem, 2.4vh, 1.2rem);
-    color: var(--muted);
-  }
-  .lede strong { color: var(--fg); }
-
-  .clock {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 12px;
-    width: 100%;
-    max-width: 680px;
-  }
-  .unit {
-    background: var(--surface);
-    border: 2px solid var(--line);
-    border-radius: 999px 999px 28px 28px;  /* forme de coussinet */
-    padding: clamp(12px, 3vh, 26px) 6px clamp(10px, 2vh, 18px);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 2px;
-  }
-  .num {
-    font-family: var(--display);
-    font-size: clamp(1.8rem, min(8vw, 9vh), 4.2rem);
-    line-height: 1;
-    font-variant-numeric: tabular-nums;
-  }
-  .lbl {
-    font-size: .75rem;
-    font-weight: 800;
-    text-transform: uppercase;
-    letter-spacing: .1em;
-    color: var(--muted);
-  }
-  .unit.sec .num { color: var(--fur); }
-  .when { font-weight: 600; color: var(--muted); margin: 0; }
-  .done {
-    font-family: var(--display);
-    font-size: clamp(2rem, 7vw, 3.6rem);
-    color: var(--tongue);
-    line-height: 1.1;
-    margin: 0;
-    text-wrap: balance;
-  }
-
-  /* Diapos photo : photo entière au centre, la même en flou derrière */
-  .s-photo { background: var(--photo-bg); }
-  .s-photo .bg {
-    position: absolute;
-    inset: -40px;
-    width: calc(100% + 80px);
-    height: calc(100% + 80px);
-    object-fit: cover;
-    filter: blur(28px) brightness(.6);
-  }
-  .s-photo .frame {
-    position: relative;
-    height: 100%;
-    width: 100%;
-    overflow: hidden;
-  }
-  .s-photo .pic {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-    /* Zoom lent en continu sur toutes les photos : rien ne "saute" au changement de diapo */
-    animation: kenburns 9s ease-in-out infinite alternate;
-    will-change: transform;
-    backface-visibility: hidden;
-    -webkit-backface-visibility: hidden;
-  }
-  .s-photo:nth-of-type(3) .pic { animation-delay: -3s; }
-  .s-photo:nth-of-type(4) .pic { animation-delay: -6s; }
-  @keyframes kenburns {
-    from { transform: scale(1); }
-    to   { transform: scale(1.08); }
-  }
-  .cap {
-    position: absolute;
-    left: 0; right: 0; bottom: 0;
-    margin: 0;
-    padding-top: 60px;
-    padding-bottom: 36px;
-    padding-left: var(--gutter-l);
-    padding-right: var(--gutter-r);
-    background: linear-gradient(transparent, rgba(0, 0, 0, .55));
-    color: var(--on-photo);
-    font-family: var(--display);
-    font-size: clamp(1.4rem, min(5vw, 5vh), 2.4rem);
-    line-height: 1.1;
-    text-align: left;
-  }
-
-  /* Diapo "Eurasier" */
-  .facts {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: clamp(8px, 2vh, 16px);
-    width: 100%;
-    max-width: 760px;
-    margin: 0;
-    text-align: left;
-  }
-  .fact {
-    background: var(--surface);
-    border: 2px solid var(--line);
-    border-radius: 16px;
-    padding: clamp(8px, 1.8vh, 14px) 16px;
-    min-width: 0;
-  }
-  .fact dt {
-    font-size: .72rem;
-    font-weight: 800;
-    text-transform: uppercase;
-    letter-spacing: .1em;
-    color: var(--muted);
-  }
-  .fact dd { margin: 2px 0 0; font-weight: 600; font-size: clamp(.9rem, 2.2vh, 1.05rem); line-height: 1.35; }
-
-  /* Diapo check-list */
-  .checklist {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: clamp(8px, 1.8vh, 14px) 24px;
-    width: 100%;
-    max-width: 720px;
-    text-align: left;
-  }
-  .checklist li {
-    display: flex;
-    gap: 12px;
-    align-items: center;
-    font-weight: 600;
-    font-size: clamp(.95rem, 2.4vh, 1.15rem);
-    min-width: 0;
-  }
-  .checklist li::before {
-    content: "";
-    flex: none;
-    width: 20px; height: 20px;
-    border-radius: 50% 50% 45% 45%;
-    border: 3px solid var(--fur);
   }
 
   /* Barre de progression façon "stories" */
@@ -306,119 +97,338 @@
     flex: 1;
     height: 4px;
     border-radius: 2px;
-    background: rgba(138, 111, 92, .3);
+    background: var(--track);
     overflow: hidden;
   }
   .seg i { display: block; height: 100%; width: 0; background: var(--fur); }
   .seg.done i { width: 100%; }
-  .seg.active i { animation: fill var(--dur, 8s) linear forwards; }
+  .seg.active i { animation: fill var(--dur, 15s) linear forwards; }
   .paused .seg.active i { animation-play-state: paused; }
   @keyframes fill { from { width: 0; } to { width: 100%; } }
+
+  /* ---------- Éléments communs ---------- */
+  .eyebrow {
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .14em;
+    font-size: .8rem;
+    color: var(--muted);
+  }
+  h1, h2 {
+    font-family: var(--display);
+    font-weight: 400;
+    line-height: 1;
+    margin: 8px 0 0;
+    text-wrap: balance;
+    color: var(--fur);
+  }
+  h1 { font-size: clamp(2rem, min(7vw, 9vh), 4.8rem); }
+  h2 { font-size: clamp(1.8rem, min(6vw, 7vh), 3.4rem); }
+  .lede {
+    margin: 14px auto 0;
+    max-width: 34ch;
+    font-size: clamp(1rem, 2.4vh, 1.15rem);
+    color: var(--muted);
+  }
+  .lede strong { color: var(--fg); }
+  .clock {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+    width: 100%;
+    max-width: 640px;
+  }
+  .unit {
+    background: var(--surface);
+    border: 2px solid var(--line);
+    border-radius: 999px 999px 28px 28px;  /* forme de coussinet */
+    padding: clamp(12px, 2.6vh, 22px) 6px clamp(10px, 2vh, 16px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+  }
+  .num {
+    font-family: var(--display);
+    font-size: clamp(1.6rem, min(6vw, 7vh), 3.4rem);
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+  .lbl {
+    font-size: .75rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    color: var(--muted);
+  }
+  .unit.sec .num { color: var(--fur); }
+
+  /* ---------- Slide Dora : infos à gauche, pile de photos à droite ---------- */
+  .s-dora .inner {
+    max-width: 1120px;
+    display: grid;
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+    align-items: center;
+    gap: 32px;
+  }
+  .s-dora h1 .who { color: var(--fg); }
+  .info {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: clamp(14px, 3.5vh, 32px);
+    min-width: 0;
+  }
+  #countdown { width: 100%; display: flex; justify-content: center; }
+  .when { font-weight: 600; color: var(--muted); margin: 0; }
+  .done {
+    font-family: var(--display);
+    font-size: clamp(2rem, 7vw, 3.4rem);
+    color: var(--tongue);
+    line-height: 1.1;
+    margin: 0;
+    text-wrap: balance;
+  }
+  .note { font-size: .85rem; color: var(--muted); margin: 0; }
+
+  /* Pile de tirages : la photo du dessus s'envole et repasse derrière */
+  .photos {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    height: 100%;
+    min-height: 0;
+    min-width: 0;
+  }
+  .stack {
+    position: relative;
+    height: min(calc(100% - 40px), 560px);
+    width: auto;
+    max-width: calc(100% - 90px);  /* marge pour les photos inclinées derrière */
+    aspect-ratio: 34 / 39;
+    cursor: pointer;
+  }
+  .stack:focus-visible { outline: 3px solid var(--fur); outline-offset: 10px; border-radius: 8px; }
+  figure {
+    margin: 0;
+    position: absolute;
+    inset: 0;
+    background: var(--surface);
+    padding: 12px 12px 14px;
+    border-radius: 6px;
+    box-shadow: 0 14px 30px -14px rgba(58, 42, 31, .55);
+    display: flex;
+    flex-direction: column;
+    transition: transform .55s cubic-bezier(.2, .8, .2, 1), opacity .45s ease;
+    /* Couche GPU dédiée : évite scintillement et bords crénelés (Silk, vieux Chromium) */
+    will-change: transform, opacity;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    outline: 1px solid transparent;
+  }
+  figure[data-pos="0"] { z-index: 3; transform: rotate(-2deg); }
+  figure[data-pos="1"] { z-index: 2; transform: translate(14px, 8px) rotate(5deg); }
+  figure[data-pos="2"] { z-index: 1; transform: translate(-14px, 12px) rotate(-8deg); }
+  figure.fly { z-index: 4; transform: translate(130%, -30px) rotate(20deg); opacity: 0; }
+  .frame {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    border-radius: 3px;
+    transform: translateZ(0);  /* garde le zoom bien rogné pendant l'animation */
+  }
+  figure img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    /* Zoom lent sur toutes les photos en continu, pour qu'aucune ne "saute" en changeant de place */
+    animation: kenburns 7s ease-in-out infinite alternate;
+    will-change: transform;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+  }
+  figure:nth-child(2) img { animation-delay: -2.3s; }
+  figure:nth-child(3) img { animation-delay: -4.6s; }
+  @keyframes kenburns {
+    from { transform: scale(1) translate(0, 0); }
+    to   { transform: scale(1.12) translate(-2%, -3%); }
+  }
+  figcaption { margin-top: 8px; font-weight: 600; font-size: .9rem; color: var(--muted); }
+  .dots { display: flex; gap: 8px; }
+  .dots span {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--line);
+    transition: background .3s, transform .3s;
+  }
+  .dots span.on { background: var(--fur); transform: scale(1.3); }
+  @supports not (aspect-ratio: 1) {
+    .stack { width: min(320px, calc(100% - 30px)); }
+  }
+
+  /* ---------- Slide Pause ---------- */
+  .s-pause .inner {
+    max-width: 900px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(14px, 3.5vh, 32px);
+  }
+  .big-time {
+    font-family: var(--display);
+    font-size: clamp(4.5rem, min(22vw, 26vh), 13rem);
+    line-height: .9;
+    font-variant-numeric: tabular-nums;
+    color: var(--fg);
+    margin: 0;
+  }
+  .day {
+    display: inline-block;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    font-size: .85rem;
+    color: var(--bg);
+    background: var(--fur);
+    border-radius: 999px;
+    padding: 4px 14px;
+  }
+  .in {
+    margin: 0;
+    font-weight: 800;
+    font-size: clamp(1.1rem, min(4vw, 3.6vh), 1.8rem);
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .in strong { color: var(--fur); }
+  .schedule {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 12px;
+  }
+  .schedule li {
+    font-family: var(--display);
+    font-size: clamp(1.1rem, min(4vw, 4vh), 1.7rem);
+    font-variant-numeric: tabular-nums;
+    padding: 6px 20px;
+    border-radius: 999px;
+    border: 2px solid var(--line);
+    background: var(--surface);
+    color: var(--fg);
+  }
+  .schedule li.past { color: var(--muted); text-decoration: line-through; background: transparent; }
+  .schedule li.next { border-color: var(--fur); color: var(--fur); }
 
   @keyframes wag { 0%,100% { transform: rotate(-6deg); } 50% { transform: rotate(6deg); } }
   .paw { display: inline-block; animation: wag 1.6s ease-in-out infinite; transform-origin: 50% 80%; }
 
-  @media (max-width: 640px) {
-    .facts, .checklist { grid-template-columns: minmax(0, 1fr); }
+  /* ---------- Téléphone / écran en hauteur ---------- */
+  @media (max-width: 760px), (max-aspect-ratio: 1/1) {
+    .s-dora .inner {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: auto minmax(0, 1fr);
+      gap: 12px;
+    }
+    .info { gap: clamp(8px, 2vh, 18px); }
+    .lede { font-size: 1rem; margin-top: 8px; }
+    .note { display: none; }
+  }
+  @media (max-height: 640px) and (max-aspect-ratio: 1/1) {
+    .s-dora .lede, .s-dora .eyebrow { display: none; }
+  }
+  @media (max-width: 480px) {
     .clock { gap: 8px; }
     .unit { padding-left: 2px; padding-right: 2px; border-radius: 999px 999px 20px 20px; }
     .lbl { font-size: .62rem; letter-spacing: .06em; }
-    .brand { font-size: .95rem; }
-    .mini { font-size: .8rem; }
-  }
-  @media (max-height: 700px) and (max-width: 640px) {
-    .fact:nth-child(n+5) { display: none; }
-  }
-  @media (max-height: 560px) {
-    .eyebrow, .lede { display: none; }
   }
 
-  /* Mode simple (Silk) : fondu à plat, sans zoom ni flou ; #simple pour tester */
-  .simple .s-photo .pic { animation: none; will-change: auto; }
-  .simple .s-photo .bg { display: none; }
+  /* Mode simple (Silk) : fondu enchaîné à plat, sans rotation ni zoom ; #simple pour tester */
+  .simple figure {
+    transform: none !important;
+    transition: opacity .7s ease;
+    will-change: opacity;
+  }
+  .simple figure[data-pos="1"],
+  .simple figure[data-pos="2"],
+  .simple figure.fly { opacity: 0; }
+  .simple figure img { animation: none; will-change: auto; }
 
   @media (prefers-reduced-motion: reduce) {
-    .paw, .s-photo .pic { animation: none; }
-    .slide, .slide.active { transition: none; }
+    .paw, figure img { animation: none !important; }
+    figure, .slide, .slide.active { transition: none; }
   }
 </style>
 
-<header class="bar" aria-hidden="true">
-  <span class="brand">Matthieu, Dounia &amp; Dora</span>
-  <span class="mini" id="mini">–</span>
-</header>
+<main class="deck" id="deck" aria-roledescription="diaporama">
 
-<main class="deck" id="deck" aria-roledescription="diaporama" aria-label="Dora arrive dimanche">
-  <section class="slide s-count active" aria-label="Compte à rebours">
+  <!-- Slide 1 : Dora -->
+  <section class="slide s-dora active" aria-label="Dora arrive dimanche">
     <div class="inner">
-      <header>
-        <div class="eyebrow">Eurasier · fauve · bientôt à la maison</div>
-        <h1><span class="who">Matthieu, Dounia</span> &amp; Dora</h1>
-        <p class="lede">Encore un peu de patience. <strong>Dimanche à 10 h</strong>, Dora rejoint ses parents à la maison.</p>
-      </header>
-      <div class="clock" id="clock" aria-live="polite">
-        <div class="unit"><span class="num" id="d">–</span><span class="lbl">jours</span></div>
-        <div class="unit"><span class="num" id="h">–</span><span class="lbl">heures</span></div>
-        <div class="unit"><span class="num" id="m">–</span><span class="lbl">minutes</span></div>
-        <div class="unit sec"><span class="num" id="s">–</span><span class="lbl">secondes</span></div>
+      <div class="info">
+        <header>
+          <div class="eyebrow">Eurasier · fauve · bientôt à la maison</div>
+          <h1><span class="who">Matthieu, Dounia</span> &amp; Dora</h1>
+          <p class="lede">Encore un peu de patience. <strong>Dimanche à 10 h</strong>, Dora rejoint ses parents à la maison.</p>
+        </header>
+        <div id="countdown" aria-live="polite">
+          <div class="clock" id="clock">
+            <div class="unit"><span class="num" id="d">–</span><span class="lbl">jours</span></div>
+            <div class="unit"><span class="num" id="h">–</span><span class="lbl">heures</span></div>
+            <div class="unit"><span class="num" id="m">–</span><span class="lbl">minutes</span></div>
+            <div class="unit sec"><span class="num" id="s">–</span><span class="lbl">secondes</span></div>
+          </div>
+          <p class="done" id="done" hidden>Dora est arrivée ! <span class="paw">🐾</span></p>
+        </div>
+        <p class="when" id="when">Dimanche 8 novembre 2026 · 10:00</p>
+        <p class="note">Fait pour Matthieu et Dounia, avec beaucoup de poils.</p>
       </div>
-      <p class="done" id="done" hidden>Dora est arrivée ! <span class="paw">🐾</span></p>
-      <p class="when" id="when">Dimanche 8 novembre 2026 · 10:00</p>
+      <div class="photos" aria-label="Photos de Dora">
+        <div class="stack" id="stack" tabindex="0" role="button" aria-label="Photo suivante">
+          <figure data-pos="0">
+            <div class="frame"><img src="img/2.jpg" alt="Dora, la langue tirée, dans les bras de l'éleveuse"></div>
+            <figcaption>Le sourire officiel</figcaption>
+          </figure>
+          <figure data-pos="1">
+            <div class="frame"><img src="img/1.jpg" alt="Dora assise dans l'herbe sous une barrière en bois"></div>
+            <figcaption>Regard de boule de poils</figcaption>
+          </figure>
+          <figure data-pos="2">
+            <div class="frame"><img src="img/3.jpg" alt="Dora allongée sur un lit pour chien, la queue en panache"></div>
+            <figcaption>Déjà la pose de star</figcaption>
+          </figure>
+        </div>
+        <div class="dots" id="dots" aria-hidden="true"><span class="on"></span><span></span><span></span></div>
+      </div>
     </div>
   </section>
 
-  <section class="slide s-photo" aria-label="Photo : le sourire officiel">
-    <img class="bg" src="img/2.jpg" alt="" aria-hidden="true">
-    <div class="frame"><img class="pic" src="img/2.jpg" alt="Dora, la langue tirée, dans les bras de l'éleveuse"></div>
-    <p class="cap">Le sourire officiel</p>
-  </section>
-
-  <section class="slide s-photo" aria-label="Photo : regard de boule de poils">
-    <img class="bg" src="img/1.jpg" alt="" aria-hidden="true">
-    <div class="frame"><img class="pic" src="img/1.jpg" alt="Dora assise dans l'herbe sous une barrière en bois"></div>
-    <p class="cap">Regard de boule de poils</p>
-  </section>
-
-  <section class="slide s-photo" aria-label="Photo : déjà la pose de star">
-    <img class="bg" src="img/3.jpg" alt="" aria-hidden="true">
-    <div class="frame"><img class="pic" src="img/3.jpg" alt="Dora allongée sur un lit pour chien, la queue en panache"></div>
-    <p class="cap">Déjà la pose de star</p>
-  </section>
-
-  <section class="slide s-breed" aria-label="L'Eurasier">
+  <!-- Slide 2 : prochaine pause avec l'équipe -->
+  <section class="slide s-pause" aria-label="Prochaine pause">
     <div class="inner">
-      <h2>Une Eurasier, c'est quoi&nbsp;?</h2>
-      <dl class="facts">
-        <div class="fact"><dt>Origine</dt><dd>Allemagne, années 1960</dd></div>
-        <div class="fact"><dt>Le nom</dt><dd>Euro + Asie : un mélange des deux</dd></div>
-        <div class="fact"><dt>Ancêtres</dt><dd>Wolfspitz, Chow-chow et Samoyède</dd></div>
-        <div class="fact"><dt>Caractère</dt><dd>Calme, doux, très attachée à sa famille</dd></div>
-        <div class="fact"><dt>Taille adulte</dt><dd>Environ 48 à 56 cm pour une femelle</dd></div>
-        <div class="fact"><dt>Espérance de vie</dt><dd>12 à 14 ans de câlins</dd></div>
-      </dl>
+      <div>
+        <div class="eyebrow">Pause avec l'équipe</div>
+        <h2>Prochaine pause</h2>
+      </div>
+      <span class="day" id="pause-day">Aujourd'hui</span>
+      <p class="big-time" id="pause-time">–</p>
+      <p class="in" id="pause-in">dans <strong>–</strong></p>
+      <ul class="schedule" id="pause-list"></ul>
     </div>
   </section>
 
-  <section class="slide s-ready" aria-label="Avant dimanche">
-    <div class="inner">
-      <h2>Avant dimanche</h2>
-      <ul class="checklist">
-        <li>Un panier bien moelleux</li>
-        <li>Gamelles eau et croquettes</li>
-        <li>Les croquettes de l'éleveur</li>
-        <li>Collier, harnais et laisse</li>
-        <li>Des jouets à mâchouiller</li>
-        <li>Un rendez-vous chez le véto</li>
-      </ul>
-    </div>
-  </section>
 </main>
 
 <nav class="progress" id="progress" aria-hidden="true"></nav>
 
 <script>
-  // Dimanche 8 novembre 2026, 10:00 heure de Paris (CET, UTC+1)
-  const TARGET = new Date("2026-11-08T10:00:00+01:00").getTime();
   const $ = id => document.getElementById(id);
   const pad = n => String(n).padStart(2, "0");
 
@@ -426,31 +436,116 @@
     document.documentElement.classList.add("simple");
   }
 
-  // Compte à rebours
+  /* ---------- Slide Dora : compte à rebours ---------- */
+  // Dimanche 8 novembre 2026, 10:00 heure de Paris (CET, UTC+1)
+  const TARGET = new Date("2026-11-08T10:00:00+01:00").getTime();
+
   function render(now = Date.now()) {
     const left = TARGET - now;
     if (left <= 0) {
       $("clock").hidden = true;
       $("done").hidden = false;
       $("when").textContent = "Bienvenue à la maison, Dora.";
-      $("mini").textContent = "Dora est arrivée !";
-      document.title = "Dora est arrivée !";
       return false;
     }
     const s = Math.floor(left / 1000);
-    const d = Math.floor(s / 86400), h = Math.floor(s / 3600) % 24, m = Math.floor(s / 60) % 60;
-    $("d").textContent = d;
-    $("h").textContent = pad(h);
-    $("m").textContent = pad(m);
+    $("d").textContent = Math.floor(s / 86400);
+    $("h").textContent = pad(Math.floor(s / 3600) % 24);
+    $("m").textContent = pad(Math.floor(s / 60) % 60);
     $("s").textContent = pad(s % 60);
-    $("mini").textContent = `${d} j ${pad(h)} h ${pad(m)} min ${pad(s % 60)} s`;
     return true;
   }
-  if (render()) {
-    const clockTimer = setInterval(() => { if (!render()) clearInterval(clockTimer); }, 1000);
+
+  /* ---------- Slide Dora : pile de photos ---------- */
+  const stack = $("stack");
+  const cards = [...stack.querySelectorAll("figure")];
+  const dots = [...$("dots").children];
+  const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  let current = 0, busy = false;
+
+  function nextPhoto() {
+    if (busy) return;
+    busy = true;
+    const top = cards.find(c => c.dataset.pos === "0");
+    top.classList.add("fly");
+    cards.forEach(c => { if (c !== top) c.dataset.pos = Number(c.dataset.pos) - 1; });
+    current = (current + 1) % cards.length;
+    dots.forEach((d, i) => d.classList.toggle("on", i === current));
+    setTimeout(() => {
+      // Repasse derrière sans traverser l'écran : la position change d'un coup, seule l'opacité est animée
+      top.style.transition = "opacity .45s ease";
+      top.classList.remove("fly");
+      top.dataset.pos = cards.length - 1;
+      setTimeout(() => { top.style.transition = ""; busy = false; }, 500);
+    }, reduceMotion ? 0 : 450);
+  }
+  if (!reduceMotion) setInterval(nextPhoto, 4000);
+  // Toucher la pile change de photo sans changer de slide
+  stack.addEventListener("pointerup", e => { e.stopPropagation(); nextPhoto(); });
+  stack.addEventListener("pointerdown", e => e.stopPropagation());
+  stack.addEventListener("keydown", e => {
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); nextPhoto(); }
+  });
+
+  /* ---------- Slide Pause ---------- */
+  const PAUSES = [[10, 0], [12, 0], [16, 0]];  // heures des pauses, heure locale
+  const WORKDAYS = [1, 2, 3, 4, 5];            // lundi → vendredi
+
+  function nextPause(now = new Date()) {
+    for (let add = 0; add < 8; add++) {
+      const day = new Date(now.getFullYear(), now.getMonth(), now.getDate() + add);
+      if (!WORKDAYS.includes(day.getDay())) continue;
+      for (const [h, m] of PAUSES) {
+        const t = new Date(day.getFullYear(), day.getMonth(), day.getDate(), h, m);
+        if (t > now) return t;
+      }
+    }
   }
 
-  // Diaporama
+  function dayLabel(t, now) {
+    const days = Math.round((new Date(t.getFullYear(), t.getMonth(), t.getDate()) - new Date(now.getFullYear(), now.getMonth(), now.getDate())) / 86400000);
+    if (days === 0) return "Aujourd'hui";
+    if (days === 1) return "Demain";
+    const name = t.toLocaleDateString("fr-FR", { weekday: "long" });
+    return name.charAt(0).toUpperCase() + name.slice(1);
+  }
+
+  function duration(ms) {
+    const s = Math.floor(ms / 1000);
+    const d = Math.floor(s / 86400), h = Math.floor(s / 3600) % 24, m = Math.floor(s / 60) % 60;
+    if (d > 0) return `${d} j ${h} h ${pad(m)} min`;
+    if (h > 0) return `${h} h ${pad(m)} min ${pad(s % 60)} s`;
+    return `${m} min ${pad(s % 60)} s`;
+  }
+
+  const pauseItems = PAUSES.map(([h, m]) => {
+    const li = document.createElement("li");
+    li.textContent = `${pad(h)}:${pad(m)}`;
+    $("pause-list").appendChild(li);
+    return li;
+  });
+
+  function renderPause(now = new Date()) {
+    const t = nextPause(now);
+    const sameDay = t.toDateString() === now.toDateString();
+    $("pause-day").textContent = dayLabel(t, now);
+    $("pause-time").textContent = `${pad(t.getHours())}:${pad(t.getMinutes())}`;
+    $("pause-in").innerHTML = `dans <strong>${duration(t - now)}</strong>`;
+    PAUSES.forEach(([h, m], i) => {
+      const isNext = h === t.getHours() && m === t.getMinutes();
+      pauseItems[i].className = isNext ? "next" : (sameDay && (h < t.getHours() || (h === t.getHours() && m < t.getMinutes())) ? "past" : "");
+    });
+  }
+
+  /* ---------- Horloge commune ---------- */
+  let doraRunning = render();
+  renderPause();
+  setInterval(() => {
+    if (doraRunning) doraRunning = render();
+    renderPause();
+  }, 1000);
+
+  /* ---------- Diaporama ---------- */
   const slides = [...document.querySelectorAll(".slide")];
   const progress = $("progress");
   const segs = slides.map(() => {
@@ -463,7 +558,7 @@
   let index = 0, timer = null, paused = false;
 
   const deck = {
-    duration: 8000,
+    duration: 15000,
     get index() { return index; },
     get count() { return slides.length; },
     show,
@@ -505,7 +600,7 @@
   document.addEventListener("keydown", e => {
     if (e.key === "ArrowRight") deck.next();
     else if (e.key === "ArrowLeft") deck.prev();
-    else if (e.key === " ") { e.preventDefault(); deck.pause(!paused); }
+    else if (e.key === " " && e.target === document.body) { e.preventDefault(); deck.pause(!paused); }
   });
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) clearTimeout(timer);
