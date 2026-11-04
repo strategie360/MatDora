@@ -324,7 +324,7 @@
             { id: "b3", name: "Exemple : Inès", day: new Date(d.getTime() + 40 * 86400000).getDate(), month: new Date(d.getTime() + 40 * 86400000).getMonth() + 1 }
           ],
           vacations: [
-            { id: "v1", name: "Exemple : Sarah", from: today(new Date(d.getTime() - 2 * 86400000)), to: today(new Date(d.getTime() + 6 * 86400000)), note: "" }
+            { id: "v1", name: "Exemple : Sarah", destination: "Japon", theme: "", from: today(new Date(d.getTime() - 2 * 86400000)), to: today(new Date(d.getTime() + 6 * 86400000)), note: "" }
           ]
         },
         photos: [
@@ -534,6 +534,35 @@
     return impl.getDraw(day);
   }
 
+  // Thèmes de la slide "Bonnes vacances", devinés d'après la destination (modifiable dans le dashboard)
+  const VACATION_THEMES = [
+    { id: "plage", label: "Plage", emoji: "🏖️🌴🍹", note: "Pendant ce temps, on garde la machine à café au chaud ☕" },
+    { id: "japon", label: "Japon", emoji: "🗾🌸🍣", note: "Rapporte-nous des mochis 🍡" },
+    { id: "montagne", label: "Montagne / ski", emoji: "🏔️⛷️☕", note: "Attention aux pistes noires !" },
+    { id: "italie", label: "Italie", emoji: "🍝🛵🍦", note: "Une glace pour nous, s'il te plaît 🍨" },
+    { id: "ville", label: "Ville", emoji: "🏙️🗺️📸", note: "Envoie-nous une carte postale !" },
+    { id: "tropiques", label: "Tropiques", emoji: "🌺🥥🐠", note: "Ramène-nous un peu de soleil ☀️" },
+    { id: "nord", label: "Grand Nord", emoji: "🌌❄️🦌", note: "Couvre-toi bien !" },
+    { id: "campagne", label: "Campagne / nature", emoji: "🌳🚲🧺", note: "Profite du grand air 🌿" }
+  ];
+  const THEME_WORDS = [
+    [/japon|tokyo|kyoto|osaka|hokkaido|okinawa/i, "japon"],
+    [/italie|rome|venise|florence|naples|sicile|sardaigne|milan|toscane|pouilles/i, "italie"],
+    [/ski|montagne|alpes|chamonix|pyrénées|pyrenees|val d|courchevel|tignes|vosges|jura|dolomites/i, "montagne"],
+    [/islande|norvège|norvege|laponie|finlande|suède|suede|canada|alaska|groenland/i, "nord"],
+    [/bali|thaïlande|thailande|maldives|réunion|reunion|martinique|guadeloupe|tahiti|caraïbes|caraibes|mexique|cuba|brésil|bresil|maurice|seychelles|polynésie|polynesie|hawaï|hawai|vietnam|philippines/i, "tropiques"],
+    [/paris|londres|london|new york|barcelone|berlin|amsterdam|lisbonne|prague|madrid|vienne|bruxelles|budapest|dublin|copenhague|séoul|seoul|ville/i, "ville"],
+    [/campagne|bretagne|normandie|camping|vélo|velo|randonnée|randonnee|auvergne|dordogne|ardèche|ardeche|gîte|gite|ferme/i, "campagne"]
+  ];
+  function guessTheme(destination) {
+    for (let i = 0; i < THEME_WORDS.length; i++) if (THEME_WORDS[i][0].test(destination || "")) return THEME_WORDS[i][1];
+    return "plage";
+  }
+  function vacationTheme(v) {
+    const id = v && v.theme ? v.theme : guessTheme(v && v.destination);
+    return VACATION_THEMES.filter(t => t.id === id)[0] || VACATION_THEMES[0];
+  }
+
   const FOOD_EMOJI = [
     [/pizz|ital|pasta|pâtes|trattoria/i, "🍕"], [/sushi|japon|ramen|izakaya/i, "🍣"], [/burger/i, "🍔"],
     [/thai|thaï|wok|nouille|pho|vietnam/i, "🍜"], [/poke|poké|salad|bowl/i, "🥗"], [/crêp|crep|galette/i, "🥞"],
@@ -549,7 +578,7 @@
 
   const lunchApi = impl ? { lunch, ensureDraw, reroll, lunchRaw: impl.lunch } : {};
   window.MatDoraStore = Object.assign(
-    { mode, SLIDES, DEFAULTS, HM_REMINDER: "Va sur le channel HM pour voter pour la date et annoncer ta présence !", today, withDefaults, storedCode, rememberCode, usernameToEmail, resizeImage, foodEmoji, openOn, drawTime, weekday, DRAW_HOUR, DRAW_MINUTE },
+    { mode, SLIDES, DEFAULTS, HM_REMINDER: "Va sur le channel HM pour voter pour la date et annoncer ta présence !", today, withDefaults, storedCode, rememberCode, usernameToEmail, resizeImage, foodEmoji, VACATION_THEMES, guessTheme, vacationTheme, openOn, drawTime, weekday, DRAW_HOUR, DRAW_MINUTE },
     impl || { getSettings: () => Promise.resolve(withDefaults(null)) },
     lunchApi
   );

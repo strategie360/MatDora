@@ -782,12 +782,79 @@
     text-align: center;
   }
   .vac-box > * + * { margin-top: clamp(8px, 2vh, 18px); }
-  .vac-icons { font-size: calc(clamp(2.4rem, min(7vw, 11vh), 5rem) * var(--scale, 1)); line-height: 1; }
+  .vac-icons { font-size: calc(clamp(2.2rem, min(6vw, 9vh), 4.4rem) * var(--scale, 1)); line-height: 1; }
   .s-vac .eyebrow { color: #1c7ed6; }
   .vac-title { font-family: var(--display); font-weight: 400; color: #0b3954; font-size: calc(clamp(2rem, min(6.4vw, 10vh), 5rem) * var(--scale, 1)); line-height: 1.02; margin: 0; text-wrap: balance; overflow-wrap: anywhere; }
   .vac-title span { color: #f08c00; }
   .vac-back { margin: 0; font-weight: 800; font-size: clamp(1rem, min(2.6vw, 2.8vh), 1.4rem); color: #1864ab; }
   .vac-note { margin: 0; font-size: clamp(.95rem, min(2.4vw, 2.6vh), 1.25rem); color: #31556b; max-width: 50ch; white-space: pre-line; }
+  .vac-dest { margin: 0; font-weight: 800; font-size: clamp(.95rem, min(2.4vw, 2.6vh), 1.25rem); color: var(--vac-accent, #1c7ed6); }
+  /* Compte à rebours avant le retour : "Plus que 9 jours à tenir" */
+  .vac-count { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; }
+  .vac-count .n {
+    font-family: var(--display);
+    font-size: calc(clamp(2.6rem, min(8vw, 13vh), 6rem) * var(--scale, 1));
+    line-height: 1;
+    color: var(--vac-accent, #f08c00);
+    font-variant-numeric: tabular-nums;
+    margin-right: 14px;
+  }
+  .vac-count .t { font-weight: 800; font-size: clamp(1rem, min(2.6vw, 2.8vh), 1.4rem); text-align: left; line-height: 1.2; }
+  .vac-multi { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; justify-content: center; }
+  .vac-multi li { margin: 4px 6px; padding: 6px 14px; border-radius: 999px; background: rgba(0, 0, 0, .06); font-weight: 800; font-size: clamp(.85rem, 2vh, 1.05rem); }
+  .s-vac .vac-title span { color: var(--vac-accent, #f08c00); }
+  .s-vac .eyebrow { color: var(--vac-accent, #1c7ed6); }
+
+  /* Thèmes selon la destination (fonds dessinés en CSS, rien d'animé) */
+  .s-vac.theme-japon {
+    --vac-accent: #c92a2a;
+    background:
+      radial-gradient(circle at 91% 13%, #e03131 0 52px, transparent 53px),
+      radial-gradient(circle, #ffc9d9 0 5px, transparent 6px) 0 0 / 120px 110px,
+      radial-gradient(circle, #ffffff 0 4px, transparent 5px) 40px 50px / 150px 140px,
+      linear-gradient(#fff0f3, #ffdeeb);
+  }
+  .s-vac.theme-montagne {
+    --vac-accent: #1971c2;
+    background:
+      linear-gradient(135deg, transparent 0 55%, #ffffff 55% 100%) 0 100% / 50% 45% no-repeat,
+      linear-gradient(225deg, transparent 0 55%, #f1f3f5 55% 100%) 100% 100% / 50% 45% no-repeat,
+      linear-gradient(#4dabf7, #d0ebff 70%, #ffffff 70%);
+  }
+  .s-vac.theme-italie {
+    --vac-accent: #2b8a3e;
+    background:
+      linear-gradient(90deg, rgba(47, 158, 68, .18) 0 33%, rgba(255, 255, 255, .2) 33% 66%, rgba(224, 49, 49, .18) 66%),
+      linear-gradient(#ffe8cc, #ffd8a8);
+  }
+  .s-vac.theme-ville {
+    --vac-accent: #7048e8;
+    background:
+      linear-gradient(90deg, #343a40 0 8%, transparent 8% 12%, #495057 12% 22%, transparent 22% 26%, #343a40 26% 33%, transparent 33% 38%, #495057 38% 50%, transparent 50% 55%, #343a40 55% 63%, transparent 63% 68%, #495057 68% 80%, transparent 80% 84%, #343a40 84% 100%) 0 100% / 100% 30% no-repeat,
+      linear-gradient(#5f3dc4, #f783ac 75%);
+  }
+  .s-vac.theme-tropiques {
+    --vac-accent: #0c8599;
+    background:
+      radial-gradient(circle at 15% 20%, #ffd43b 0 50px, transparent 51px),
+      linear-gradient(#3bc9db 0 60%, #22b8cf 60% 68%, #ffe8a3 68%);
+  }
+  .s-vac.theme-nord {
+    --vac-accent: #0ca678;
+    color: #0b3954;
+    background:
+      radial-gradient(ellipse at 30% 30%, rgba(56, 217, 169, .55) 0 25%, transparent 50%),
+      radial-gradient(ellipse at 70% 20%, rgba(132, 94, 247, .45) 0 20%, transparent 45%),
+      radial-gradient(circle, #ffffff 0 2px, transparent 3px) 0 0 / 90px 80px,
+      linear-gradient(#0b1d3a, #12355b 70%, #e7f5ff 70%);
+  }
+  .s-vac.theme-campagne {
+    --vac-accent: #2f9e44;
+    background:
+      radial-gradient(ellipse at 20% 100%, #69db7c 0 40%, transparent 41%),
+      radial-gradient(ellipse at 80% 100%, #51cf66 0 45%, transparent 46%),
+      linear-gradient(#a5d8ff, #e7f5ff 60%, #8ce99a 60%);
+  }
 
   /* ---------- Écran de code d'accès ---------- */
   .lock {
@@ -998,9 +1065,12 @@
   <section class="slide s-vac" data-id="vacation" data-tone="beach" aria-label="Bonnes vacances">
     <div class="inner" id="vac-inner">
       <div class="vac-box" id="vac-box">
-        <div class="vac-icons" aria-hidden="true">🏖️🌴🍹</div>
+        <div class="vac-icons" id="vac-icons" aria-hidden="true">🏖️🌴🍹</div>
         <div class="eyebrow">En vacances</div>
         <p class="vac-title" id="vac-title">–</p>
+        <p class="vac-dest" id="vac-dest" hidden></p>
+        <div class="vac-count" id="vac-count" hidden><span class="n" id="vac-days">–</span><span class="t" id="vac-days-text"></span></div>
+        <ul class="vac-multi" id="vac-multi" hidden></ul>
         <p class="vac-back" id="vac-back"></p>
         <p class="vac-note" id="vac-note"></p>
       </div>
@@ -1262,7 +1332,7 @@
 
   /* ---------- Slide Photos d'events : polaroïds en vrac ---------- */
   // Jusqu'à 7 photos posées en vrac (5 sur un écran en hauteur), chacune dans sa zone mais
-  // décalée et tournée au hasard. Toutes les 2 s, la plus ancienne s'efface et une autre
+  // décalée et tournée au hasard. Toutes les 3 s, la plus ancienne s'efface et une autre
   // photo se pose ailleurs dans sa zone, par-dessus les autres. Seule l'opacité est animée.
   let eventPhotos = [], pCards = [], nextPhotoIdx = 0, nextCard = 0, zTop = 1;
 
@@ -1371,7 +1441,7 @@
   });
   window.setEventPhotos = setEventPhotos;
   window.swapTile = swapTile;
-  setInterval(swapTile, 2000);
+  setInterval(swapTile, 3000);
 
   /* ---------- Slide Repas ---------- */
   let lunchData = null;
@@ -1526,21 +1596,48 @@
   }
   let vacKey = "";
   function renderVacation(now = new Date()) {
-    const key = store.today(now) + JSON.stringify(vacations);
+    const key = store.today(now) + JSON.stringify(vacations) + innerWidth + "x" + innerHeight;
     if (key === vacKey) return;
     vacKey = key;
-    const list = onVacation(now);
+    const list = onVacation(now).slice().sort((a, b) => (a.to || "9999").localeCompare(b.to || "9999"));
     if (!list.length) return;
-    const long = d => { const w = new Date(d + "T12:00:00").toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" }); return w; };
+    const long = d => new Date(d + "T12:00:00").toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
+    const left = v => v.to ? daysUntil(new Date(v.to + "T12:00:00"), now) : null;
+    // Thème : celui de la première personne (celle qui rentre le plus tôt)
+    const theme = store.vacationTheme(list[0]);
+    const slide = allSlidesVac();
+    store.VACATION_THEMES.forEach(t => slide.classList.toggle("theme-" + t.id, t.id === theme.id && t.id !== "plage"));
+    $("vac-icons").textContent = theme.emoji;
     $("vac-title").innerHTML = `Bonnes vacances, <span>${escapeHtml(joinNames(list.map(v => v.name)))}</span>&nbsp;!`;
-    const withReturn = list.filter(v => v.to);
-    $("vac-back").textContent = list.length === 1
-      ? (list[0].to ? `De retour le ${long(list[0].to)}` : "Profite bien !")
-      : withReturn.map(v => `${v.name} : retour le ${long(v.to)}`).join(" · ");
+    const dests = list.filter(v => v.destination).map(v => list.length > 1 ? `${v.name} : ${v.destination}` : v.destination);
+    $("vac-dest").hidden = !dests.length;
+    $("vac-dest").textContent = dests.length ? `📍 ${dests.join(" · ")}` : "";
+    // Compte à rebours avant le retour
+    const one = list.length === 1 ? list[0] : null;
+    const days = one ? left(one) : null;
+    $("vac-count").hidden = days === null;
+    $("vac-multi").hidden = !!one || !list.some(v => v.to);
+    if (days !== null) {
+      $("vac-days").textContent = days;
+      $("vac-days-text").textContent = days === 1 ? `dernier jour à tenir,\n${one.name} rentre demain !` : `jours à tenir\navant le retour de ${one.name}`;
+      $("vac-days-text").style.whiteSpace = "pre-line";
+    }
+    $("vac-multi").innerHTML = "";
+    if (!one) {
+      list.filter(v => v.to).forEach(v => {
+        const li = document.createElement("li");
+        const d = left(v);
+        li.textContent = `${v.name} : ${d === 1 ? "retour demain" : `plus que ${d} jours`}`;
+        $("vac-multi").appendChild(li);
+      });
+    }
+    $("vac-back").textContent = one ? (one.to ? `De retour le ${long(one.to)}` : "Profite bien !") : "";
+    $("vac-back").hidden = !one;
     const note = list.map(v => v.note).filter(Boolean)[0];
-    $("vac-note").textContent = note || "Pendant ce temps, on garde la machine à café au chaud ☕";
+    $("vac-note").textContent = note || theme.note;
     fitBox("vac-inner", "vac-box");
   }
+  function allSlidesVac() { return document.querySelector(".s-vac"); }
 
   // Réduit le texte d'un encadré centré jusqu'à ce qu'il tienne dans l'écran
   function fitBox(innerId, boxId) {

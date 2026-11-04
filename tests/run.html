@@ -792,6 +792,24 @@
     check(g, "slide vacances : « Bonnes vacances, Sarah ! »", txt("vac-title").replace(/\s+/g, " ") === "Bonnes vacances, Sarah !", txt("vac-title"));
     check(g, "slide vacances : date de retour", txt("vac-back") === "De retour le lundi 9 novembre", txt("vac-back"));
     check(g, "slide vacances : petit mot par défaut", txt("vac-note").indexOf("café") !== -1);
+    check(g, "compte à rebours : « 5 jours à tenir avant le retour de Sarah »", !td.getElementById("vac-count").hidden && txt("vac-days") === "5" && txt("vac-days-text").replace(/\s+/g, " ") === "jours à tenir avant le retour de Sarah", `${txt("vac-days")} ${txt("vac-days-text")}`);
+    tw.renderVacation(at("2026-11-08T10:00:00"));
+    check(g, "compte à rebours : la veille, « rentre demain »", txt("vac-days") === "1" && txt("vac-days-text").indexOf("rentre demain") !== -1, txt("vac-days-text"));
+
+    // Thèmes selon la destination
+    const S = tw.MatDoraStore;
+    const guesses = [["Japon", "japon"], ["Tokyo et Kyoto", "japon"], ["Ski à Chamonix", "montagne"], ["Rome", "italie"], ["Bali", "tropiques"], ["New York", "ville"], ["Laponie", "nord"], ["Camping en Bretagne", "campagne"], ["Biarritz", "plage"], ["", "plage"]];
+    check(g, "thème deviné d'après la destination", guesses.every(([d, t]) => S.guessTheme(d) === t), guesses.map(([d]) => `${d || "(vide)"}→${S.guessTheme(d)}`).join(", "));
+    check(g, "thème choisi à la main prioritaire", S.vacationTheme({ destination: "Japon", theme: "montagne" }).id === "montagne");
+    tw.eval('vacations = [{ id: "v", name: "Sarah", destination: "Japon", theme: "", from: "2026-11-02", to: "2026-11-09", note: "" }]; vacKey = ""');
+    tw.renderVacation(at("2026-11-04T10:00:00"));
+    const vacSlide = td.querySelector(".s-vac");
+    check(g, "Sarah au Japon : thème Japon sur la slide", vacSlide.classList.contains("theme-japon") && txt("vac-icons") === "🗾🌸🍣" && txt("vac-dest") === "📍 Japon", `${vacSlide.className} / ${txt("vac-icons")} / ${txt("vac-dest")}`);
+    check(g, "Sarah au Japon : petit mot du thème", txt("vac-note") === "Rapporte-nous des mochis 🍡", txt("vac-note"));
+    tw.eval('vacations = [{ id: "v", name: "Sarah", destination: "Biarritz", theme: "", from: "2026-11-02", to: "2026-11-09", note: "" }, { id: "w", name: "Paul", destination: "", theme: "", from: "2026-11-01", to: "2026-11-06", note: "" }]; vacKey = ""');
+    tw.renderVacation(at("2026-11-04T10:00:00"));
+    check(g, "plusieurs personnes : un compte à rebours chacun", td.getElementById("vac-count").hidden && txt("vac-multi").indexOf("Paul : plus que 2 jours") !== -1 && txt("vac-multi").indexOf("Sarah : plus que 5 jours") !== -1 && !vacSlide.classList.contains("theme-japon"), txt("vac-multi"));
+    tw.eval('vacations = [{ id: "v", name: "Sarah", from: "2026-11-02", to: "2026-11-09", note: "" }, { id: "w", name: "Paul", from: "2026-11-20", to: null, note: "" }]; vacKey = ""');
     await tw.refresh();
 
     // Dashboard : onglet Équipe
@@ -830,11 +848,18 @@
     check(g, "dashboard : retour avant le départ refusé", ad.getElementById("toast").classList.contains("error") && ad.querySelectorAll("#vac-list .row").length === 0);
     ad.getElementById("vac-to").value = inDays(7);
     ad.getElementById("vac-note").value = "Ramène-nous du soleil !";
+    ad.getElementById("vac-dest").value = "Japon";
+    ad.getElementById("vac-dest").dispatchEvent(new aw.Event("input"));
+    check(g, "dashboard : aperçu de la slide avec le thème deviné", ad.getElementById("vac-preview").textContent.indexOf("Bonnes vacances, Sarah") !== -1 && ad.getElementById("vac-preview").textContent.indexOf("thème Japon") !== -1 && /plus que 7 jours/.test(ad.getElementById("vac-preview").textContent), ad.getElementById("vac-preview").textContent);
+    check(g, "dashboard : 8 thèmes au choix + automatique", ad.querySelectorAll("#vac-theme option").length === 9);
+    check(g, "dashboard : champs avec de vrais libellés", ["bday-name", "bday-day", "bday-month", "vac-name", "vac-dest", "vac-theme", "vac-from", "vac-to", "vac-note"].every(id => ad.querySelector(`label[for="${id}"]`)));
     submit("vac-form");
     await waitFor(() => ad.querySelectorAll("#vac-list .row").length === 1);
-    check(g, "dashboard : Sarah en vacances en ce moment", ad.querySelector("#vac-list .row").textContent.indexOf("en vacances en ce moment") !== -1);
+    check(g, "dashboard : Sarah en vacances en ce moment, thème Japon", ad.querySelector("#vac-list .row").textContent.indexOf("en vacances en ce moment") !== -1 && ad.querySelector("#vac-list .row").textContent.indexOf("thème Japon") !== -1 && ad.querySelector("#vac-list .badge.now"));
+    check(g, "dashboard : jours restants affichés", /plus que 7 jours/.test(ad.querySelector("#vac-list .row").textContent), ad.querySelector("#vac-list .row").textContent);
     await tw.refresh();
     check(g, "écran : slide « Bonnes vacances, Sarah ! »", tw.deck.ids.indexOf("vacation") !== -1 && txt("vac-title").replace(/\s+/g, " ") === "Bonnes vacances, Sarah !" && txt("vac-note") === "Ramène-nous du soleil !", `${txt("vac-title")} / ${txt("vac-note")}`);
+    check(g, "écran : Sarah au Japon, J-7", td.querySelector(".s-vac").classList.contains("theme-japon") && txt("vac-days") === "7", `${td.querySelector(".s-vac").className} / ${txt("vac-days")}`);
 
     // Tout tient à l'écran, même avec beaucoup de monde
     tw.eval('vacations = ' + JSON.stringify(["Sarah", "Paul", "Léo", "Inès", "Hugo"].map(n => ({ id: n, name: n, from: "2020-01-01", to: "2099-01-01", note: "" }))));

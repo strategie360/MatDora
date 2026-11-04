@@ -75,7 +75,7 @@
   .row small { display: block; font-weight: 600; color: var(--muted); }
   label { font-weight: 700; }
   .field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
-  input, textarea {
+  input, textarea, select {
     font: inherit;
     color: inherit;
     background: var(--bg);
@@ -89,6 +89,24 @@
   textarea { min-height: 160px; resize: vertical; }
   .hint { color: var(--muted); font-weight: 600; }
   .label-like { display: block; margin-bottom: 4px; }
+  /* Onglet Équipe */
+  .team-block + .team-block { margin-top: 26px; padding-top: 20px; border-top: 2px solid var(--line); }
+  .team-block h2 { margin-bottom: 4px; }
+  .team-block h3 { font-size: .8rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 16px 0 6px; }
+  .team-form { background: var(--bg); border: 2px solid var(--line); border-radius: 14px; padding: 4px 14px 12px; }
+  .team-fields { display: flex; flex-wrap: wrap; gap: 0 12px; align-items: flex-end; }
+  .team-fields .field { flex: 1 1 160px; margin-bottom: 8px; }
+  .team-fields .field.small { flex: 0 0 90px; }
+  .team-fields .field.grow-field { flex: 2 1 240px; }
+  .team-fields select, .team-fields input { width: 100%; box-sizing: border-box; }
+  .label-spacer { display: block; font-weight: 700; }
+  .preview { margin: 4px 0 0; padding: 8px 12px; border-radius: 10px; background: var(--surface); font-weight: 700; color: var(--fg); min-height: 1.4em; }
+  .preview:empty { display: none; }
+  .badge { display: inline-block; font-size: .75rem; font-weight: 800; border-radius: 999px; padding: 2px 10px; margin-left: 6px; vertical-align: middle; }
+  .badge.now { background: #d3f9d8; color: #2b8a3e; }
+  .badge.soon { background: #fff3bf; color: #946200; }
+  .badge.done { background: var(--line); color: var(--muted); }
+  .badge.today { background: #ffdeeb; color: #c2255c; }
   label.check { display: flex; align-items: center; gap: 8px; font-weight: 700; margin-top: 6px; }
   .image-pick { display: flex; align-items: stretch; gap: 12px; flex-wrap: wrap; }
   .image-pick img { width: 120px; max-width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 10px; border: 2px solid var(--line); }
@@ -215,36 +233,55 @@
 
   <!-- Équipe : anniversaires et vacances -->
   <section class="panel" id="tab-team" role="tabpanel" hidden>
-    <h2>Anniversaires 🎂</h2>
-    <p class="help">Le jour J, l'écran souhaite l'anniversaire ; les autres jours, il annonce le prochain.</p>
-    <div id="bday-list"></div>
-    <p class="empty" id="bday-empty" hidden>Aucun anniversaire pour l'instant.</p>
-    <form class="actions" id="bday-form">
-      <input id="bday-name" maxlength="40" placeholder="Prénom" aria-label="Prénom" required>
-      <input id="bday-day" type="number" min="1" max="31" placeholder="Jour" aria-label="Jour de l'anniversaire" class="secs" required>
-      <select id="bday-month" aria-label="Mois de l'anniversaire" required>
-        <option value="">Mois</option>
-        <option value="1">janvier</option><option value="2">février</option><option value="3">mars</option>
-        <option value="4">avril</option><option value="5">mai</option><option value="6">juin</option>
-        <option value="7">juillet</option><option value="8">août</option><option value="9">septembre</option>
-        <option value="10">octobre</option><option value="11">novembre</option><option value="12">décembre</option>
-      </select>
-      <button class="btn primary" type="submit">Ajouter</button>
-    </form>
+    <p class="help">Deux slides se remplissent ici. Elles s'affichent toutes seules sur l'écran quand il y a quelque chose à montrer.</p>
 
-    <h2 class="sub">En vacances 🏖️</h2>
-    <p class="help">La slide « Bonnes vacances » s'affiche du premier jour jusqu'à la veille du retour, puis disparaît toute seule.</p>
-    <div id="vac-list"></div>
-    <p class="empty" id="vac-empty" hidden>Personne en vacances pour l'instant.</p>
-    <form id="vac-form">
-      <div class="two">
-        <div class="field"><label for="vac-name">Prénom</label><input id="vac-name" maxlength="40" placeholder="Ex. Sarah" required></div>
-        <div class="field"><label for="vac-note">Petit mot <span class="hint">(facultatif)</span></label><input id="vac-note" maxlength="140" placeholder="Ex. Ramène-nous du soleil !"></div>
-        <div class="field"><label for="vac-from">Premier jour de vacances</label><input id="vac-from" type="date" required></div>
-        <div class="field"><label for="vac-to">De retour le <span class="hint">(facultatif)</span></label><input id="vac-to" type="date"></div>
-      </div>
-      <div class="actions"><button class="btn primary" type="submit">Ajouter</button></div>
-    </form>
+    <div class="team-block">
+      <h2>🎂 Anniversaires</h2>
+      <p class="help">Le jour J, l'écran affiche « Joyeux anniversaire ». Les autres jours, il annonce le prochain.</p>
+      <form class="team-form" id="bday-form">
+        <h3>Ajouter un anniversaire</h3>
+        <div class="team-fields">
+          <div class="field"><label for="bday-name">Prénom</label><input id="bday-name" maxlength="40" placeholder="Ex. Sarah" required></div>
+          <div class="field small"><label for="bday-day">Jour</label><input id="bday-day" type="number" min="1" max="31" placeholder="12" required></div>
+          <div class="field"><label for="bday-month">Mois</label>
+            <select id="bday-month" required>
+              <option value="">Choisir…</option>
+              <option value="1">janvier</option><option value="2">février</option><option value="3">mars</option>
+              <option value="4">avril</option><option value="5">mai</option><option value="6">juin</option>
+              <option value="7">juillet</option><option value="8">août</option><option value="9">septembre</option>
+              <option value="10">octobre</option><option value="11">novembre</option><option value="12">décembre</option>
+            </select></div>
+          <div class="field"><span class="label-spacer" aria-hidden="true">&nbsp;</span><button class="btn primary" type="submit">Ajouter</button></div>
+        </div>
+      </form>
+      <h3>Anniversaires enregistrés</h3>
+      <div id="bday-list"></div>
+      <p class="empty" id="bday-empty" hidden>Aucun anniversaire pour l'instant : ajoute le premier ci-dessus.</p>
+    </div>
+
+    <div class="team-block">
+      <h2>🏖️ Bonnes vacances</h2>
+      <p class="help">L'écran souhaite bonnes vacances du premier jour jusqu'à la veille du retour, avec le nombre de jours à tenir et un thème selon la destination.</p>
+      <form class="team-form" id="vac-form">
+        <h3>Ajouter des vacances</h3>
+        <div class="team-fields">
+          <div class="field"><label for="vac-name">Prénom</label><input id="vac-name" maxlength="40" placeholder="Ex. Sarah" required></div>
+          <div class="field"><label for="vac-dest">Destination <span class="hint">(facultatif)</span></label><input id="vac-dest" maxlength="60" placeholder="Ex. Japon"></div>
+          <div class="field"><label for="vac-theme">Thème de la slide</label>
+            <select id="vac-theme"><option value="">Automatique (d'après la destination)</option></select></div>
+        </div>
+        <div class="team-fields">
+          <div class="field"><label for="vac-from">Premier jour</label><input id="vac-from" type="date" required></div>
+          <div class="field"><label for="vac-to">De retour le <span class="hint">(facultatif)</span></label><input id="vac-to" type="date"></div>
+          <div class="field grow-field"><label for="vac-note">Petit mot <span class="hint">(facultatif)</span></label><input id="vac-note" maxlength="140" placeholder="Ex. Ramène-nous du soleil !"></div>
+        </div>
+        <p class="preview" id="vac-preview" aria-live="polite"></p>
+        <div class="actions"><button class="btn primary" type="submit">Ajouter</button></div>
+      </form>
+      <h3>Vacances enregistrées</h3>
+      <div id="vac-list"></div>
+      <p class="empty" id="vac-empty" hidden>Personne en vacances pour l'instant.</p>
+    </div>
   </section>
 
   <!-- Accès -->
@@ -856,21 +893,23 @@
   function renderTeam() {
     const todayKey = store.today();
     const now = new Date();
+    const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const badge = (cls, text) => { const b = document.createElement("span"); b.className = "badge " + cls; b.textContent = text; return b; };
     // Anniversaires, du plus proche au plus lointain
     const bl = $("bday-list");
     bl.innerHTML = "";
-    const bdays = settings.birthdays.slice().sort((a, b) => {
-      const next = x => { let d = new Date(now.getFullYear(), x.month - 1, x.day); if (d < new Date(now.getFullYear(), now.getMonth(), now.getDate())) d = new Date(now.getFullYear() + 1, x.month - 1, x.day); return d; };
-      return next(a) - next(b);
-    });
+    const next = x => { let d = new Date(now.getFullYear(), x.month - 1, x.day); if (d < startToday) d = new Date(now.getFullYear() + 1, x.month - 1, x.day); return d; };
+    const bdays = settings.birthdays.slice().sort((a, b) => next(a) - next(b));
     $("bday-empty").hidden = bdays.length > 0;
     bdays.forEach(b => {
       const row = document.createElement("div");
       row.className = "row";
       const name = document.createElement("span");
       name.className = "grow";
-      const isToday = b.day === now.getDate() && b.month === now.getMonth() + 1;
-      name.textContent = `${b.name} · ${b.day} ${MONTHS[b.month - 1]}${isToday ? " · 🎂 aujourd'hui !" : ""}`;
+      name.textContent = `${b.name} · ${b.day} ${MONTHS[b.month - 1]}`;
+      const days = Math.round((next(b) - startToday) / 86400000);
+      if (days === 0) name.appendChild(badge("today", "🎂 aujourd'hui !"));
+      else if (days <= 7) name.appendChild(badge("soon", days === 1 ? "demain" : `dans ${days} jours`));
       row.appendChild(name);
       row.appendChild(confirmButton("Retirer", () => attempt(async () => {
         const list = settings.birthdays.filter(x => x.id !== b.id);
@@ -886,14 +925,19 @@
     const vacs = settings.vacations.slice().sort((a, b) => (a.from || "").localeCompare(b.from || ""));
     $("vac-empty").hidden = vacs.length > 0;
     vacs.forEach(v => {
-      const state = v.to && todayKey >= v.to ? "terminé" : v.from && todayKey < v.from ? "à venir" : "en vacances en ce moment";
+      const state = v.to && todayKey >= v.to ? "done" : v.from && todayKey < v.from ? "soon" : "now";
+      const theme = store.vacationTheme(v);
       const row = document.createElement("div");
       row.className = "row";
       const name = document.createElement("span");
       name.className = "grow";
-      name.textContent = `${v.name} · du ${longDate(v.from)}${v.to ? ` · retour le ${longDate(v.to)}` : ""}`;
+      name.textContent = `${theme.emoji.slice(0, 2)} ${v.name}${v.destination ? ` · ${v.destination}` : ""}`;
+      name.appendChild(badge(state, state === "now" ? "en vacances en ce moment" : state === "soon" ? "à venir" : "terminé"));
       const small = document.createElement("small");
-      small.textContent = (state === "en vacances en ce moment" ? "🏖️ " : "") + state + (v.note ? ` · « ${v.note} »` : "");
+      const left = v.to ? Math.round((new Date(v.to + "T00:00:00") - startToday) / 86400000) : null;
+      small.textContent = `du ${longDate(v.from)}${v.to ? ` · retour le ${longDate(v.to)}` : " · sans date de retour"}` +
+        (state === "now" && left !== null ? ` · plus que ${left} jour${left > 1 ? "s" : ""}` : "") +
+        ` · thème ${theme.label}` + (v.note ? ` · « ${v.note} »` : "");
       name.appendChild(small);
       row.appendChild(name);
       row.appendChild(confirmButton("Retirer", () => attempt(async () => {
@@ -905,6 +949,27 @@
       vl.appendChild(row);
     });
   }
+
+  // Liste des thèmes et aperçu de ce qui s'affichera sur l'écran
+  store.VACATION_THEMES.forEach(t => {
+    const o = document.createElement("option");
+    o.value = t.id;
+    o.textContent = `${t.emoji} ${t.label}`;
+    $("vac-theme").appendChild(o);
+  });
+  function vacPreview() {
+    const name = $("vac-name").value.trim() || "…";
+    const theme = store.vacationTheme({ destination: $("vac-dest").value, theme: $("vac-theme").value });
+    const to = $("vac-to").value;
+    const startToday = new Date(new Date().toDateString());
+    const left = to ? Math.round((new Date(to + "T00:00:00") - startToday) / 86400000) : null;
+    $("vac-preview").textContent = `Sur l'écran : ${theme.emoji} Bonnes vacances, ${name} ! · thème ${theme.label}` +
+      (left !== null && left > 0 ? ` · plus que ${left} jour${left > 1 ? "s" : ""} à tenir` : "");
+  }
+  ["vac-name", "vac-dest", "vac-theme", "vac-to", "vac-from"].forEach(id => {
+    $(id).addEventListener("input", vacPreview);
+    $(id).addEventListener("change", vacPreview);
+  });
 
   $("bday-form").addEventListener("submit", e => {
     e.preventDefault();
@@ -924,14 +989,16 @@
   $("vac-form").addEventListener("submit", e => {
     e.preventDefault();
     const name = $("vac-name").value.trim(), from = $("vac-from").value, to = $("vac-to").value, note = $("vac-note").value.trim();
+    const destination = $("vac-dest").value.trim(), theme = $("vac-theme").value;
     if (!name || !from) { toast("Indique le prénom et le premier jour.", true); return; }
     if (to && to <= from) { toast("La date de retour doit être après le premier jour.", true); return; }
     attempt(async () => {
-      const list = settings.vacations.concat([{ id: newId(), name, from, to: to || null, note }]);
+      const list = settings.vacations.concat([{ id: newId(), name, destination, theme, from, to: to || null, note }]);
       await store.saveSetting("vacations", list);
       settings.vacations = list;
       $("vac-form").reset();
       $("vac-from").value = store.today();
+      vacPreview();
       renderTeam();
     }, `Bonnes vacances à ${name} ! Ajouté.`);
   });
