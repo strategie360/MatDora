@@ -697,7 +697,6 @@
     if (active) {
       $("code-remove-box").appendChild(confirmButton("Retirer le code", () => attempt(async () => {
         await store.setSiteCode(null);
-        store.rememberCode(null);
         await loadAccess();
       }, "Code retiré : le site est ouvert à tous.")));
     }
@@ -708,7 +707,6 @@
     if (code.length < 4) { toast("Le code doit faire au moins 4 caractères.", true); return; }
     attempt(async () => {
       await store.setSiteCode(code);
-      store.rememberCode(code);  // ce navigateur garde l'accès à l'écran
       $("code-new").value = "";
       await loadAccess();
     }, "Code enregistré. Les écrans vont demander le nouveau code.");

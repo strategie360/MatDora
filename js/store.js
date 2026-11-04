@@ -56,7 +56,10 @@
   }
 
   /* ---------- Accès ---------- */
-  const CODE_KEY = "matdora-site-code", SESSION_KEY = "matdora-admin";
+  // Nouvelle clé : chaque appareil doit taper le code lui-même (l'ancienne version
+  // le mémorisait aussi dans le navigateur de l'admin qui le réglait)
+  const CODE_KEY = "matdora-access-code", SESSION_KEY = "matdora-admin";
+  try { localStorage.removeItem("matdora-site-code"); } catch (e) { /* rien */ }
   function readLocal(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
   function writeLocal(k, v) { try { if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) { /* rien */ } }
   // Code du site mémorisé sur cet appareil (la TV le tape une seule fois)

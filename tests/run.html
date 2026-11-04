@@ -713,7 +713,7 @@
     const g = "accès (démo)";
     localStorage.removeItem("matdora-demo");
     localStorage.removeItem("matdora-admin");
-    localStorage.removeItem("matdora-site-code");
+    localStorage.removeItem("matdora-access-code");
 
     // Dashboard : connexion obligatoire
     let adm = await load("../admin.html#mock", 1280, 900);
@@ -752,13 +752,15 @@
     ad.getElementById("code-form").dispatchEvent(new aw.Event("submit", { cancelable: true }));
     await waitFor(() => ad.getElementById("code-state").textContent.indexOf("Un code") === 0);
     check(g, "code enregistré dans le dashboard", ad.getElementById("code-state").textContent.indexOf("Un code est demandé") === 0);
+    check(g, "régler le code ne débloque pas ce navigateur", !localStorage.getItem("matdora-access-code"));
 
-    // Une TV qui ne connaît pas le code
-    localStorage.removeItem("matdora-site-code");
+    // Le navigateur de l'admin lui-même doit taper le code
+    localStorage.setItem("matdora-site-code", "dora2026");  // code mémorisé par l'ancienne version
     tv = await load("../index.html#mock", 1280, 720);
     tw = tv.contentWindow; td = tv.contentDocument;
     await tw.refresh();
     const lock = td.getElementById("lock");
+    check(g, "ancien code mémorisé oublié : l'appareil doit le retaper", localStorage.getItem("matdora-site-code") === null);
     check(g, "écran : demande le code", !lock.hidden && tw.getComputedStyle(lock).display !== "none" && !td.getElementById("lock-form").hidden);
     const idxLocked = tw.deck.index;
     tw.deck.duration = 300;
@@ -773,7 +775,7 @@
     td.getElementById("lock-form").dispatchEvent(new tw.Event("submit", { cancelable: true }));
     await waitFor(() => lock.hidden);
     check(g, "écran : bon code → les slides s'affichent", lock.hidden && tw.getComputedStyle(lock).display === "none");
-    check(g, "écran : le code est mémorisé sur l'appareil", localStorage.getItem("matdora-site-code") === "dora2026");
+    check(g, "écran : le code est mémorisé sur l'appareil", localStorage.getItem("matdora-access-code") === "dora2026");
     tv.remove();
 
     // Rechargement : plus besoin de le retaper
@@ -815,7 +817,7 @@
     check(g, "déconnexion : retour à l'écran de connexion", !ad.getElementById("login").hidden && ad.getElementById("app").hidden && !localStorage.getItem("matdora-admin"));
     adm.remove();
     localStorage.removeItem("matdora-demo");
-    localStorage.removeItem("matdora-site-code");
+    localStorage.removeItem("matdora-access-code");
   }
 
   // Vrai Supabase : seulement avec tests/run.html#live. Ne modifie rien : vérifie que tout est refusé
