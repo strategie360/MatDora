@@ -1473,11 +1473,13 @@
 
   /* ---------- Slide Photos d'events : polaroïds en vrac ---------- */
   // Au départ, jusqu'à 7 photos posées en vrac (5 sur un écran en hauteur), décalées et tournées
-  // au hasard. Toutes les 3 s, une nouvelle photo se pose PAR-DESSUS les autres, sans en retirer.
-  // On ne retire que les photos presque entièrement recouvertes (et, au-delà de 12 photos sur la
-  // table, la plus cachée), pour ménager la Fire TV. Seule l'opacité est animée.
-  const PILE_MAX = 12, HIDDEN_RATIO = 0.9;
-  let eventPhotos = [], pCards = [], nextPhotoIdx = 0, zTop = 1;
+  // au hasard. Toutes les 3 s, une nouvelle photo arrive :
+  //   1. s'il reste de la place, elle se pose dans l'espace le plus vide de la table ;
+  //   2. sinon, elle se pose sur la photo affichée depuis le plus longtemps, qui s'efface dessous.
+  // Les photos recouvertes à 90 % ou plus sont retirées (et la plus cachée au-delà de 12).
+  // Seule l'opacité est animée (léger pour Silk).
+  const PILE_MAX = 12, HIDDEN_RATIO = 0.9, FREE_RATIO = 0.2;
+  let eventPhotos = [], pCards = [], nextPhotoIdx = 0, zTop = 1, placeSeq = 0;
 
   function galleryLayout() {
     const g = $("gallery"), W = g.clientWidth, H = g.clientHeight;
@@ -1489,12 +1491,12 @@
     return { W, H, cols, rows, w: Math.max(80, Math.round(w)), max: wide ? 7 : 5 };
   }
 
-  // À appeler une fois l'image chargée : le polaroïd prend les proportions de la photo (rien n'est recadré)
-  function placeCard(card, L) {
-    const c = card.slot % L.cols, r = Math.floor(card.slot / L.cols) % L.rows;
-    const cw = L.W / L.cols, ch = L.H / L.rows;
-    // Taille, décalage et rotation au hasard : un vrai tas de photos
-    const box = L.w * (0.82 + Math.random() * 0.3) - 20;
+  // À appeler une fois l'image chargée : le polaroïd prend les proportions de la photo (rien n'est recadré).
+  // pickTarget(w, h) choisit le centre ; sans lui, la photo se pose dans sa zone de départ.
+  function placeCard(card, L, pickTarget) {
+    // Taille au hasard (gardée si la photo est simplement replacée, ex. changement de taille d'écran)
+    if (!card.boxK) card.boxK = 0.82 + Math.random() * 0.3;
+    const box = L.w * card.boxK - 20;
     const maxH = Math.min(box * 1.05, L.H * (L.W >= L.H ? 0.55 : 0.4));
     const nw = card.img.naturalWidth || 4, nh = card.img.naturalHeight || 3;
     const k = Math.min(box / nw, maxH / nh);
@@ -1503,8 +1505,17 @@
     card.img.style.height = ih + "px";
     card.el.style.width = (iw + 20) + "px";
     const w = iw + 20, h = card.el.offsetHeight || ih + 50;
-    let x = cw * (c + 0.5) + (Math.random() - 0.5) * cw * 0.6;
-    let y = ch * (r + 0.5) + (Math.random() - 0.5) * ch * 0.7;
+    let x, y, target = null;
+    if (pickTarget) {
+      target = pickTarget(w, h);
+      x = target.x + (Math.random() - 0.5) * w * 0.2;
+      y = target.y + (Math.random() - 0.5) * h * 0.2;
+    } else {
+      const c = card.slot % L.cols, r = Math.floor(card.slot / L.cols) % L.rows;
+      const cw = L.W / L.cols, ch = L.H / L.rows;
+      x = cw * (c + 0.5) + (Math.random() - 0.5) * cw * 0.6;
+      y = ch * (r + 0.5) + (Math.random() - 0.5) * ch * 0.7;
+    }
     x = Math.max(w / 2 + 10, Math.min(L.W - w / 2 - 10, x));
     y = Math.max(h / 2 + 12, Math.min(L.H - h / 2 - 8, y));
     card.rot = Math.round((Math.random() - 0.5) * 36);
@@ -1512,6 +1523,37 @@
     card.el.style.top = Math.round(y - h / 2) + "px";
     card.el.style.transform = `rotate(${card.rot}deg)`;
     card.el.style.zIndex = ++zTop;
+    card.placedAt = ++placeSeq;
+    return target;
+  }
+
+  // Rectangle d'un polaroïd sur la table (sans la rotation : une approximation suffit)
+  function cardRect(c) { return { x: c.el.offsetLeft, y: c.el.offsetTop, w: c.el.offsetWidth, h: c.el.offsetHeight }; }
+
+  // Où poser une photo de taille w × h : l'espace le plus vide, ou sinon sur la plus ancienne
+  function findSpot(card, w, h) {
+    const L = galleryLayout();
+    const others = pCards.filter(c => c !== card && c.el.classList.contains("on") && !c.leaving);
+    const overlapAt = (cx, cy) => others.reduce((sum, c) => {
+      const r = cardRect(c);
+      const ox = Math.max(0, Math.min(cx + w / 2, r.x + r.w) - Math.max(cx - w / 2, r.x));
+      const oy = Math.max(0, Math.min(cy + h / 2, r.y + r.h) - Math.max(cy - h / 2, r.y));
+      return sum + ox * oy;
+    }, 0) / (w * h);
+    let best = null;
+    const nx = L.cols * 3, ny = L.rows * 3;
+    for (let gx = 0; gx < nx; gx++) {
+      for (let gy = 0; gy < ny; gy++) {
+        const cx = Math.max(w / 2 + 10, Math.min(L.W - w / 2 - 10, (gx + 0.5) * L.W / nx));
+        const cy = Math.max(h / 2 + 12, Math.min(L.H - h / 2 - 8, (gy + 0.5) * L.H / ny));
+        const ov = overlapAt(cx, cy) + Math.random() * 0.01;  // un peu de hasard à égalité
+        if (!best || ov < best.ov) best = { x: cx, y: cy, ov };
+      }
+    }
+    if (best && best.ov < FREE_RATIO || !others.length) return { x: best ? best.x : L.W / 2, y: best ? best.y : L.H / 2, oldest: null, free: true };
+    const oldest = others.slice().sort((a, b) => a.placedAt - b.placedAt)[0];
+    const r = cardRect(oldest);
+    return { x: r.x + r.w / 2, y: r.y + r.h / 2, oldest, free: false };
   }
 
   function caption(p) {
@@ -1528,15 +1570,22 @@
     card.cap.innerHTML = caption(p);
     const show = () => {
       card.img.onload = card.img.onerror = null;
-      placeCard(card, galleryLayout());
+      // Nouvelle photo : espace vide d'abord, sinon sur la plus ancienne (qui s'efface dessous)
+      const target = placeCard(card, galleryLayout(), card.fresh ? (w, h) => findSpot(card, w, h) : null);
+      const wasFresh = card.fresh;
+      card.fresh = false;
       card.el.classList.add("on");
+      card.lastSpot = target;
+      if (target && target.oldest) setTimeout(() => removeCard(target.oldest), reduceMotion ? 0 : 650);
+      // Le ménage se fait une fois la photo réellement posée (le chargement peut être lent sur la TV)
+      if (wasFresh) setTimeout(cleanPile, reduceMotion ? 50 : 700);
     };
     card.img.onload = card.img.onerror = show;
     card.img.src = p.url;
     if (card.img.complete && card.img.naturalWidth) show();
   }
 
-  function makeCard(i, slot) {
+  function makeCard(i, slot, fresh) {
     const el = document.createElement("div");
     el.className = "polaroid";
     const img = document.createElement("img");
@@ -1545,7 +1594,7 @@
     el.appendChild(img);
     el.appendChild(cap);
     $("gallery").appendChild(el);
-    const card = { el, img, cap, photo: -1, slot, rot: 0 };
+    const card = { el, img, cap, photo: -1, slot, rot: 0, fresh: !!fresh, placedAt: 0 };
     pCards.push(card);
     putPhoto(card, i);
     return card;
@@ -1584,6 +1633,7 @@
     return hidden / 49;
   }
   function removeCard(card) {
+    card.leaving = true;
     pCards = pCards.filter(c => c !== card);
     card.el.classList.remove("on");
     setTimeout(() => { if (card.el.parentNode) card.el.parentNode.removeChild(card.el); }, 700);
@@ -1604,15 +1654,15 @@
     // Photo déjà sur la table : elle remonte sur le dessus, ailleurs (jamais de doublon)
     pCards.filter(c => c.photo === i).forEach(removeCard);
     const L = galleryLayout();
-    makeCard(i, Math.floor(Math.random() * L.cols * L.rows));
-    setTimeout(cleanPile, reduceMotion ? 50 : 800);
+    makeCard(i, Math.floor(Math.random() * L.cols * L.rows), true);
     return true;
   }
   window.photoCoverage = coverage;
+  window.findSpot = findSpot;
   window.cleanPile = cleanPile;
   window.addEventListener("resize", () => {
     const L = galleryLayout();
-    pCards.forEach(c => placeCard(c, L));
+    pCards.slice().sort((a, b) => a.placedAt - b.placedAt).forEach(c => placeCard(c, L));
   });
   window.setEventPhotos = setEventPhotos;
   window.swapTile = swapTile;

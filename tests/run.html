@@ -324,20 +324,48 @@
     check(g, "photos : proportions gardées (aucun recadrage)", ratios.length === 7 && ratios.every(([shown, real]) => Math.abs(shown - real) / real < 0.03),
       ratios.map(r => r.map(x => x.toFixed(2)).join("/")).join(" "));
     check(g, "photos : le cadre épouse la photo", [...td.querySelectorAll("#gallery .polaroid.on")].every(el => Math.abs(el.clientWidth - el.querySelector("img").clientWidth - 20) <= 1));
-    // Une nouvelle photo se pose par-dessus : seules les photos (presque) entièrement cachées sont retirées
+    // 1. Il reste de la place : la nouvelle photo se pose dans un espace vide, sans rien retirer
     const onCards = () => [...td.querySelectorAll("#gallery .polaroid.on")];
-    const beforeCards = onCards();
-    tw.swapTile();
-    await waitFor(() => onCards().length === 8, 2000);
-    const topCard = onCards().sort((a, b) => Number(b.style.zIndex) - Number(a.style.zIndex))[0];
-    check(g, "photos : la nouvelle photo est posée par-dessus", topCard.querySelector("img").getAttribute("src").split("?")[1] === "7" && onCards().length === 8,
-      `${onCards().length} photos, dessus : ${topCard.querySelector(".cap").textContent}`);
-    const hiddenBefore = beforeCards.map(el => [el, tw.eval("pCards").filter(c => c.el === el)[0]]).map(([el, c]) => [el, c ? tw.photoCoverage(c) : 1]);
-    await sleep(1000);
-    const wrongly = hiddenBefore.filter(([el, cov]) => cov < 0.9 && !el.classList.contains("on"));
-    const kept = hiddenBefore.filter(([el, cov]) => cov >= 0.9 && el.classList.contains("on"));
-    check(g, "photos : aucune photo visible n'est retirée", wrongly.length === 0, wrongly.map(([, c]) => c.toFixed(2)).join(" "));
-    check(g, "photos : les photos entièrement cachées sont retirées", kept.length === 0, kept.map(([, c]) => c.toFixed(2)).join(" "));
+    const newest = () => { const p = tw.eval("pCards"); return p[p.length - 1]; };
+    tw.eval("pCards.slice(2).forEach(removeCard)");
+    await waitFor(() => onCards().length === 2, 2000);
+    await sleep(800);
+    for (let k = 0; k < 2; k++) {
+      const count = onCards().length;
+      tw.swapTile();
+      await waitFor(() => newest().el.classList.contains("on"), 2000);
+      await sleep(950);
+      const n = newest(), r = tw.eval("cardRect")(n.el ? n : n);
+      const others = tw.eval("pCards").filter(c => c !== n && c.el.classList.contains("on"));
+      const ov = others.reduce((sum, c) => {
+        const o = tw.eval("cardRect")(c);
+        return sum + Math.max(0, Math.min(r.x + r.w, o.x + o.w) - Math.max(r.x, o.x)) * Math.max(0, Math.min(r.y + r.h, o.y + o.h) - Math.max(r.y, o.y));
+      }, 0) / (r.w * r.h);
+      check(g, `photos : place libre → posée dans un espace vide (${k + 1})`, n.lastSpot && n.lastSpot.free && ov < 0.35 && onCards().length === count + 1,
+        `libre : ${n.lastSpot && n.lastSpot.free}, chevauchement ${ov.toFixed(2)}, ${count} → ${onCards().length}`);
+    }
+
+    // 2. Table pleine : la nouvelle photo se pose sur celle affichée depuis le plus longtemps, qui s'efface
+    let covered = null, oldestBefore = null;
+    for (let k = 0; k < 20 && !covered; k++) {
+      const visible = tw.eval("pCards").filter(c => c.el.classList.contains("on") && !c.leaving);
+      oldestBefore = visible.slice().sort((a, b) => a.placedAt - b.placedAt)[0];
+      tw.swapTile();
+      await waitFor(() => newest().el.classList.contains("on"), 2000);
+      if (newest().lastSpot && !newest().lastSpot.free) covered = newest();
+      else await sleep(950);
+    }
+    check(g, "photos : table pleine → la nouvelle photo va sur la plus ancienne", !!covered && covered.lastSpot.oldest === oldestBefore,
+      covered ? `ancienne visée : ${covered.lastSpot.oldest === oldestBefore}` : "la table ne s'est jamais remplie");
+    if (covered) {
+      const o = tw.eval("cardRect")(oldestBefore), n = tw.eval("cardRect")(covered);
+      const dist = Math.hypot((o.x + o.w / 2) - (n.x + n.w / 2), (o.y + o.h / 2) - (n.y + n.h / 2));
+      check(g, "photos : posée à l'emplacement de l'ancienne", dist < Math.max(o.w, n.w) * 0.6, `${Math.round(dist)} px`);
+      await sleep(900);
+      check(g, "photos : l'ancienne photo s'efface dessous", !oldestBefore.el.classList.contains("on") && tw.eval("pCards").indexOf(oldestBefore) === -1);
+      const z = c => Number(c.el.style.zIndex);
+      check(g, "photos : la nouvelle est au-dessus de toutes", tw.eval("pCards").every(c => c === covered || z(c) < z(covered)));
+    }
 
     // Beaucoup de nouvelles photos : jamais de doublon, jamais plus de 12 sur la table
     const seen = new Set(shownPhotos());
