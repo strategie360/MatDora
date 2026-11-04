@@ -530,135 +530,140 @@
   .s-happy h2 { overflow-wrap: anywhere; }
   .happy-in { font-family: var(--display); font-size: clamp(1.6rem, min(5vw, 6vh), 3rem); color: #ffc145; margin-bottom: 0; font-variant-numeric: tabular-nums; }
 
-  /* ---------- Slide Photos d'events : mosaïque, les photos changent une par une ---------- */
-  .s-gallery { background: #0e0d0c; color: #fff8ef; }
+  /* ---------- Slide Photos d'events : polaroïds posés en vrac sur une table ---------- */
+  .s-gallery {
+    background-color: #4a3426;
+    /* veinure de bois, dessinée en CSS (statique) */
+    background-image:
+      repeating-linear-gradient(92deg, rgba(255, 255, 255, .035) 0 2px, transparent 2px 38px),
+      repeating-linear-gradient(88deg, rgba(0, 0, 0, .08) 0 1px, transparent 1px 23px);
+    color: #3a2a1f;
+  }
   .gallery {
     position: absolute;
-    top: 0; right: 0; bottom: 0; left: 0;
-    box-sizing: border-box;
-    padding-top: 16px;
-    padding-bottom: 40px;
-    padding-left: var(--gutter-l);
-    padding-right: var(--gutter-r);
-    display: grid;
-    gap: 10px;
-    /* 5 photos : une grande à gauche, quatre petites */
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    grid-template-rows: repeat(2, minmax(0, 1fr));
-  }
-  .gallery[data-count="1"] { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
-  .gallery[data-count="2"] { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: minmax(0, 1fr); }
-  .gallery[data-count="3"] { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
-  .gallery[data-count="4"] { grid-template-columns: minmax(0, 2fr) repeat(2, minmax(0, 1fr)); }
-  .gallery[data-count="3"] .tile:first-child,
-  .gallery[data-count="4"] .tile:first-child { grid-row: span 2; }
-  .gallery[data-count="4"] .tile:last-child { grid-column: span 2; }
-  .gallery[data-count="5"] .tile:first-child { grid-column: span 2; grid-row: span 2; }
-  .tile {
-    position: relative;
+    top: 14px; bottom: 34px;
+    left: var(--gutter-l); right: var(--gutter-r);
     overflow: hidden;
-    border-radius: 10px;
-    background: #1b1917;
-    min-width: 0;
-    min-height: 0;
   }
-  .tile img {
+  .polaroid {
     position: absolute;
-    top: 0; left: 0;
-    width: 100%; height: 100%;
-    object-fit: cover;
+    box-sizing: border-box;
+    background: #fffdf7;
+    padding: 10px 10px 0;
+    box-shadow: 0 16px 30px -14px rgba(0, 0, 0, .75);
     opacity: 0;
-    transition: opacity 1s ease;
+    transition: opacity .9s ease;
   }
-  .tile img.on { opacity: 1; }
-  .tile-cap {
+  .polaroid.on { opacity: 1; }
+  /* morceau de scotch */
+  .polaroid::before {
+    content: "";
     position: absolute;
-    left: 0; right: 0; bottom: 0;
-    padding: 28px 12px 10px;
-    background: linear-gradient(transparent, rgba(0, 0, 0, .72));
-    font-weight: 700;
-    font-size: clamp(.75rem, min(1.6vw, 2vh), .95rem);
-    line-height: 1.25;
-    transition: opacity .6s ease;
+    top: -10px; left: 50%;
+    width: 70px; height: 22px;
+    margin-left: -35px;
+    background: rgba(255, 244, 200, .7);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, .15);
   }
-  .tile-cap:empty { display: none; }
-  .tile-cap b {
+  .polaroid img { display: block; width: 100%; object-fit: cover; background: #e9e1d4; }
+  .polaroid .cap {
+    padding: 8px 4px 12px;
+    text-align: center;
+    font-family: var(--display);
+    font-size: clamp(.8rem, min(1.6vw, 2.2vh), 1.15rem);
+    line-height: 1.15;
+    overflow-wrap: anywhere;
+  }
+  .polaroid .cap b {
     display: block;
+    font-family: var(--body);
     font-weight: 800;
     text-transform: uppercase;
     letter-spacing: .1em;
-    font-size: .72em;
-    color: #ffc145;
+    font-size: .55em;
+    color: #b8732f;
   }
-  .tile:first-child .tile-cap { font-family: var(--display); font-weight: 400; font-size: clamp(1.1rem, min(3vw, 4vh), 2rem); padding: 50px 16px 14px; }
-  .tile:first-child .tile-cap b { font-family: var(--body); font-size: .45em; }
-  /* ---------- Slide Repas : vert pomme, façon menu ---------- */
-  body[data-tone="lunch"] .seg { background: rgba(33, 58, 23, .18); }
-  body[data-tone="lunch"] .seg i { background: #4f9a2b; }
-  .s-lunch { background: #e9f5dc; color: #213a17; }
-  /* Condensé pour tenir sur un écran 16:9 : en-tête, resto du jour, puis tous les choix du jour en colonnes */
-  .s-lunch .inner {
-    max-width: 1280px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    text-align: left;
+  .polaroid .cap:empty { padding-bottom: 22px; }
+
+  /* ---------- Slide Repas : nappe vichy, plat du jour et étiquettes ---------- */
+  body[data-tone="lunch"] .seg { background: rgba(155, 44, 36, .2); }
+  body[data-tone="lunch"] .seg i { background: #b3261e; }
+  .s-lunch {
+    background-color: #fff8f0;
+    background-image:
+      linear-gradient(90deg, rgba(214, 69, 65, .13) 50%, transparent 50%),
+      linear-gradient(rgba(214, 69, 65, .13) 50%, transparent 50%);
+    background-size: 56px 56px;
+    color: #3a1f1a;
   }
-  .lunch-main { flex: 1 1 auto; min-width: 0; }
+  .s-lunch .inner { max-width: 1280px; display: flex; flex-direction: column; justify-content: center; text-align: left; }
+  .lunch-wrap { flex: none; }  /* garde sa vraie hauteur : c'est elle que fitLunch mesure */
   .lunch-head { display: flex; align-items: baseline; flex-wrap: wrap; }
-  .lunch-head h2 { margin: 0 16px 0 0; }
-  .s-lunch .eyebrow { color: #4f9a2b; }
-  .s-lunch h2 { color: #213a17; font-size: clamp(1.6rem, min(4.6vw, 7vh), 3.4rem); }
+  .lunch-head h2 { margin: 0 16px 0 0; color: #9b2c24; font-size: clamp(1.6rem, min(4.6vw, 7vh), 3.4rem); }
+  .s-lunch .eyebrow { color: #6d3b33; background: #fffdf8; border-radius: 999px; padding: 3px 12px; }
+  .lunch-body { display: flex; align-items: center; margin-top: clamp(10px, 2.4vh, 26px); }
+  /* Le resto du jour, présenté comme le plat du jour */
   .draw {
+    flex: 0 0 36%;
+    box-sizing: border-box;
     display: flex;
+    flex-direction: column;
     align-items: center;
-    background: #213a17;
-    color: #e9f5dc;
-    border-radius: 14px;
-    padding: clamp(8px, 1.6vh, 14px) 18px;
-    margin-top: clamp(10px, 2vh, 18px);
+    text-align: center;
+    background: #fffdf8;
+    border: 3px dashed #d64541;
+    border-radius: 26px;
+    padding: clamp(12px, 2.6vh, 26px) 18px;
+    margin-right: clamp(16px, 3vw, 44px);
+    box-shadow: 0 20px 40px -22px rgba(90, 20, 10, .6);
+    transform: rotate(-2deg);
   }
-  .draw-icon { font-size: clamp(1.6rem, min(4vw, 6vh), 2.8rem); margin-right: 14px; line-height: 1; }
-  .draw-text { min-width: 0; flex: 1; }
+  .draw-emoji { font-size: calc(clamp(2.8rem, min(8vw, 13vh), 6.5rem) * var(--scale, 1)); line-height: 1.1; }
+  .draw-label { font-weight: 800; text-transform: uppercase; letter-spacing: .12em; font-size: clamp(.65rem, 1.5vh, .8rem); color: #b3261e; margin-top: 6px; }
+  .draw-name { font-family: var(--display); font-weight: 400; font-size: calc(clamp(1.5rem, min(4.2vw, 6.6vh), 3.2rem) * var(--scale, 1)); line-height: 1.05; margin-top: 4px; overflow-wrap: anywhere; }
+  .draw.waiting .draw-name { font-size: calc(clamp(1.1rem, min(3vw, 4.4vh), 2rem) * var(--scale, 1)); color: #8a5a50; }
   .draw-reroll {
-    flex: none;
-    margin-left: 14px;
+    margin-top: clamp(8px, 1.6vh, 14px);
     font: inherit;
     font-weight: 800;
     font-size: clamp(.8rem, 1.9vh, 1rem);
-    color: #e9f5dc;
+    color: #b3261e;
     background: transparent;
-    border: 2px solid #a8d98a;
-    border-radius: 12px;
-    padding: 8px 14px;
+    border: 2px solid #b3261e;
+    border-radius: 999px;
+    padding: 8px 16px;
     cursor: pointer;
   }
-  .draw-reroll:hover, .draw-reroll:focus-visible { background: #a8d98a; color: #213a17; outline: none; }
+  .draw-reroll:hover, .draw-reroll:focus-visible { background: #b3261e; color: #ffffff; outline: none; }
   .draw-reroll:disabled { opacity: .5; cursor: wait; }
-  .draw-label { display: block; font-weight: 800; text-transform: uppercase; letter-spacing: .1em; font-size: clamp(.65rem, 1.5vh, .8rem); color: #a8d98a; }
-  .draw-name { display: block; font-family: var(--display); font-weight: 400; font-size: clamp(1.3rem, min(3.6vw, 5.4vh), 2.6rem); line-height: 1.1; overflow-wrap: anywhere; }
-  .draw.waiting .draw-name { color: #e9f5dc; opacity: .85; }
-  /* Tous les choix du jour : le nombre de colonnes et la taille du texte s'adaptent (script) */
+  /* Tous les choix du jour : des étiquettes colorées, un peu de travers */
+  .lunch-others { flex: 1 1 auto; min-width: 0; }
+  .lunch-sub { margin: 0 0 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .12em; font-size: clamp(.65rem, 1.6vh, .85rem); color: #9b2c24; }
+  /* Colonnes automatiques : plus il y a de place (ou plus le texte rétrécit), plus il y a de colonnes */
   .lunch-list {
     list-style: none;
-    margin: clamp(8px, 1.6vh, 14px) 0 0;
+    margin: 0;
     padding: 0;
     display: grid;
-    grid-template-columns: repeat(var(--cols, 2), minmax(0, 1fr));
-    gap: clamp(6px, 1.2vh, 10px) 12px;
+    grid-template-columns: repeat(auto-fill, minmax(calc(210px * var(--scale, 1)), 1fr));
+    gap: calc(12px * var(--scale, 1));
   }
-  .lunch-list li {
-    background: #ffffff;
-    border-radius: 10px;
-    padding: clamp(5px, 1vh, 9px) 12px;
-    border: 2px solid transparent;
+  .chip {
+    display: flex;
+    align-items: center;
     min-width: 0;
+    box-sizing: border-box;
+    padding: calc(9px * var(--scale, 1)) calc(16px * var(--scale, 1));
+    border-radius: 999px;
+    background: var(--chip, #ffe3a3);
+    color: #2b1a14;
+    box-shadow: 0 8px 16px -12px rgba(60, 20, 10, .7);
+    transform: rotate(var(--tilt, 0deg));
   }
-  .lunch-list li.drawn { border-color: #4f9a2b; background: #f4fbec; }
-  .lunch-list li.drawn .lunch-name::before { content: "🎲 "; }
-  .lunch-name { display: block; font-weight: 800; font-size: calc(clamp(.85rem, min(2vw, 2.4vh), 1.15rem) * var(--scale, 1)); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .lunch-more { margin: 6px 0 0; font-weight: 700; font-size: clamp(.75rem, 1.8vh, .95rem); color: #4f7a3a; }
-  .lunch-empty { margin: clamp(10px, 2vh, 18px) 0 0; font-weight: 700; font-size: clamp(.95rem, 2.4vh, 1.2rem); }
+  .chip .e { flex: none; margin-right: .4em; font-size: calc(clamp(1rem, min(2.6vw, 3.2vh), 1.6rem) * var(--scale, 1)); line-height: 1; }
+  .lunch-name { display: block; font-weight: 800; font-size: calc(clamp(.9rem, min(2.1vw, 2.6vh), 1.3rem) * var(--scale, 1)); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .chip.drawn { background: #b3261e; color: #ffffff; }
+  .lunch-empty { margin: 0; font-weight: 700; font-size: clamp(.95rem, 2.4vh, 1.2rem); }
 
   /* ---------- Téléphone / écran en hauteur ---------- */
   @media (max-width: 760px), (max-aspect-ratio: 1/1) {
@@ -679,17 +684,8 @@
     .s-happy .has-image { flex-direction: column; }
     .happy-img { max-width: 100%; max-height: 34%; margin: 0 0 clamp(10px, 2vh, 18px); }
     .s-happy .has-image .happy-text { flex: none; align-items: center; text-align: center; }
-    .s-lunch .inner { flex-direction: column; align-items: stretch; }
-    .lunch-main { flex: none; margin: 0; }
-    .gallery[data-count="2"] { grid-template-columns: minmax(0, 1fr); grid-template-rows: repeat(2, minmax(0, 1fr)); }
-    .gallery[data-count="3"],
-    .gallery[data-count="4"] { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: minmax(0, 1.4fr) minmax(0, 1fr); }
-    .gallery[data-count="4"] { grid-template-rows: minmax(0, 1.4fr) repeat(2, minmax(0, 1fr)); }
-    .gallery[data-count="5"] { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: minmax(0, 1.4fr) repeat(2, minmax(0, 1fr)); }
-    .gallery[data-count="3"] .tile:first-child,
-    .gallery[data-count="4"] .tile:first-child,
-    .gallery[data-count="5"] .tile:first-child { grid-column: span 2; grid-row: auto; }
-    .gallery[data-count="4"] .tile:last-child { grid-column: span 2; }
+    .lunch-body { flex-direction: column; align-items: stretch; }
+    .draw { flex: none; margin: 0 0 clamp(12px, 2.4vh, 22px); transform: none; }
   }
   @media (max-height: 700px) and (max-aspect-ratio: 1/1) {
     .chat .from, .chat .msg.him, .chat .typing { display: none; }
@@ -713,6 +709,7 @@
   .simple figure[data-pos="2"],
   .simple figure.fly { opacity: 0; }
   .simple figure img { animation: none; will-change: auto; }
+  .simple .polaroid { transition: opacity .4s linear; }
 
   /* ---------- Écran de code d'accès ---------- */
   .lock {
@@ -878,24 +875,30 @@
 
   <!-- Slide 6 : photos des events passés -->
   <section class="slide s-gallery" data-id="photos" data-tone="dark" aria-label="Photos des events passés">
-    <div class="gallery" id="gallery"></div>
+    <div class="gallery" id="gallery" aria-live="off"></div>
   </section>
 
   <!-- Slide 7 : repas du midi, resto tiré au sort et choix du jour -->
   <section class="slide s-lunch" data-id="lunch" data-tone="lunch" aria-label="Où on mange à midi">
     <div class="inner" id="lunch-inner">
-      <div class="lunch-main">
+      <div class="lunch-wrap" id="lunch-wrap">
         <div class="lunch-head">
           <h2>On mange où à midi&nbsp;?</h2>
           <div class="eyebrow" id="lunch-day">–</div>
         </div>
-        <div class="draw" id="lunch-draw" hidden>
-          <span class="draw-icon" aria-hidden="true">🎲</span>
-          <span class="draw-text"><span class="draw-label" id="draw-label">Resto du jour</span><strong class="draw-name" id="draw-name">–</strong></span>
-          <button type="button" class="draw-reroll" id="tv-reroll">🎲 Relancer</button>
+        <div class="lunch-body">
+          <div class="draw" id="lunch-draw" hidden>
+            <span class="draw-emoji" id="draw-emoji" aria-hidden="true">🎲</span>
+            <span class="draw-label" id="draw-label">Resto du jour</span>
+            <strong class="draw-name" id="draw-name">–</strong>
+            <button type="button" class="draw-reroll" id="tv-reroll">🎲 Relancer</button>
+          </div>
+          <div class="lunch-others">
+            <p class="lunch-sub" id="lunch-sub">Les choix du jour</p>
+            <ul class="lunch-list" id="lunch-list"></ul>
+            <p class="lunch-empty" id="lunch-empty">Aucun resto ouvert aujourd'hui. Ajoute-en dans le dashboard.</p>
+          </div>
         </div>
-        <ol class="lunch-list" id="lunch-list"></ol>
-        <p class="lunch-empty" id="lunch-empty">Aucun resto ouvert aujourd'hui. Ajoute-en dans le dashboard.</p>
       </div>
     </div>
   </section>
@@ -1153,37 +1156,39 @@
   $("happy-img").addEventListener("load", () => fitHappiness(true));
   window.addEventListener("resize", () => fitHappiness(true));
 
-  /* ---------- Slide Photos d'events : mosaïque ---------- */
-  // Jusqu'à 5 photos à l'écran. Toutes les 3 s, une case change de photo (fondu),
-  // à tour de rôle, en prenant la prochaine photo qui n'est pas déjà affichée.
-  const MAX_TILES = 5;
-  let eventPhotos = [], tiles = [], nextPhotoIdx = 0, nextTile = 0;
+  /* ---------- Slide Photos d'events : polaroïds en vrac ---------- */
+  // Jusqu'à 7 photos posées en vrac (5 sur un écran en hauteur), chacune dans sa zone mais
+  // décalée et tournée au hasard. Toutes les 3,5 s, la plus ancienne s'efface et une autre
+  // photo se pose ailleurs dans sa zone, par-dessus les autres. Seule l'opacité est animée.
+  let eventPhotos = [], pCards = [], nextPhotoIdx = 0, nextCard = 0, zTop = 1;
 
-  function setEventPhotos(list) {
-    list = list.slice(0, 40);  // les plus récentes, pour ménager la mémoire de la Fire TV
-    if (list.map(p => p.id).join() === eventPhotos.map(p => p.id).join()) return;
-    eventPhotos = list;
-    const gallery = $("gallery");
-    gallery.innerHTML = "";
-    const count = Math.min(list.length, MAX_TILES);
-    gallery.dataset.count = count;
-    tiles = [];
-    for (let k = 0; k < count; k++) {
-      const el = document.createElement("div");
-      el.className = "tile";
-      const a = document.createElement("img"), b = document.createElement("img");
-      const cap = document.createElement("div");
-      cap.className = "tile-cap";
-      el.appendChild(a);
-      el.appendChild(b);
-      el.appendChild(cap);
-      gallery.appendChild(el);
-      const tile = { el, layers: [a, b], front: 0, cap, photo: -1 };
-      tiles.push(tile);
-      putPhoto(tile, k, true);
-    }
-    nextPhotoIdx = count % Math.max(1, list.length);
-    nextTile = 0;
+  function galleryLayout() {
+    const g = $("gallery"), W = g.clientWidth, H = g.clientHeight;
+    const wide = W >= H;
+    const cols = wide ? 4 : 2, rows = wide ? 2 : 3;
+    // Largeur d'un polaroïd : la photo fait 80 % de la largeur, la légende environ 25 %
+    let w = wide ? W * 0.27 : W * 0.56;
+    w = Math.min(w, H * (wide ? 0.6 : 0.4));
+    return { W, H, cols, rows, w: Math.max(80, Math.round(w)), max: wide ? 7 : 5 };
+  }
+
+  function placeCard(card, L) {
+    const c = card.slot % L.cols, r = Math.floor(card.slot / L.cols) % L.rows;
+    const cw = L.W / L.cols, ch = L.H / L.rows;
+    // Taille, décalage et rotation au hasard : un vrai tas de photos
+    const w = Math.round(L.w * (0.82 + Math.random() * 0.3));
+    const h = w * 1.05;
+    let x = cw * (c + 0.5) + (Math.random() - 0.5) * cw * 0.6;
+    let y = ch * (r + 0.5) + (Math.random() - 0.5) * ch * 0.7;
+    x = Math.max(w / 2 + 10, Math.min(L.W - w / 2 - 10, x));
+    y = Math.max(h / 2 + 12, Math.min(L.H - h / 2 - 8, y));
+    card.rot = Math.round((Math.random() - 0.5) * 36);
+    card.el.style.width = w + "px";
+    card.img.style.height = Math.round((w - 20) * 0.8) + "px";
+    card.el.style.left = Math.round(x - w / 2) + "px";
+    card.el.style.top = Math.round(y - h / 2) + "px";
+    card.el.style.transform = `rotate(${card.rot}deg)`;
+    card.el.style.zIndex = ++zTop;
   }
 
   function caption(p) {
@@ -1193,39 +1198,67 @@
     return String(t).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
   }
 
-  // Charge la photo sur le calque caché de la case, puis fait le fondu une fois l'image prête
-  function putPhoto(tile, i, instant) {
+  function putPhoto(card, i) {
     const p = eventPhotos[i];
-    tile.photo = i;
-    const back = tile.layers[1 - tile.front];
-    back.alt = p.caption || "Photo d'event";
-    const reveal = () => {
-      back.onload = back.onerror = null;
-      tile.layers[tile.front].classList.remove("on");
-      back.classList.add("on");
-      tile.front = 1 - tile.front;
-      tile.cap.innerHTML = caption(p);
-    };
-    if (instant) back.style.transition = "none";
-    back.onload = back.onerror = reveal;
-    back.src = p.url;
-    if (back.complete && back.naturalWidth) reveal();
-    if (instant) setTimeout(() => { back.style.transition = ""; }, 50);
+    card.photo = i;
+    card.img.alt = p.caption || "Photo d'event";
+    card.cap.innerHTML = caption(p);
+    const show = () => { card.img.onload = card.img.onerror = null; card.el.classList.add("on"); };
+    card.img.onload = card.img.onerror = show;
+    card.img.src = p.url;
+    if (card.img.complete && card.img.naturalWidth) show();
+  }
+
+  function setEventPhotos(list) {
+    list = list.slice(0, 40);  // les plus récentes, pour ménager la mémoire de la Fire TV
+    const key = l => l.map(p => [p.id, p.event, p.caption].join("~")).join("|");
+    if (key(list) === key(eventPhotos)) return;
+    eventPhotos = list;
+    const gallery = $("gallery");
+    gallery.innerHTML = "";
+    const L = galleryLayout();
+    const count = Math.min(list.length, L.max);
+    // Zones mélangées : les photos ne sont jamais rangées dans le même ordre
+    const slots = Array.from({ length: L.cols * L.rows }, (_, k) => k).sort(() => Math.random() - 0.5);
+    pCards = [];
+    for (let k = 0; k < count; k++) {
+      const el = document.createElement("div");
+      el.className = "polaroid";
+      const img = document.createElement("img");
+      const cap = document.createElement("div");
+      cap.className = "cap";
+      el.appendChild(img);
+      el.appendChild(cap);
+      gallery.appendChild(el);
+      const card = { el, img, cap, photo: -1, slot: slots[k], rot: 0 };
+      pCards.push(card);
+      placeCard(card, L);
+      putPhoto(card, k);
+    }
+    nextPhotoIdx = count % Math.max(1, list.length);
+    nextCard = 0;
   }
 
   function swapTile() {
-    if (eventPhotos.length <= tiles.length) return false;  // tout est déjà affiché
-    const shown = tiles.map(t => t.photo);
+    if (eventPhotos.length <= pCards.length) return false;  // tout est déjà affiché
+    const shown = pCards.map(c => c.photo);
     let i = nextPhotoIdx, guard = 0;
     while (shown.indexOf(i) !== -1 && guard++ < eventPhotos.length) i = (i + 1) % eventPhotos.length;
     nextPhotoIdx = (i + 1) % eventPhotos.length;
-    putPhoto(tiles[nextTile], i, false);
-    nextTile = (nextTile + 1) % tiles.length;
+    const card = pCards[nextCard];
+    nextCard = (nextCard + 1) % pCards.length;
+    card.photo = i;  // réservée tout de suite : pas de doublon pendant le fondu
+    card.el.classList.remove("on");
+    setTimeout(() => { placeCard(card, galleryLayout()); putPhoto(card, i); }, reduceMotion ? 0 : 900);
     return true;
   }
+  window.addEventListener("resize", () => {
+    const L = galleryLayout();
+    pCards.forEach(c => placeCard(c, L));
+  });
   window.setEventPhotos = setEventPhotos;
   window.swapTile = swapTile;
-  setInterval(swapTile, 3000);
+  setInterval(swapTile, 3500);
 
   /* ---------- Slide Repas ---------- */
   let lunchData = null;
@@ -1238,9 +1271,10 @@
     const btn = $("tv-reroll");
     btn.hidden = !data.candidates.length;
     if (!btn.disabled) btn.textContent = data.draw ? "🎲 Relancer" : "🎲 Tirer au sort";
+    $("draw-emoji").textContent = data.draw ? store.foodEmoji(data.draw.name) : "🎲";
     if (data.draw) {
       card.className = "draw";
-      $("draw-label").textContent = "Resto du jour · tiré au sort";
+      $("draw-label").textContent = "🎲 Resto du jour · tiré au sort";
       $("draw-name").textContent = data.draw.name;
     } else if (!data.candidates.length) {
       card.className = "draw waiting";
@@ -1254,6 +1288,11 @@
     }
   }
 
+  // Couleurs pastel des étiquettes, choisies d'après le nom (toujours la même pour un resto)
+  const CHIP_COLORS = ["#ffe3a3", "#ffd0c2", "#d4f0c4", "#cfe6ff", "#ead7ff", "#ffd8ec", "#fff1b8", "#c8f1ea"];
+  const TILTS = [-2, 1.5, -1, 2, -1.5, 1, -2.5, 0.5];
+  function hashName(t) { let h = 0; for (let i = 0; i < t.length; i++) h = (h * 31 + t.charCodeAt(i)) | 0; return Math.abs(h); }
+
   function renderLunch(data, now = new Date()) {
     const label = now.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
     $("lunch-day").textContent = label.charAt(0).toUpperCase() + label.slice(1);
@@ -1264,30 +1303,37 @@
       (b.name.toLowerCase() === drawn) - (a.name.toLowerCase() === drawn) || a.name.localeCompare(b.name));
     const list = $("lunch-list");
     $("lunch-empty").hidden = all.length > 0;
+    $("lunch-sub").hidden = !all.length;
+    $("lunch-sub").textContent = all.length > 1 ? `Les ${all.length} choix du jour` : "Le choix du jour";
     list.innerHTML = "";
-    all.forEach(o => {
+    all.forEach((o, i) => {
       const li = document.createElement("li");
-      if (o.name.toLowerCase() === drawn) li.className = "drawn";
+      li.className = "chip" + (o.name.toLowerCase() === drawn ? " drawn" : "");
+      li.style.setProperty("--chip", CHIP_COLORS[hashName(o.name) % CHIP_COLORS.length]);
+      li.style.setProperty("--tilt", TILTS[i % TILTS.length] + "deg");
+      const e = document.createElement("span");
+      e.className = "e";
+      e.setAttribute("aria-hidden", "true");
+      e.textContent = store.foodEmoji(o.name);
       const name = document.createElement("span");
       name.className = "lunch-name";
       name.textContent = o.name;
       name.title = o.name;
+      li.appendChild(e);
       li.appendChild(name);
       list.appendChild(li);
     });
-    fitLunch(all.length);
+    fitLunch();
   }
 
-  // Plus il y a de choix, plus il y a de colonnes ; puis le texte rétrécit jusqu'à tout faire tenir
-  function fitLunch(n) {
-    const inner = $("lunch-inner"), list = $("lunch-list");
-    const wide = innerWidth > innerHeight;
-    const cols = wide ? (n <= 5 ? 1 : n <= 12 ? 2 : n <= 24 ? 3 : 4) : (n <= 8 ? 1 : 2);
-    list.style.setProperty("--cols", cols);
-    list.style.setProperty("--scale", 1);
-    for (let scale = 0.92; scale >= 0.5 && inner.scrollHeight > inner.clientHeight + 1; scale -= 0.08) {
-      list.style.setProperty("--scale", scale);
-    }
+  // Le texte rétrécit jusqu'à ce que tout tienne (le contenu est centré : on compare les hauteurs)
+  function fitLunch() {
+    const inner = $("lunch-inner"), wrap = $("lunch-wrap");
+    const cs = getComputedStyle(inner);
+    const avail = () => inner.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+    const fits = () => wrap.offsetHeight <= avail() + 1 && inner.scrollWidth <= inner.clientWidth + 1;
+    inner.style.setProperty("--scale", 1);
+    for (let scale = 0.92; scale >= 0.45 && !fits(); scale -= 0.07) inner.style.setProperty("--scale", scale);
   }
   window.renderLunch = renderLunch;
   window.fitLunch = fitLunch;

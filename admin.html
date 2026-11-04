@@ -88,8 +88,9 @@
   input.secs { width: 4.5em; }
   textarea { min-height: 160px; resize: vertical; }
   .hint { color: var(--muted); font-weight: 600; }
+  .label-like { display: block; margin-bottom: 4px; }
   label.check { display: flex; align-items: center; gap: 8px; font-weight: 700; margin-top: 6px; }
-  .image-pick { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .image-pick { display: flex; align-items: stretch; gap: 12px; flex-wrap: wrap; }
   .image-pick img { width: 120px; max-width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 10px; border: 2px solid var(--line); }
   .image-pick > div { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 
@@ -117,9 +118,41 @@
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; margin-top: 16px; }
   .photo { border: 2px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--bg); display: flex; flex-direction: column; }
   .photo img { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; max-width: 100%; }
-  .photo .meta { padding: 8px 10px; font-size: .85rem; flex: 1; min-width: 0; overflow-wrap: anywhere; }
-  .photo .meta strong { display: block; color: var(--accent); font-size: .75rem; text-transform: uppercase; letter-spacing: .08em; }
+  .photo .meta { padding: 8px 10px; flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+  .photo .meta label { font-size: .7rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 800; }
+  .photo .meta input { width: 100%; box-sizing: border-box; padding: 6px 8px; font-size: .9rem; }
+  .photo .meta input.event { font-weight: 800; color: var(--accent); }
   .photo .btn { margin: 0 10px 10px; }
+
+  /* Zone de dépôt : remplace le bouton "Choisir des fichiers" */
+  .dropzone {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 4px;
+    padding: 22px 16px;
+    border: 3px dashed var(--line);
+    border-radius: 16px;
+    background: var(--bg);
+    cursor: pointer;
+    transition: border-color .2s, background .2s;
+  }
+  .dropzone:hover, .dropzone.over { border-color: var(--accent); background: var(--surface); }
+  .dropzone:focus-within { outline: 3px solid var(--accent); outline-offset: 2px; }
+  .dropzone.has-files { border-style: solid; border-color: var(--ok); }
+  .dropzone input[type="file"] { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; }
+  .dz-icon { font-size: 2rem; line-height: 1; }
+  .dz-main { font-weight: 800; color: var(--fg); overflow-wrap: anywhere; }
+  .dz-hint { font-size: .85rem; color: var(--muted); }
+  .dropzone.small { padding: 14px; flex: 1; min-width: 200px; }
+
+  /* Nom de resto modifiable directement dans le tableau */
+  .restos input.rename { width: 100%; min-width: 120px; box-sizing: border-box; font-weight: 700; background: transparent; border: 2px solid transparent; padding: 4px 6px; }
+  .restos input.rename:hover { border-color: var(--line); }
+  .restos input.rename:focus { border-color: var(--accent); background: var(--bg); outline: none; }
+  .restos tr.off input.rename { text-decoration: line-through; color: var(--muted); }
   .two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 12px; }
   @media (max-width: 560px) { .two { grid-template-columns: minmax(0, 1fr); } }
   .toast { position: sticky; bottom: max(12px, env(safe-area-inset-bottom, 0px)); margin-top: 16px; padding: 10px 14px; border-radius: 12px; font-weight: 800; background: var(--fg); color: var(--bg); }
@@ -225,13 +258,15 @@
       <div class="field"><label for="happy-desc">Description</label><textarea id="happy-desc" rows="8" placeholder="Ce qui est prévu, ce qu'il faut apporter… Les retours à la ligne sont gardés."></textarea>
         <small class="hint" id="happy-count">Pas de limite : plus le texte est long, plus il s'affiche petit sur l'écran.</small></div>
       <div class="field">
-        <label for="happy-image">Image <span class="hint">(facultatif : affiche, photo du lieu…)</span></label>
+        <span class="label-like"><strong>Image</strong> <span class="hint">(facultatif : affiche, photo du lieu…)</span></span>
         <div class="image-pick">
           <img id="happy-image-preview" alt="Image actuelle de l'event" hidden>
-          <div>
+          <label class="dropzone small" id="happy-drop">
             <input id="happy-image" type="file" accept="image/*">
-            <button class="btn danger" type="button" id="happy-image-remove" hidden>Retirer l'image</button>
-          </div>
+            <span class="dz-icon" aria-hidden="true">🖼️</span>
+            <span class="dz-main" id="happy-drop-text">Choisis une image ou glisse-la ici</span>
+          </label>
+          <button class="btn danger" type="button" id="happy-image-remove" hidden>Retirer l'image</button>
         </div>
       </div>
       <div class="field">
@@ -250,13 +285,22 @@
     <h2>Photos des events passés</h2>
     <p class="help">Les photos sont réduites avant l'envoi pour rester légères sur la Fire TV.</p>
     <form id="photo-form">
-      <div class="field"><label for="photo-files">Photos</label><input id="photo-files" type="file" accept="image/*" multiple required></div>
+      <div class="field">
+        <label class="dropzone" id="photo-drop">
+          <input id="photo-files" type="file" accept="image/*" multiple>
+          <span class="dz-icon" aria-hidden="true">📷</span>
+          <span class="dz-main" id="photo-drop-text">Choisis des photos ou glisse-les ici</span>
+          <span class="dz-hint">Tu peux en mettre plusieurs d'un coup</span>
+        </label>
+      </div>
       <div class="two">
-        <div class="field"><label for="photo-event">Event</label><input id="photo-event" maxlength="80" placeholder="Ex. Séminaire d'octobre"></div>
+        <div class="field"><label for="photo-event">Event</label><input id="photo-event" maxlength="80" list="events-list" placeholder="Ex. Séminaire d'octobre"></div>
         <div class="field"><label for="photo-caption">Légende</label><input id="photo-caption" maxlength="120" placeholder="Ex. La photo de groupe"></div>
       </div>
       <div class="actions"><button class="btn primary" type="submit" id="photo-send">Ajouter les photos</button></div>
     </form>
+    <datalist id="events-list"></datalist>
+    <p class="help" id="photo-edit-help" hidden>Modifie l'event ou la légende d'une photo directement ci-dessous : c'est enregistré dès que tu quittes le champ.</p>
     <div class="grid" id="photo-grid"></div>
     <p class="empty" id="photo-empty" hidden>Aucune photo pour l'instant. La slide Photos s'affiche dès la première.</p>
   </section>
@@ -502,6 +546,7 @@
   $("happy-image-remove").addEventListener("click", () => {
     happyImage = null;
     $("happy-image").value = "";
+    updateDrop("happy");
     renderHappyImage();
     toast("Image retirée. Pense à enregistrer.");
   });
@@ -530,6 +575,7 @@
       if (old && old !== value.imagePath) await store.deleteImage(old);
       settings.happiness = value;
       $("happy-image").value = "";
+      updateDrop("happy");
       renderHappyImage();
     }, "Event enregistré.");
   });
@@ -543,12 +589,51 @@
     }, "Event retiré.");
   });
 
+  /* ---------- Zones de dépôt (choisir ou glisser des fichiers) ---------- */
+  const DROPS = {
+    photo: { zone: "photo-drop", input: "photo-files", text: "photo-drop-text", empty: "Choisis des photos ou glisse-les ici" },
+    happy: { zone: "happy-drop", input: "happy-image", text: "happy-drop-text", empty: "Choisis une image ou glisse-la ici" }
+  };
+  function updateDrop(key) {
+    const d = DROPS[key], files = [...$(d.input).files];
+    $(d.zone).classList.toggle("has-files", files.length > 0);
+    $(d.text).textContent = !files.length ? d.empty
+      : files.length === 1 ? `✅ ${files[0].name}`
+      : `✅ ${files.length} photos choisies`;
+  }
+  Object.keys(DROPS).forEach(key => {
+    const d = DROPS[key], zone = $(d.zone), input = $(d.input);
+    input.addEventListener("change", () => updateDrop(key));
+    ["dragenter", "dragover"].forEach(t => zone.addEventListener(t, e => { e.preventDefault(); zone.classList.add("over"); }));
+    ["dragleave", "drop"].forEach(t => zone.addEventListener(t, () => zone.classList.remove("over")));
+    zone.addEventListener("drop", e => {
+      e.preventDefault();
+      const images = [...e.dataTransfer.files].filter(f => /^image\//.test(f.type));
+      if (!images.length) { toast("Dépose des images (JPEG, PNG…).", true); return; }
+      const dt = new DataTransfer();
+      (input.multiple ? images : images.slice(0, 1)).forEach(f => dt.items.add(f));
+      input.files = dt.files;
+      updateDrop(key);
+    });
+  });
+  window.updateDrop = updateDrop;
+
   /* ---------- Photos ---------- */
+  let knownPhotos = [];
+  // Liste des events déjà utilisés, proposée quand on tape un event
+  function refreshEventList() {
+    const events = knownPhotos.map(p => p.event).filter(Boolean).filter((e, i, a) => a.indexOf(e) === i).sort();
+    $("events-list").innerHTML = "";
+    events.forEach(e => { const o = document.createElement("option"); o.value = e; $("events-list").appendChild(o); });
+  }
   async function loadPhotos() {
     const photos = await store.listPhotos();
+    knownPhotos = photos;
+    refreshEventList();
     const grid = $("photo-grid");
     grid.innerHTML = "";
     $("photo-empty").hidden = photos.length > 0;
+    $("photo-edit-help").hidden = !photos.length;
     photos.forEach(p => {
       const card = document.createElement("div");
       card.className = "photo";
@@ -558,10 +643,29 @@
       img.loading = "lazy";
       const meta = document.createElement("div");
       meta.className = "meta";
-      const ev = document.createElement("strong");
-      ev.textContent = p.event || "Sans event";
-      meta.appendChild(ev);
-      meta.appendChild(document.createTextNode(p.caption || ""));
+      // Event et légende modifiables sur place, enregistrés en quittant le champ
+      [["event", "Event", 80], ["caption", "Légende", 120]].forEach(([field, label, max]) => {
+        const id = `photo-${p.id}-${field}`;
+        const l = document.createElement("label");
+        l.htmlFor = id;
+        l.textContent = label;
+        const input = document.createElement("input");
+        input.id = id;
+        input.className = field;
+        input.maxLength = max;
+        input.value = p[field] || "";
+        input.placeholder = field === "event" ? "Sans event" : "Sans légende";
+        if (field === "event") input.setAttribute("list", "events-list");
+        input.addEventListener("change", () => {
+          const value = input.value.trim();
+          const patch = {};
+          patch[field] = value || null;
+          attempt(async () => { await store.updatePhoto(p.id, patch); p[field] = value || null; refreshEventList(); },
+            field === "event" ? "Event de la photo modifié." : "Légende modifiée.");
+        });
+        meta.appendChild(l);
+        meta.appendChild(input);
+      });
       card.appendChild(img);
       card.appendChild(meta);
       card.appendChild(confirmButton("Supprimer", () => attempt(async () => { await store.deletePhoto(p); await loadPhotos(); }, "Photo supprimée.")));
@@ -571,7 +675,7 @@
   $("photo-form").addEventListener("submit", async e => {
     e.preventDefault();
     const files = [...$("photo-files").files];
-    if (!files.length) return;
+    if (!files.length) { toast("Choisis d'abord une ou plusieurs photos.", true); return; }
     $("photo-send").disabled = true;
     let done = 0;
     for (const file of files) {
@@ -588,6 +692,7 @@
     if (done) {
       toast(`${done} photo${done > 1 ? "s" : ""} ajoutée${done > 1 ? "s" : ""}.`);
       $("photo-form").reset();
+      updateDrop("photo");
       await loadPhotos();
     }
   });
@@ -608,7 +713,27 @@
       const tr = document.createElement("tr");
       if (r.unavailable) tr.className = "off";
       const name = document.createElement("td");
-      name.textContent = r.name;
+      const nameInput = document.createElement("input");
+      nameInput.className = "rename";
+      nameInput.id = `resto-${r.id}-name`;
+      nameInput.maxLength = 60;
+      nameInput.value = r.name;
+      nameInput.setAttribute("aria-label", `Nom du resto ${r.name}`);
+      nameInput.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); nameInput.blur(); } });
+      nameInput.addEventListener("change", () => {
+        const newName = nameInput.value.trim().replace(/\s+/g, " ");
+        if (!newName || newName === r.name) { nameInput.value = r.name; return; }
+        attempt(async () => {
+          try {
+            await store.updateRestaurant(r.id, { name: newName });
+          } catch (e) {
+            nameInput.value = r.name;
+            throw e;
+          }
+          await loadLunch();
+        }, `Renommé en « ${newName} ».`);
+      });
+      name.appendChild(nameInput);
       tr.appendChild(name);
       WEEK.forEach(([d, dayName]) => {
         const td = document.createElement("td");

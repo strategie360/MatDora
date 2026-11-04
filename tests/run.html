@@ -297,39 +297,45 @@
     check(g, "écran : 7 slides avec les données", tw.deck.ids.join() === "dora,pause,jira,rdv,happiness,photos,lunch", tw.deck.ids.join());
     check(g, "happiness : titre de l'event affiché", td.getElementById("happy-title").textContent.indexOf("apéro") !== -1, td.getElementById("happy-title").textContent);
     check(g, "happiness : compte à rebours affiché", /^dans \d/.test(td.getElementById("happy-in").textContent), td.getElementById("happy-in").textContent);
-    const lunchRows = () => [...td.querySelectorAll("#lunch-list li")].map(li => li.textContent.replace(/\s+/g, " ").trim());
+    const lunchRows = () => [...td.querySelectorAll("#lunch-list .lunch-name")].map(n => n.textContent.trim());
     check(g, "repas : les choix du jour affichés", lunchRows().length === 3 && lunchRows().join("|").indexOf("Pizzeria") !== -1, lunchRows().join(" | "));
     check(g, "repas : plus de votes ni de QR code", !td.querySelector(".lunch-count, .lunch-bar, .qr, #qr-vote, #qr-photos") && !/vote/i.test(td.getElementById("lunch-inner").textContent));
-    // Mosaïque : plusieurs photos à la fois
-    const tilesShown = () => [...td.querySelectorAll("#gallery .tile")].map(t => {
-      const on = t.querySelector("img.on");
-      return on ? on.getAttribute("src") : null;
-    });
-    await waitFor(() => tilesShown().every(Boolean));
-    check(g, "photos : les 3 photos affichées en même temps", td.querySelectorAll("#gallery .tile").length === 3 && tilesShown().every(Boolean) && new Set(tilesShown()).size === 3, tilesShown().join(", "));
-    check(g, "photos : légendes sur les cases", [...td.querySelectorAll("#gallery .tile-cap")].every(c => c.textContent.indexOf("Exemple") !== -1));
-    check(g, "photos : 3 photos = 1 grande + 2 petites", td.getElementById("gallery").dataset.count === "3");
+    // Polaroïds en vrac : plusieurs photos à la fois, de travers, sans sortir de l'écran
+    const shownPhotos = () => [...td.querySelectorAll("#gallery .polaroid.on img")].map(i => i.getAttribute("src"));
+    await waitFor(() => shownPhotos().length === 3);
+    check(g, "photos : les 3 photos affichées en même temps", td.querySelectorAll("#gallery .polaroid").length === 3 && new Set(shownPhotos()).size === 3, shownPhotos().join(", "));
+    check(g, "photos : légendes sur les polaroïds", [...td.querySelectorAll("#gallery .cap")].every(c => c.textContent.indexOf("Exemple") !== -1));
+    const tilts = [...td.querySelectorAll("#gallery .polaroid")].map(el => el.style.transform);
+    check(g, "photos : posées de travers (rotation)", tilts.every(t => /rotate\(-?\d+deg\)/.test(t)), tilts.join(" "));
 
-    // 9 photos : 5 cases, et les photos tournent sans doublon à l'écran
+    // 9 photos : 7 polaroïds sur un écran large, qui changent un par un sans doublon
     const fake = Array.from({ length: 9 }, (_, i) => ({ id: "f" + i, url: `../img/${(i % 3) + 1}.jpg?${i}`, caption: "Photo " + i, event: "Test" }));
     tw.setEventPhotos(fake);
-    await waitFor(() => tilesShown().every(Boolean));
-    check(g, "photos : 9 photos → 5 cases (1 grande + 4 petites)", td.querySelectorAll("#gallery .tile").length === 5 && td.getElementById("gallery").dataset.count === "5");
-    const before = tilesShown().join();
-    const seen = new Set(tilesShown());
+    await waitFor(() => shownPhotos().length === 7);
+    check(g, "photos : 9 photos → 7 polaroïds à l'écran", td.querySelectorAll("#gallery .polaroid").length === 7 && shownPhotos().length === 7);
+    const gal = td.getElementById("gallery").getBoundingClientRect();
+    const inside = [...td.querySelectorAll("#gallery .polaroid")].every(el => {
+      const r = el.getBoundingClientRect();
+      const cx = (r.left + r.right) / 2, cy = (r.top + r.bottom) / 2;
+      return cx > gal.left && cx < gal.right && cy > gal.top && cy < gal.bottom && r.width < gal.width * 0.45;
+    });
+    check(g, "photos : chaque polaroïd est dans l'écran, à taille raisonnable", inside);
+    const before = shownPhotos().slice().sort().join();
+    const seen = new Set(shownPhotos());
     let dupes = false;
     for (let k = 0; k < 9; k++) {
       tw.swapTile();
-      await waitFor(() => new Set(tilesShown()).size === 5, 2000);
-      const now = tilesShown();
+      await waitFor(() => shownPhotos().length === 7, 3000);
+      const now = shownPhotos();
       if (new Set(now).size !== now.length) dupes = true;
       now.forEach(u => seen.add(u));
     }
-    check(g, "photos : une case change à la fois, sans doublon à l'écran", !dupes && tilesShown().join() !== before, tilesShown().join(", "));
+    check(g, "photos : un polaroïd change à la fois, sans doublon à l'écran", !dupes && shownPhotos().slice().sort().join() !== before, shownPhotos().join(", "));
     check(g, "photos : toutes les photos finissent par passer", seen.size === 9, `${seen.size} / 9`);
-    const captions = [...td.querySelectorAll("#gallery .tile-cap")].map(c => c.textContent);
-    const shownNames = tilesShown().map(u => "Photo " + u.split("?")[1]);
-    check(g, "photos : chaque légende va avec sa photo", captions.every((c, k) => c.endsWith(shownNames[k])), captions.join(" | "));
+    const pairs = [...td.querySelectorAll("#gallery .polaroid")].map(el => [el.querySelector(".cap").textContent, "Photo " + el.querySelector("img").getAttribute("src").split("?")[1]]);
+    check(g, "photos : chaque légende va avec sa photo", pairs.every(([cap, name]) => cap.endsWith(name)), pairs.map(p => p.join("=")).join(" | "));
+    const zs = [...td.querySelectorAll("#gallery .polaroid")].map(el => Number(el.style.zIndex));
+    check(g, "photos : la dernière posée passe au-dessus", new Set(zs).size === zs.length);
     // Retour aux photos de la démo
     tw.eval("eventPhotos = []");
     await tw.refresh();
@@ -448,15 +454,35 @@
     const dt = new aw.DataTransfer();
     dt.items.add(new aw.File([blob], "test.png", { type: "image/png" }));
     ad.getElementById("photo-files").files = dt.files;
+    ad.getElementById("photo-files").dispatchEvent(new aw.Event("change"));
+    check(g, "dashboard : zone de dépôt à la place du bouton « Choisir des fichiers »", !!ad.querySelector("label.dropzone #photo-files") && aw.getComputedStyle(ad.getElementById("photo-files")).opacity === "0");
+    check(g, "dashboard : la zone affiche le fichier choisi", ad.getElementById("photo-drop-text").textContent === "✅ test.png" && ad.getElementById("photo-drop").classList.contains("has-files"), ad.getElementById("photo-drop-text").textContent);
     ad.getElementById("photo-event").value = "Séminaire test";
     ad.getElementById("photo-caption").value = "Photo de test";
     ad.getElementById("photo-form").dispatchEvent(new aw.Event("submit", { cancelable: true }));
     for (let i = 0; i < 20 && ad.querySelectorAll("#photo-grid .photo").length < 4; i++) await sleep(100);
     check(g, "dashboard : photo ajoutée (réduite en JPEG)", ad.querySelectorAll("#photo-grid .photo").length === 4 && ad.querySelector("#photo-grid img").src.indexOf("data:image/jpeg") === 0);
     await tw.refresh();
-    await waitFor(() => td.querySelector("#gallery .tile-cap").textContent.indexOf("Photo de test") !== -1);
-    const firstCap = td.querySelector("#gallery .tile-cap").textContent;
-    check(g, "dashboard → écran : nouvelle photo en grand dans la mosaïque", td.querySelectorAll("#gallery .tile").length === 4 && firstCap === "Séminaire testPhoto de test", firstCap);
+    await waitFor(() => [...td.querySelectorAll("#gallery .cap")].some(c => c.textContent === "Séminaire testPhoto de test"));
+    check(g, "dashboard → écran : nouvelle photo posée sur la table", td.querySelectorAll("#gallery .polaroid").length === 4 && [...td.querySelectorAll("#gallery .cap")].some(c => c.textContent === "Séminaire testPhoto de test"));
+
+    // Modifier l'event et la légende d'une photo directement dans le dashboard
+    const firstPhoto = ad.querySelector("#photo-grid .photo");
+    const evInput = firstPhoto.querySelector("input.event"), capInput = firstPhoto.querySelector("input.caption");
+    check(g, "dashboard : event et légende modifiables sur chaque photo", !!evInput && !!capInput && evInput.value === "Séminaire test" && capInput.value === "Photo de test");
+    check(g, "dashboard : liste des events déjà utilisés proposée", [...ad.querySelectorAll("#events-list option")].map(o => o.value).indexOf("Séminaire test") !== -1);
+    evInput.value = "Séminaire d'automne";
+    evInput.dispatchEvent(new aw.Event("change"));
+    await waitFor(() => !ad.getElementById("toast").hidden && ad.getElementById("toast").textContent === "Event de la photo modifié.");
+    const edited = (await tw.MatDoraStore.listPhotos()).filter(p => p.caption === "Photo de test")[0];
+    check(g, "dashboard : event de la photo enregistré", edited && edited.event === "Séminaire d'automne", edited ? edited.event : "photo introuvable");
+    await tw.refresh();
+    await waitFor(() => [...td.querySelectorAll("#gallery .cap")].some(c => c.textContent === "Séminaire d'automnePhoto de test"));
+    check(g, "dashboard → écran : event modifié affiché", [...td.querySelectorAll("#gallery .cap")].some(c => c.textContent === "Séminaire d'automnePhoto de test"));
+    capInput.value = "La photo de groupe";
+    capInput.dispatchEvent(new aw.Event("change"));
+    await waitFor(() => ad.getElementById("toast").textContent === "Légende modifiée.");
+    check(g, "dashboard : légende modifiée enregistrée", (await tw.MatDoraStore.listPhotos()).some(p => p.caption === "La photo de groupe" && p.event === "Séminaire d'automne"));
 
     const delBtn = ad.querySelector("#photo-grid .photo .btn.danger");
     delBtn.click();
@@ -566,7 +592,9 @@
     tv.width = 1920; tv.height = 1080;
     await sleep(250);
     tw.renderLunch(await s.lunch(today));
-    check(g, "écran 16:9 : 15 choix sur 3 colonnes", td.querySelectorAll("#lunch-list li").length === 15 && tw.getComputedStyle(td.getElementById("lunch-list")).gridTemplateColumns.split(" ").length === 3);
+    check(g, "écran 16:9 : 15 choix en étiquettes avec emoji", td.querySelectorAll("#lunch-list li.chip").length === 15 && [...td.querySelectorAll("#lunch-list .chip .e")].every(e => e.textContent.trim() !== ""));
+    check(g, "écran : emoji deviné d'après le nom", tw.MatDoraStore.foodEmoji("Pizzeria Mario") === "🍕" && tw.MatDoraStore.foodEmoji("Sushi Bar") === "🍣" && tw.MatDoraStore.foodEmoji("Chez Paulette") === "🍽️" && tw.MatDoraStore.foodEmoji("Zzz") === "🍴");
+    check(g, "écran : resto du jour en grand avec son emoji", weekend || (td.getElementById("draw-emoji").textContent === tw.MatDoraStore.foodEmoji(td.getElementById("draw-name").textContent)));
     for (let i = 13; i <= 30; i++) await s.propose(today, `Restaurant au nom vraiment très long numéro ${i}`);
     tw.renderLunch(await s.lunch(today));
     check(g, "écran 16:9 : 33 choix, tous affichés et dans l'écran", td.querySelectorAll("#lunch-list li").length === 33 && fitsBox(li));
@@ -604,6 +632,21 @@
     delBtn.click(); delBtn.click();
     await waitFor(() => ad.querySelectorAll("#restos-body tr").length === 5);
     check(g, "dashboard : supprimer un resto (avec confirmation)", ad.querySelectorAll("#restos-body tr").length === 5);
+    // Renommer un resto directement dans le tableau
+    const rn = ad.getElementById("resto-r2-name");
+    check(g, "dashboard : nom du resto modifiable dans le tableau", !!rn && rn.value === "Exemple : Sushi");
+    rn.value = "  Sushi   Shop ";
+    rn.dispatchEvent(new aw.Event("change"));
+    await waitFor(() => !ad.getElementById("toast").hidden && ad.getElementById("toast").textContent.indexOf("Renommé") === 0);
+    check(g, "dashboard : resto renommé (espaces nettoyés)", (await s.listRestaurants()).some(r => r.id === "r2" && r.name === "Sushi Shop"));
+    await tw.refresh();
+    check(g, "dashboard → écran : nouveau nom affiché", [...td.querySelectorAll(".lunch-name")].some(n => n.textContent === "Sushi Shop"));
+    const rn2 = ad.getElementById("resto-r2-name");
+    rn2.value = "exemple : crêperie";
+    rn2.dispatchEvent(new aw.Event("change"));
+    await waitFor(() => ad.getElementById("toast").classList.contains("error"));
+    check(g, "dashboard : renommer en doublon refusé, nom remis", ad.getElementById("toast").textContent.indexOf("déjà dans la liste") !== -1 && rn2.value === "Sushi Shop", `${ad.getElementById("toast").textContent} / ${rn2.value}`);
+
     const drawBefore = ad.getElementById("draw-now").textContent;
     ad.getElementById("draw-reroll").click();
     await waitFor(() => ad.getElementById("draw-now").textContent !== drawBefore);

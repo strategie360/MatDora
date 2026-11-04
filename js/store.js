@@ -214,6 +214,9 @@
         const rows = await api("/rest/v1/photos", { method: "POST", headers: { Prefer: "return=representation" }, json: { path, caption: caption || null, event: event || null } });
         return Object.assign({}, rows[0], { url: photoUrl(path) });
       },
+      updatePhoto(id, patch) {
+        return api(`/rest/v1/photos?id=eq.${id}`, { method: "PATCH", json: patch });
+      },
       async deletePhoto(photo) {
         await api(`/rest/v1/photos?id=eq.${photo.id}`, { method: "DELETE" });
         await api(`/storage/v1/object/photos/${photo.path}`, { method: "DELETE" }).catch(() => {});
@@ -263,8 +266,13 @@
           throw e;
         }
       },
-      updateRestaurant(id, patch) {
-        return api(`/rest/v1/restaurants?id=eq.${id}`, { method: "PATCH", json: patch });
+      async updateRestaurant(id, patch) {
+        try {
+          return await api(`/rest/v1/restaurants?id=eq.${id}`, { method: "PATCH", json: patch });
+        } catch (e) {
+          if (e.status === 409) throw new Error(`« ${patch.name} » est déjà dans la liste.`);
+          throw e;
+        }
       },
       deleteRestaurant(id) {
         return api(`/rest/v1/restaurants?id=eq.${id}`, { method: "DELETE" });
@@ -389,6 +397,12 @@
         return p;
       },
       deletePhoto(photo) { const s = load(); s.photos = s.photos.filter(p => p.id !== photo.id); save(s); return later(null); },
+      updatePhoto(pid, patch) {
+        const s = load();
+        s.photos = s.photos.map(p => p.id === pid ? Object.assign({}, p, patch) : p);
+        save(s);
+        return later(null);
+      },
       async uploadImage(blob, prefix) { return { url: await blobToDataUrl(blob), path: `demo-${prefix || "image"}-${id()}` }; },
       deleteImage() { return later(null); },
       lunch(day) {
@@ -425,6 +439,9 @@
       },
       updateRestaurant(rid, patch) {
         const s = load();
+        if (patch.name && s.restaurants.some(r => r.id !== rid && r.name.toLowerCase() === patch.name.toLowerCase())) {
+          return Promise.reject(new Error(`« ${patch.name} » est déjà dans la liste.`));
+        }
         s.restaurants = s.restaurants.map(r => r.id === rid ? Object.assign({}, r, patch) : r);
         save(s);
         return later(null);
@@ -504,9 +521,22 @@
     return impl.getDraw(day);
   }
 
+  const FOOD_EMOJI = [
+    [/pizz|ital|pasta|pâtes|trattoria/i, "🍕"], [/sushi|japon|ramen|izakaya/i, "🍣"], [/burger/i, "🍔"],
+    [/thai|thaï|wok|nouille|pho|vietnam/i, "🍜"], [/poke|poké|salad|bowl/i, "🥗"], [/crêp|crep|galette/i, "🥞"],
+    [/kebab|grec|libanais|falafel|tacos/i, "🥙"], [/mexic|burrito|taco/i, "🌮"], [/indien|curry|tandoor/i, "🍛"],
+    [/chin|dim sum|asiat/i, "🥡"], [/boulang|sandwich|pain/i, "🥖"], [/food ?truck|camion/i, "🚚"],
+    [/burger|frite/i, "🍟"], [/fromage|raclette|fondue/i, "🧀"], [/poisson|fish|mer/i, "🐟"], [/végé|vege|vegan/i, "🥦"],
+    [/brasserie|bistro|cantine|resto|restaurant|chez/i, "🍽️"]
+  ];
+  function foodEmoji(name) {
+    for (let i = 0; i < FOOD_EMOJI.length; i++) if (FOOD_EMOJI[i][0].test(name)) return FOOD_EMOJI[i][1];
+    return "🍴";
+  }
+
   const lunchApi = impl ? { lunch, ensureDraw, reroll, lunchRaw: impl.lunch } : {};
   window.MatDoraStore = Object.assign(
-    { mode, SLIDES, DEFAULTS, HM_REMINDER: "Va sur le channel HM pour voter pour la date et annoncer ta présence !", today, withDefaults, storedCode, rememberCode, usernameToEmail, resizeImage, openOn, drawTime, weekday, DRAW_HOUR, DRAW_MINUTE },
+    { mode, SLIDES, DEFAULTS, HM_REMINDER: "Va sur le channel HM pour voter pour la date et annoncer ta présence !", today, withDefaults, storedCode, rememberCode, usernameToEmail, resizeImage, foodEmoji, openOn, drawTime, weekday, DRAW_HOUR, DRAW_MINUTE },
     impl || { getSettings: () => Promise.resolve(withDefaults(null)) },
     lunchApi
   );
