@@ -371,7 +371,7 @@
     let covered = null, oldestBefore = null;
     for (let k = 0; k < 20 && !covered; k++) {
       const visible = tw.eval("pCards").filter(c => c.el.classList.contains("on") && !c.leaving);
-      oldestBefore = visible.slice().sort((a, b) => a.placedAt - b.placedAt)[0];
+      oldestBefore = visible.slice().sort((a, b) => (a.touched || a.placedAt) - (b.touched || b.placedAt))[0];
       tw.swapTile();
       await waitFor(() => newest().el.classList.contains("on"), 2000);
       if (newest().lastSpot && !newest().lastSpot.free) covered = newest();
@@ -391,6 +391,23 @@
       // (la rotation automatique de la page peut poser d'autres photos entre-temps : on compare aux plus anciennes)
       check(g, "photos : la nouvelle est au-dessus de toutes celles d'avant", tw.eval("pCards").every(c => c === covered || c.placedAt > covered.placedAt || z(c) < z(covered)));
     }
+
+    // 3. Table pleine, plusieurs photos de suite : elles visent des photos différentes, réparties sur l'écran
+    const targets = [], centers = [];
+    for (let k = 0; k < 6; k++) {
+      tw.swapTile();
+      await waitFor(() => newest().el.classList.contains("on"), 2000);
+      const n = newest();
+      if (n.lastSpot && !n.lastSpot.free) targets.push(n.lastSpot.oldest);
+      const r = tw.eval("cardRect")(n);
+      centers.push([r.x + r.w / 2, r.y + r.h / 2]);
+      await sleep(950);
+    }
+    check(g, "photos : jamais deux fois de suite au même endroit", new Set(targets).size === targets.length, `${targets.length} photos visées, ${new Set(targets).size} différentes`);
+    const W = td.getElementById("gallery").clientWidth, H = td.getElementById("gallery").clientHeight;
+    const xs = centers.map(c => c[0]), ys = centers.map(c => c[1]);
+    check(g, "photos : nouvelles photos réparties sur l'écran", Math.max(...xs) - Math.min(...xs) > W * 0.35 || Math.max(...ys) - Math.min(...ys) > H * 0.35,
+      centers.map(c => c.map(Math.round).join(",")).join(" | "));
 
     // Beaucoup de nouvelles photos : jamais de doublon, jamais plus de 12 sur la table
     const seen = new Set(shownPhotos());

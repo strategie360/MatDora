@@ -1523,7 +1523,9 @@
   // Au départ, jusqu'à 7 photos posées en vrac (5 sur un écran en hauteur), décalées et tournées
   // au hasard. Toutes les 3 s, une nouvelle photo arrive :
   //   1. s'il reste de la place, elle se pose dans l'espace le plus vide de la table ;
-  //   2. sinon, elle se pose sur la photo affichée depuis le plus longtemps.
+  //   2. sinon, elle se pose sur la photo qui n'a pas été « rafraîchie » depuis le plus longtemps
+  //      (une photo recouverte compte comme rafraîchie : la suivante ira ailleurs, et le
+  //      renouvellement fait le tour de toute la table au lieu de s'empiler au même endroit).
   // Seules les photos recouvertes à 100 % (plus du tout visibles) sont retirées. Par sécurité pour
   // la mémoire de la Fire TV, au-delà de 15 photos sur la table, la plus cachée est retirée.
   // Seule l'opacité est animée (léger pour Silk).
@@ -1572,7 +1574,7 @@
     card.el.style.top = Math.round(y - h / 2) + "px";
     card.el.style.transform = `rotate(${card.rot}deg)`;
     card.el.style.zIndex = ++zTop;
-    card.placedAt = ++placeSeq;
+    card.placedAt = card.touched = ++placeSeq;
     return target;
   }
 
@@ -1600,7 +1602,9 @@
       }
     }
     if (best && best.ov < FREE_RATIO || !others.length) return { x: best ? best.x : L.W / 2, y: best ? best.y : L.H / 2, oldest: null, free: true };
-    const oldest = others.slice().sort((a, b) => a.placedAt - b.placedAt)[0];
+    // La photo la moins récemment posée OU recouverte
+    const oldest = others.slice().sort((a, b) => (a.touched || a.placedAt) - (b.touched || b.placedAt))[0];
+    oldest.touched = ++placeSeq;
     const r = cardRect(oldest);
     return { x: r.x + r.w / 2, y: r.y + r.h / 2, oldest, free: false };
   }
