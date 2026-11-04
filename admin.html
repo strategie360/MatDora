@@ -107,6 +107,12 @@
   .badge.soon { background: #fff3bf; color: #946200; }
   .badge.done { background: var(--line); color: var(--muted); }
   .badge.today { background: #ffdeeb; color: #c2255c; }
+  .badge.sick { background: #c3fae8; color: #087f5b; }
+  .editing { margin: 0 0 8px; padding: 8px 12px; border-radius: 10px; background: #fff3bf; color: #5c4400; font-weight: 700; display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+  .team-form.is-editing { border-color: var(--accent); }
+  h3.list-title { font-size: .8rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 18px 0 6px; }
+  .row-actions { display: flex; gap: 6px; flex: none; }
+  .team-form .hide-for-sick { display: none; }
   label.check { display: flex; align-items: center; gap: 8px; font-weight: 700; margin-top: 6px; }
   .image-pick { display: flex; align-items: stretch; gap: 12px; flex-wrap: wrap; }
   .image-pick img { width: 120px; max-width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 10px; border: 2px solid var(--line); }
@@ -227,19 +233,18 @@
     <button role="tab" data-tab="happiness">Happiness event</button>
     <button role="tab" data-tab="photos">Photos</button>
     <button role="tab" data-tab="lunch">Repas</button>
-    <button role="tab" data-tab="team">Équipe</button>
+    <button role="tab" data-tab="team">Anniversaires</button>
+    <button role="tab" data-tab="absences">Congés</button>
     <button role="tab" data-tab="access">Accès</button>
   </nav>
 
-  <!-- Équipe : anniversaires et vacances -->
+  <!-- Anniversaires -->
   <section class="panel" id="tab-team" role="tabpanel" hidden>
-    <p class="help">Deux slides se remplissent ici. Elles s'affichent toutes seules sur l'écran quand il y a quelque chose à montrer.</p>
-
     <div class="team-block">
       <h2>🎂 Anniversaires</h2>
       <p class="help">Le jour J, l'écran affiche « Joyeux anniversaire ». Les autres jours, il annonce le prochain.</p>
       <form class="team-form" id="bday-form">
-        <h3>Ajouter un anniversaire</h3>
+        <h3 id="bday-form-title">Ajouter un anniversaire</h3>
         <div class="team-fields">
           <div class="field"><label for="bday-name">Prénom</label><input id="bday-name" maxlength="40" placeholder="Ex. Sarah" required></div>
           <div class="field small"><label for="bday-day">Jour</label><input id="bday-day" type="number" min="1" max="31" placeholder="12" required></div>
@@ -251,7 +256,9 @@
               <option value="7">juillet</option><option value="8">août</option><option value="9">septembre</option>
               <option value="10">octobre</option><option value="11">novembre</option><option value="12">décembre</option>
             </select></div>
-          <div class="field"><span class="label-spacer" aria-hidden="true">&nbsp;</span><button class="btn primary" type="submit">Ajouter</button></div>
+          <div class="field"><span class="label-spacer" aria-hidden="true">&nbsp;</span><button class="btn primary" type="submit" id="bday-submit">Ajouter</button></div>
+        </div>
+        <div class="editing" id="bday-editing" hidden>Tu modifies un anniversaire. <button class="btn" type="button" id="bday-cancel">Annuler</button>
         </div>
       </form>
       <h3>Anniversaires enregistrés</h3>
@@ -259,29 +266,36 @@
       <p class="empty" id="bday-empty" hidden>Aucun anniversaire pour l'instant : ajoute le premier ci-dessus.</p>
     </div>
 
-    <div class="team-block">
-      <h2>🏖️ Bonnes vacances</h2>
-      <p class="help">L'écran souhaite bonnes vacances du premier jour jusqu'à la veille du retour, avec le nombre de jours à tenir et un thème selon la destination.</p>
-      <form class="team-form" id="vac-form">
-        <h3>Ajouter des vacances</h3>
-        <div class="team-fields">
-          <div class="field"><label for="vac-name">Prénom</label><input id="vac-name" maxlength="40" placeholder="Ex. Sarah" required></div>
-          <div class="field"><label for="vac-dest">Destination <span class="hint">(facultatif)</span></label><input id="vac-dest" maxlength="60" placeholder="Ex. Japon"></div>
-          <div class="field"><label for="vac-theme">Thème de la slide</label>
-            <select id="vac-theme"><option value="">Automatique (d'après la destination)</option></select></div>
-        </div>
-        <div class="team-fields">
-          <div class="field"><label for="vac-from">Premier jour</label><input id="vac-from" type="date" required></div>
-          <div class="field"><label for="vac-to">De retour le <span class="hint">(facultatif)</span></label><input id="vac-to" type="date"></div>
-          <div class="field grow-field"><label for="vac-note">Petit mot <span class="hint">(facultatif)</span></label><input id="vac-note" maxlength="140" placeholder="Ex. Ramène-nous du soleil !"></div>
-        </div>
-        <p class="preview" id="vac-preview" aria-live="polite"></p>
-        <div class="actions"><button class="btn primary" type="submit">Ajouter</button></div>
-      </form>
-      <h3>Vacances enregistrées</h3>
-      <div id="vac-list"></div>
-      <p class="empty" id="vac-empty" hidden>Personne en vacances pour l'instant.</p>
-    </div>
+  </section>
+
+  <!-- Congés : vacances et arrêts maladie -->
+  <section class="panel" id="tab-absences" role="tabpanel" hidden>
+    <h2>🏖️ Congés et absences</h2>
+    <p class="help">L'écran affiche une slide du premier jour jusqu'à la veille du retour : « Bonnes vacances » avec un thème selon la destination, ou « Bon rétablissement » pour un arrêt maladie, avec le nombre de jours avant le retour. S'il y a plusieurs absents, chacun a sa carte.</p>
+    <form class="team-form" id="vac-form">
+      <h3 id="vac-form-title">Ajouter une absence</h3>
+      <div class="team-fields">
+        <div class="field"><label for="vac-name">Prénom</label><input id="vac-name" maxlength="40" placeholder="Ex. Sarah" required></div>
+        <div class="field"><label for="vac-kind">Type d'absence</label>
+          <select id="vac-kind"><option value="vacances">🏖️ Vacances</option><option value="maladie">🤒 Arrêt maladie</option></select></div>
+        <div class="field only-vacances"><label for="vac-dest">Destination <span class="hint">(facultatif)</span></label><input id="vac-dest" maxlength="60" placeholder="Ex. Japon"></div>
+        <div class="field only-vacances"><label for="vac-theme">Thème de la slide</label>
+          <select id="vac-theme"><option value="">Automatique (d'après la destination)</option></select></div>
+      </div>
+      <div class="team-fields">
+        <div class="field"><label for="vac-from">Premier jour</label><input id="vac-from" type="date" required></div>
+        <div class="field"><label for="vac-to">De retour le <span class="hint">(facultatif)</span></label><input id="vac-to" type="date"></div>
+        <div class="field grow-field"><label for="vac-note">Petit mot <span class="hint">(facultatif)</span></label><input id="vac-note" maxlength="140" placeholder="Ex. Ramène-nous du soleil !"></div>
+      </div>
+      <p class="preview" id="vac-preview" aria-live="polite"></p>
+      <div class="actions">
+        <button class="btn primary" type="submit" id="vac-submit">Ajouter</button>
+        <button class="btn" type="button" id="vac-cancel" hidden>Annuler la modification</button>
+      </div>
+    </form>
+    <h3 class="list-title">Absences enregistrées</h3>
+    <div id="vac-list"></div>
+    <p class="empty" id="vac-empty" hidden>Personne d'absent pour l'instant.</p>
   </section>
 
   <!-- Accès -->
@@ -470,7 +484,7 @@
   }
 
   /* ---------- Onglets ---------- */
-  const TABS = ["slides", "pauses", "happiness", "photos", "lunch", "team", "access"];
+  const TABS = ["slides", "pauses", "happiness", "photos", "lunch", "team", "absences", "access"];
   function openTab(name) {
     TABS.forEach(t => {
       $("tab-" + t).hidden = t !== name;
@@ -885,20 +899,32 @@
     attempt(async () => { await store.propose(store.today(), name); $("lunch-name").value = ""; await loadLunch(); }, "Resto proposé pour aujourd'hui.");
   });
 
-  /* ---------- Équipe : anniversaires et vacances ---------- */
+  /* ---------- Anniversaires et congés ---------- */
   const MONTHS = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
   const newId = () => Math.random().toString(36).slice(2, 10);
   const longDate = d => new Date(d + "T12:00:00").toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
+  const startToday = () => { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), n.getDate()); };
+  const badge = (cls, text) => { const b = document.createElement("span"); b.className = "badge " + cls; b.textContent = text; return b; };
+  function rowButtons(onEdit, onDelete) {
+    const box = document.createElement("span");
+    box.className = "row-actions";
+    const edit = document.createElement("button");
+    edit.type = "button";
+    edit.className = "btn";
+    edit.textContent = "Modifier";
+    edit.addEventListener("click", onEdit);
+    box.appendChild(edit);
+    box.appendChild(confirmButton("Retirer", onDelete));
+    return box;
+  }
+  let editingBday = null, editingVac = null;
 
-  function renderTeam() {
-    const todayKey = store.today();
-    const now = new Date();
-    const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const badge = (cls, text) => { const b = document.createElement("span"); b.className = "badge " + cls; b.textContent = text; return b; };
-    // Anniversaires, du plus proche au plus lointain
+  /* ----- Anniversaires ----- */
+  function renderBirthdays() {
+    const now = new Date(), t0 = startToday();
+    const next = x => { let d = new Date(now.getFullYear(), x.month - 1, x.day); if (d < t0) d = new Date(now.getFullYear() + 1, x.month - 1, x.day); return d; };
     const bl = $("bday-list");
     bl.innerHTML = "";
-    const next = x => { let d = new Date(now.getFullYear(), x.month - 1, x.day); if (d < startToday) d = new Date(now.getFullYear() + 1, x.month - 1, x.day); return d; };
     const bdays = settings.birthdays.slice().sort((a, b) => next(a) - next(b));
     $("bday-empty").hidden = bdays.length > 0;
     bdays.forEach(b => {
@@ -907,101 +933,162 @@
       const name = document.createElement("span");
       name.className = "grow";
       name.textContent = `${b.name} · ${b.day} ${MONTHS[b.month - 1]}`;
-      const days = Math.round((next(b) - startToday) / 86400000);
+      const days = Math.round((next(b) - t0) / 86400000);
       if (days === 0) name.appendChild(badge("today", "🎂 aujourd'hui !"));
       else if (days <= 7) name.appendChild(badge("soon", days === 1 ? "demain" : `dans ${days} jours`));
       row.appendChild(name);
-      row.appendChild(confirmButton("Retirer", () => attempt(async () => {
+      row.appendChild(rowButtons(() => editBirthday(b), () => attempt(async () => {
         const list = settings.birthdays.filter(x => x.id !== b.id);
         await store.saveSetting("birthdays", list);
         settings.birthdays = list;
-        renderTeam();
+        if (editingBday === b.id) stopEditBirthday();
+        renderBirthdays();
       }, `${b.name} retiré des anniversaires.`)));
       bl.appendChild(row);
     });
-    // Vacances
-    const vl = $("vac-list");
-    vl.innerHTML = "";
-    const vacs = settings.vacations.slice().sort((a, b) => (a.from || "").localeCompare(b.from || ""));
-    $("vac-empty").hidden = vacs.length > 0;
-    vacs.forEach(v => {
-      const state = v.to && todayKey >= v.to ? "done" : v.from && todayKey < v.from ? "soon" : "now";
-      const theme = store.vacationTheme(v);
-      const row = document.createElement("div");
-      row.className = "row";
-      const name = document.createElement("span");
-      name.className = "grow";
-      name.textContent = `${theme.emoji.slice(0, 2)} ${v.name}${v.destination ? ` · ${v.destination}` : ""}`;
-      name.appendChild(badge(state, state === "now" ? "en vacances en ce moment" : state === "soon" ? "à venir" : "terminé"));
-      const small = document.createElement("small");
-      const left = v.to ? Math.round((new Date(v.to + "T00:00:00") - startToday) / 86400000) : null;
-      small.textContent = `du ${longDate(v.from)}${v.to ? ` · retour le ${longDate(v.to)}` : " · sans date de retour"}` +
-        (state === "now" && left !== null ? ` · plus que ${left} jour${left > 1 ? "s" : ""}` : "") +
-        ` · thème ${theme.label}` + (v.note ? ` · « ${v.note} »` : "");
-      name.appendChild(small);
-      row.appendChild(name);
-      row.appendChild(confirmButton("Retirer", () => attempt(async () => {
-        const list = settings.vacations.filter(x => x.id !== v.id);
-        await store.saveSetting("vacations", list);
-        settings.vacations = list;
-        renderTeam();
-      }, `${v.name} retiré des vacances.`)));
-      vl.appendChild(row);
-    });
   }
-
-  // Liste des thèmes et aperçu de ce qui s'affichera sur l'écran
-  store.VACATION_THEMES.forEach(t => {
-    const o = document.createElement("option");
-    o.value = t.id;
-    o.textContent = `${t.emoji} ${t.label}`;
-    $("vac-theme").appendChild(o);
-  });
-  function vacPreview() {
-    const name = $("vac-name").value.trim() || "…";
-    const theme = store.vacationTheme({ destination: $("vac-dest").value, theme: $("vac-theme").value });
-    const to = $("vac-to").value;
-    const startToday = new Date(new Date().toDateString());
-    const left = to ? Math.round((new Date(to + "T00:00:00") - startToday) / 86400000) : null;
-    $("vac-preview").textContent = `Sur l'écran : ${theme.emoji} Bonnes vacances, ${name} ! · thème ${theme.label}` +
-      (left !== null && left > 0 ? ` · plus que ${left} jour${left > 1 ? "s" : ""} à tenir` : "");
+  function editBirthday(b) {
+    editingBday = b.id;
+    $("bday-name").value = b.name;
+    $("bday-day").value = b.day;
+    $("bday-month").value = String(b.month);
+    $("bday-form-title").textContent = `Modifier l'anniversaire de ${b.name}`;
+    $("bday-submit").textContent = "Enregistrer";
+    $("bday-editing").hidden = false;
+    $("bday-form").classList.add("is-editing");
+    $("bday-name").focus();
   }
-  ["vac-name", "vac-dest", "vac-theme", "vac-to", "vac-from"].forEach(id => {
-    $(id).addEventListener("input", vacPreview);
-    $(id).addEventListener("change", vacPreview);
-  });
-
+  function stopEditBirthday() {
+    editingBday = null;
+    $("bday-form").reset();
+    $("bday-form-title").textContent = "Ajouter un anniversaire";
+    $("bday-submit").textContent = "Ajouter";
+    $("bday-editing").hidden = true;
+    $("bday-form").classList.remove("is-editing");
+  }
+  $("bday-cancel").addEventListener("click", stopEditBirthday);
   $("bday-form").addEventListener("submit", e => {
     e.preventDefault();
     const name = $("bday-name").value.trim(), day = Number($("bday-day").value), month = Number($("bday-month").value);
     const valid = name && month >= 1 && month <= 12 && day >= 1 && day <= new Date(2024, month, 0).getDate();
     if (!valid) { toast("Vérifie le prénom, le jour et le mois.", true); return; }
+    const wasEditing = editingBday;
     attempt(async () => {
-      const list = settings.birthdays.concat([{ id: newId(), name, day, month }]);
+      const entry = { id: wasEditing || newId(), name, day, month };
+      const list = wasEditing ? settings.birthdays.map(x => x.id === wasEditing ? entry : x) : settings.birthdays.concat([entry]);
       await store.saveSetting("birthdays", list);
       settings.birthdays = list;
-      $("bday-form").reset();
-      renderTeam();
-    }, `Anniversaire de ${name} ajouté (${day} ${MONTHS[month - 1]}).`);
+      stopEditBirthday();
+      renderBirthdays();
+    }, wasEditing ? `Anniversaire de ${name} modifié.` : `Anniversaire de ${name} ajouté (${day} ${MONTHS[month - 1]}).`);
   });
 
+  /* ----- Congés : vacances et arrêts maladie ----- */
+  store.VACATION_THEMES.filter(t => t.id !== "sante").forEach(t => {
+    const o = document.createElement("option");
+    o.value = t.id;
+    o.textContent = `${t.emoji} ${t.label}`;
+    $("vac-theme").appendChild(o);
+  });
+  function formAbsence() {
+    return { name: $("vac-name").value.trim(), kind: $("vac-kind").value, destination: $("vac-dest").value.trim(), theme: $("vac-theme").value,
+      from: $("vac-from").value, to: $("vac-to").value, note: $("vac-note").value.trim() };
+  }
+  function vacPreview() {
+    const v = formAbsence(), kind = store.absenceKind(v), theme = store.vacationTheme(v);
+    const sick = kind.id === "maladie";
+    // Destination et thème n'ont pas de sens pour un arrêt maladie
+    document.querySelectorAll("#vac-form .only-vacances").forEach(el => el.classList.toggle("hide-for-sick", sick));
+    $("vac-note").placeholder = sick ? "Ex. Prends soin de toi !" : "Ex. Ramène-nous du soleil !";
+    const left = v.to ? Math.round((new Date(v.to + "T00:00:00") - startToday()) / 86400000) : null;
+    $("vac-preview").textContent = `Sur l'écran : ${theme.emoji} ${kind.title}, ${v.name || "…"} !` + (sick ? "" : ` · thème ${theme.label}`) +
+      (left !== null && left > 0 ? ` · plus que ${left} jour${left > 1 ? "s" : ""}${sick ? " avant le retour" : " à tenir"}` : "");
+  }
+  ["vac-name", "vac-kind", "vac-dest", "vac-theme", "vac-to", "vac-from"].forEach(id => {
+    $(id).addEventListener("input", vacPreview);
+    $(id).addEventListener("change", vacPreview);
+  });
+
+  function renderAbsences() {
+    const todayKey = store.today(), t0 = startToday();
+    const vl = $("vac-list");
+    vl.innerHTML = "";
+    const vacs = settings.vacations.slice().sort((a, b) => (a.from || "").localeCompare(b.from || ""));
+    $("vac-empty").hidden = vacs.length > 0;
+    vacs.forEach(v => {
+      const kind = store.absenceKind(v), theme = store.vacationTheme(v);
+      const state = v.to && todayKey >= v.to ? "done" : v.from && todayKey < v.from ? "soon" : "now";
+      const row = document.createElement("div");
+      row.className = "row";
+      const name = document.createElement("span");
+      name.className = "grow";
+      name.textContent = `${theme.emoji.slice(0, 2)} ${v.name}${kind.id !== "maladie" && v.destination ? ` · ${v.destination}` : ""}`;
+      if (kind.id === "maladie") name.appendChild(badge("sick", "arrêt maladie"));
+      name.appendChild(badge(state, state === "now" ? "absent en ce moment" : state === "soon" ? "à venir" : "terminé"));
+      const small = document.createElement("small");
+      const left = v.to ? Math.round((new Date(v.to + "T00:00:00") - t0) / 86400000) : null;
+      small.textContent = `du ${longDate(v.from)}${v.to ? ` · retour le ${longDate(v.to)}` : " · sans date de retour"}` +
+        (state === "now" && left !== null ? ` · plus que ${left} jour${left > 1 ? "s" : ""}` : "") +
+        (kind.id !== "maladie" ? ` · thème ${theme.label}` : "") + (v.note ? ` · « ${v.note} »` : "");
+      name.appendChild(small);
+      row.appendChild(name);
+      row.appendChild(rowButtons(() => editAbsence(v), () => attempt(async () => {
+        const list = settings.vacations.filter(x => x.id !== v.id);
+        await store.saveSetting("vacations", list);
+        settings.vacations = list;
+        if (editingVac === v.id) stopEditAbsence();
+        renderAbsences();
+      }, `${v.name} retiré des absences.`)));
+      vl.appendChild(row);
+    });
+  }
+  function editAbsence(v) {
+    editingVac = v.id;
+    $("vac-name").value = v.name;
+    $("vac-kind").value = v.kind || "vacances";
+    $("vac-dest").value = v.destination || "";
+    $("vac-theme").value = v.theme || "";
+    $("vac-from").value = v.from || "";
+    $("vac-to").value = v.to || "";
+    $("vac-note").value = v.note || "";
+    $("vac-form-title").textContent = `Modifier l'absence de ${v.name}`;
+    $("vac-submit").textContent = "Enregistrer les modifications";
+    $("vac-cancel").hidden = false;
+    $("vac-form").classList.add("is-editing");
+    vacPreview();
+    $("vac-form").scrollIntoView({ block: "start" });
+    $("vac-name").focus();
+  }
+  function stopEditAbsence() {
+    editingVac = null;
+    $("vac-form").reset();
+    $("vac-from").value = store.today();
+    $("vac-form-title").textContent = "Ajouter une absence";
+    $("vac-submit").textContent = "Ajouter";
+    $("vac-cancel").hidden = true;
+    $("vac-form").classList.remove("is-editing");
+    vacPreview();
+  }
+  $("vac-cancel").addEventListener("click", stopEditAbsence);
   $("vac-from").value = store.today();
   $("vac-form").addEventListener("submit", e => {
     e.preventDefault();
-    const name = $("vac-name").value.trim(), from = $("vac-from").value, to = $("vac-to").value, note = $("vac-note").value.trim();
-    const destination = $("vac-dest").value.trim(), theme = $("vac-theme").value;
-    if (!name || !from) { toast("Indique le prénom et le premier jour.", true); return; }
-    if (to && to <= from) { toast("La date de retour doit être après le premier jour.", true); return; }
+    const v = formAbsence();
+    if (!v.name || !v.from) { toast("Indique le prénom et le premier jour.", true); return; }
+    if (v.to && v.to <= v.from) { toast("La date de retour doit être après le premier jour.", true); return; }
+    const wasEditing = editingVac, sick = v.kind === "maladie";
     attempt(async () => {
-      const list = settings.vacations.concat([{ id: newId(), name, destination, theme, from, to: to || null, note }]);
+      const entry = { id: wasEditing || newId(), name: v.name, kind: v.kind, destination: sick ? "" : v.destination, theme: sick ? "" : v.theme,
+        from: v.from, to: v.to || null, note: v.note };
+      const list = wasEditing ? settings.vacations.map(x => x.id === wasEditing ? entry : x) : settings.vacations.concat([entry]);
       await store.saveSetting("vacations", list);
       settings.vacations = list;
-      $("vac-form").reset();
-      $("vac-from").value = store.today();
-      vacPreview();
-      renderTeam();
-    }, `Bonnes vacances à ${name} ! Ajouté.`);
+      stopEditAbsence();
+      renderAbsences();
+    }, wasEditing ? `Absence de ${v.name} modifiée.` : sick ? `Bon rétablissement à ${v.name} ! Ajouté.` : `Bonnes vacances à ${v.name} ! Ajouté.`);
   });
+  function renderTeam() { renderBirthdays(); renderAbsences(); }
+  vacPreview();
 
   /* ---------- Accès : code du site ---------- */
   async function loadAccess() {

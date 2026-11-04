@@ -808,7 +808,20 @@
     check(g, "Sarah au Japon : petit mot du thème", txt("vac-note") === "Rapporte-nous des mochis 🍡", txt("vac-note"));
     tw.eval('vacations = [{ id: "v", name: "Sarah", destination: "Biarritz", theme: "", from: "2026-11-02", to: "2026-11-09", note: "" }, { id: "w", name: "Paul", destination: "", theme: "", from: "2026-11-01", to: "2026-11-06", note: "" }]; vacKey = ""');
     tw.renderVacation(at("2026-11-04T10:00:00"));
-    check(g, "plusieurs personnes : un compte à rebours chacun", td.getElementById("vac-count").hidden && txt("vac-multi").indexOf("Paul : plus que 2 jours") !== -1 && txt("vac-multi").indexOf("Sarah : plus que 5 jours") !== -1 && !vacSlide.classList.contains("theme-japon"), txt("vac-multi"));
+    const cards = () => [...td.querySelectorAll("#absent-cards .absent-card")];
+    check(g, "plusieurs absents : une carte par personne", td.getElementById("vac-box").hidden && !td.getElementById("absent-cards").hidden && cards().length === 2 && !vacSlide.classList.contains("theme-japon"), cards().map(c => c.textContent).join(" | "));
+    check(g, "plusieurs absents : chacun son compte à rebours, le plus proche d'abord", /Paul.*encore 2 jours/.test(cards()[0].textContent) && /Sarah.*encore 5 jours/.test(cards()[1].textContent), cards().map(c => c.textContent).join(" | "));
+
+    // Arrêt maladie : « Bon rétablissement », thème doux, pas de destination
+    tw.eval('vacations = [{ id: "m", kind: "maladie", name: "Paul", destination: "Bali", theme: "", from: "2026-11-02", to: "2026-11-09", note: "" }]; vacKey = ""');
+    tw.renderVacation(at("2026-11-04T10:00:00"));
+    check(g, "arrêt maladie : « Bon rétablissement, Paul ! »", txt("vac-title").replace(/\s+/g, " ") === "Bon rétablissement, Paul !" && txt("vac-kind") === "Arrêt maladie", txt("vac-title"));
+    check(g, "arrêt maladie : thème doux, sans destination", vacSlide.classList.contains("theme-sante") && txt("vac-icons") === "🍵💐🛌" && td.getElementById("vac-dest").hidden && txt("vac-note").indexOf("Prends soin de toi") === 0, `${vacSlide.className} / ${txt("vac-note")}`);
+    check(g, "arrêt maladie : « jours avant le retour » (pas « à tenir »)", txt("vac-days") === "5" && txt("vac-days-text").replace(/\s+/g, " ") === "jours avant le retour de Paul" && txt("vac-back").indexOf("Retour prévu le") === 0, `${txt("vac-days-text")} / ${txt("vac-back")}`);
+    tw.eval('vacations = [{ id: "m", kind: "maladie", name: "Paul", from: "2026-11-02", to: "2026-11-09", note: "" }, { id: "v", name: "Sarah", destination: "Japon", from: "2026-11-01", to: "2026-11-12", note: "" }]; vacKey = ""');
+    tw.renderVacation(at("2026-11-04T10:00:00"));
+    check(g, "vacances et maladie ensemble : une carte chacun, à ses couleurs", cards().length === 2 && cards()[0].classList.contains("t-sante") && cards()[0].textContent.indexOf("Bon rétablissement") !== -1 && cards()[1].classList.contains("t-japon") && cards()[1].textContent.indexOf("Japon") !== -1,
+      cards().map(c => c.className + ":" + c.textContent).join(" | "));
     tw.eval('vacations = [{ id: "v", name: "Sarah", from: "2026-11-02", to: "2026-11-09", note: "" }, { id: "w", name: "Paul", from: "2026-11-20", to: null, note: "" }]; vacKey = ""');
     await tw.refresh();
 
@@ -816,7 +829,9 @@
     const adm = await load("../admin.html#mock,team", 1280, 900);
     const aw = adm.contentWindow, ad = adm.contentDocument;
     await adminLogin(aw, ad);
-    check(g, "dashboard : onglet Équipe", !ad.getElementById("tab-team").hidden && ad.querySelectorAll("#bday-list .row").length === 3 && ad.querySelectorAll("#vac-list .row").length === 1);
+    check(g, "dashboard : onglet Anniversaires, sans les congés", !ad.getElementById("tab-team").hidden && ad.querySelectorAll("#bday-list .row").length === 3 && !ad.getElementById("tab-team").contains(ad.getElementById("vac-form")));
+    ad.querySelector('[data-tab="absences"]').click();
+    check(g, "dashboard : onglet Congés séparé", !ad.getElementById("tab-absences").hidden && ad.getElementById("tab-team").hidden && ad.querySelectorAll("#vac-list .row").length === 1);
     const submit = id => ad.getElementById(id).dispatchEvent(new aw.Event("submit", { cancelable: true }));
     ad.getElementById("bday-name").value = "Nina";
     ad.getElementById("bday-day").value = "31";
@@ -852,14 +867,50 @@
     ad.getElementById("vac-dest").dispatchEvent(new aw.Event("input"));
     check(g, "dashboard : aperçu de la slide avec le thème deviné", ad.getElementById("vac-preview").textContent.indexOf("Bonnes vacances, Sarah") !== -1 && ad.getElementById("vac-preview").textContent.indexOf("thème Japon") !== -1 && /plus que 7 jours/.test(ad.getElementById("vac-preview").textContent), ad.getElementById("vac-preview").textContent);
     check(g, "dashboard : 8 thèmes au choix + automatique", ad.querySelectorAll("#vac-theme option").length === 9);
-    check(g, "dashboard : champs avec de vrais libellés", ["bday-name", "bday-day", "bday-month", "vac-name", "vac-dest", "vac-theme", "vac-from", "vac-to", "vac-note"].every(id => ad.querySelector(`label[for="${id}"]`)));
+    check(g, "dashboard : champs avec de vrais libellés", ["bday-name", "bday-day", "bday-month", "vac-name", "vac-kind", "vac-dest", "vac-theme", "vac-from", "vac-to", "vac-note"].every(id => ad.querySelector(`label[for="${id}"]`)));
     submit("vac-form");
     await waitFor(() => ad.querySelectorAll("#vac-list .row").length === 1);
-    check(g, "dashboard : Sarah en vacances en ce moment, thème Japon", ad.querySelector("#vac-list .row").textContent.indexOf("en vacances en ce moment") !== -1 && ad.querySelector("#vac-list .row").textContent.indexOf("thème Japon") !== -1 && ad.querySelector("#vac-list .badge.now"));
+    check(g, "dashboard : Sarah absente en ce moment, thème Japon", ad.querySelector("#vac-list .row").textContent.indexOf("absent en ce moment") !== -1 && ad.querySelector("#vac-list .row").textContent.indexOf("thème Japon") !== -1 && ad.querySelector("#vac-list .badge.now"));
     check(g, "dashboard : jours restants affichés", /plus que 7 jours/.test(ad.querySelector("#vac-list .row").textContent), ad.querySelector("#vac-list .row").textContent);
     await tw.refresh();
     check(g, "écran : slide « Bonnes vacances, Sarah ! »", tw.deck.ids.indexOf("vacation") !== -1 && txt("vac-title").replace(/\s+/g, " ") === "Bonnes vacances, Sarah !" && txt("vac-note") === "Ramène-nous du soleil !", `${txt("vac-title")} / ${txt("vac-note")}`);
     check(g, "écran : Sarah au Japon, J-7", td.querySelector(".s-vac").classList.contains("theme-japon") && txt("vac-days") === "7", `${td.querySelector(".s-vac").className} / ${txt("vac-days")}`);
+
+    // Modifier une absence : le formulaire se remplit, l'entrée est remplacée (pas dupliquée)
+    const sarahRow = ad.querySelector("#vac-list .row");
+    [...sarahRow.querySelectorAll("button")].filter(b => b.textContent === "Modifier")[0].click();
+    check(g, "modifier une absence : formulaire rempli", ad.getElementById("vac-name").value === "Sarah" && ad.getElementById("vac-dest").value === "Japon" && ad.getElementById("vac-submit").textContent === "Enregistrer les modifications" && !ad.getElementById("vac-cancel").hidden);
+    ad.getElementById("vac-dest").value = "Rome";
+    submit("vac-form");
+    await waitFor(() => ad.getElementById("toast").textContent === "Absence de Sarah modifiée.");
+    const saved = (await tw.MatDoraStore.getSettings()).vacations;
+    check(g, "modifier une absence : remplacée, pas dupliquée", saved.length === 1 && saved[0].destination === "Rome" && ad.getElementById("vac-submit").textContent === "Ajouter", JSON.stringify(saved));
+    await tw.refresh();
+    check(g, "écran : thème mis à jour (Italie)", td.querySelector(".s-vac").classList.contains("theme-italie"));
+
+    // Arrêt maladie depuis le dashboard : destination et thème masqués
+    ad.getElementById("vac-name").value = "Paul";
+    ad.getElementById("vac-kind").value = "maladie";
+    ad.getElementById("vac-kind").dispatchEvent(new aw.Event("change"));
+    check(g, "arrêt maladie : destination et thème masqués", [...ad.querySelectorAll("#vac-form .only-vacances")].every(el => aw.getComputedStyle(el).display === "none"));
+    check(g, "arrêt maladie : aperçu « Bon rétablissement »", ad.getElementById("vac-preview").textContent.indexOf("Bon rétablissement, Paul") !== -1, ad.getElementById("vac-preview").textContent);
+    ad.getElementById("vac-to").value = inDays(4);
+    submit("vac-form");
+    await waitFor(() => ad.querySelectorAll("#vac-list .row").length === 2);
+    check(g, "arrêt maladie : badge dans la liste", !!ad.querySelector("#vac-list .badge.sick"));
+    await tw.refresh();
+    check(g, "écran : deux absents, deux cartes", td.getElementById("vac-box").hidden && td.querySelectorAll("#absent-cards .absent-card").length === 2 && td.querySelector("#absent-cards .absent-card.t-sante"));
+
+    // Modifier un anniversaire
+    ad.querySelector('[data-tab="team"]').click();
+    const ninaRow = [...ad.querySelectorAll("#bday-list .row")].filter(r => r.textContent.indexOf("Nina") !== -1)[0];
+    [...ninaRow.querySelectorAll("button")].filter(b => b.textContent === "Modifier")[0].click();
+    check(g, "modifier un anniversaire : formulaire rempli", ad.getElementById("bday-name").value === "Nina" && !ad.getElementById("bday-editing").hidden);
+    ad.getElementById("bday-name").value = "Nina B.";
+    submit("bday-form");
+    await waitFor(() => ad.getElementById("toast").textContent === "Anniversaire de Nina B. modifié.");
+    const bd = (await tw.MatDoraStore.getSettings()).birthdays;
+    check(g, "modifier un anniversaire : remplacé, pas dupliqué", bd.length === 4 && bd.some(b => b.name === "Nina B.") && !bd.some(b => b.name === "Nina"), bd.map(b => b.name).join(", "));
 
     // Tout tient à l'écran, même avec beaucoup de monde
     tw.eval('vacations = ' + JSON.stringify(["Sarah", "Paul", "Léo", "Inès", "Hugo"].map(n => ({ id: n, name: n, from: "2020-01-01", to: "2099-01-01", note: "" }))));

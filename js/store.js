@@ -21,7 +21,7 @@
     { id: "photos", label: "Photos d'events" },
     { id: "lunch", label: "Repas du midi" },
     { id: "birthday", label: "Anniversaires" },
-    { id: "vacation", label: "Bonnes vacances" }
+    { id: "vacation", label: "Congés et absences" }
   ];
   // Pauses : une liste d'horaires par jour (0 = dimanche … 6 = samedi)
   const WEEKDAY_PAUSES = ["10:00", "12:00", "16:00"];
@@ -324,7 +324,7 @@
             { id: "b3", name: "Exemple : Inès", day: new Date(d.getTime() + 40 * 86400000).getDate(), month: new Date(d.getTime() + 40 * 86400000).getMonth() + 1 }
           ],
           vacations: [
-            { id: "v1", name: "Exemple : Sarah", destination: "Japon", theme: "", from: today(new Date(d.getTime() - 2 * 86400000)), to: today(new Date(d.getTime() + 6 * 86400000)), note: "" }
+            { id: "v1", kind: "vacances", name: "Exemple : Sarah", destination: "Japon", theme: "", from: today(new Date(d.getTime() - 2 * 86400000)), to: today(new Date(d.getTime() + 6 * 86400000)), note: "" }
           ]
         },
         photos: [
@@ -543,8 +543,15 @@
     { id: "ville", label: "Ville", emoji: "🏙️🗺️📸", note: "Envoie-nous une carte postale !" },
     { id: "tropiques", label: "Tropiques", emoji: "🌺🥥🐠", note: "Ramène-nous un peu de soleil ☀️" },
     { id: "nord", label: "Grand Nord", emoji: "🌌❄️🦌", note: "Couvre-toi bien !" },
-    { id: "campagne", label: "Campagne / nature", emoji: "🌳🚲🧺", note: "Profite du grand air 🌿" }
+    { id: "campagne", label: "Campagne / nature", emoji: "🌳🚲🧺", note: "Profite du grand air 🌿" },
+    { id: "sante", label: "Bon rétablissement", emoji: "🍵💐🛌", note: "Prends soin de toi, on pense à toi 💛" }
   ];
+  // Types d'absence : vacances (thème selon la destination) ou arrêt maladie (thème « bon rétablissement »)
+  const ABSENCE_KINDS = [
+    { id: "vacances", label: "Vacances", emoji: "🏖️", title: "Bonnes vacances" },
+    { id: "maladie", label: "Arrêt maladie", emoji: "🤒", title: "Bon rétablissement" }
+  ];
+  function absenceKind(v) { return ABSENCE_KINDS.filter(k => k.id === (v && v.kind))[0] || ABSENCE_KINDS[0]; }
   const THEME_WORDS = [
     [/japon|tokyo|kyoto|osaka|hokkaido|okinawa/i, "japon"],
     [/italie|rome|venise|florence|naples|sicile|sardaigne|milan|toscane|pouilles/i, "italie"],
@@ -559,6 +566,7 @@
     return "plage";
   }
   function vacationTheme(v) {
+    if (v && v.kind === "maladie") return VACATION_THEMES.filter(t => t.id === "sante")[0];
     const id = v && v.theme ? v.theme : guessTheme(v && v.destination);
     return VACATION_THEMES.filter(t => t.id === id)[0] || VACATION_THEMES[0];
   }
@@ -578,7 +586,7 @@
 
   const lunchApi = impl ? { lunch, ensureDraw, reroll, lunchRaw: impl.lunch } : {};
   window.MatDoraStore = Object.assign(
-    { mode, SLIDES, DEFAULTS, HM_REMINDER: "Va sur le channel HM pour voter pour la date et annoncer ta présence !", today, withDefaults, storedCode, rememberCode, usernameToEmail, resizeImage, foodEmoji, VACATION_THEMES, guessTheme, vacationTheme, openOn, drawTime, weekday, DRAW_HOUR, DRAW_MINUTE },
+    { mode, SLIDES, DEFAULTS, HM_REMINDER: "Va sur le channel HM pour voter pour la date et annoncer ta présence !", today, withDefaults, storedCode, rememberCode, usernameToEmail, resizeImage, foodEmoji, VACATION_THEMES, ABSENCE_KINDS, absenceKind, guessTheme, vacationTheme, openOn, drawTime, weekday, DRAW_HOUR, DRAW_MINUTE },
     impl || { getSettings: () => Promise.resolve(withDefaults(null)) },
     lunchApi
   );

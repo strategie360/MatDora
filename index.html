@@ -768,7 +768,8 @@
       linear-gradient(#74c0fc 0%, #a5d8ff 58%, #66d9e8 58%, #66d9e8 66%, #f6dca0 66%, #f3cf86 100%);
     color: #0b3954;
   }
-  .s-vac .inner { max-width: 1100px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .s-vac .inner { max-width: 1200px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .vac-wrap { width: 100%; display: flex; flex-direction: column; align-items: center; }
   .vac-box {
     box-sizing: border-box;
     max-width: 100%;
@@ -800,8 +801,8 @@
     margin-right: 14px;
   }
   .vac-count .t { font-weight: 800; font-size: clamp(1rem, min(2.6vw, 2.8vh), 1.4rem); text-align: left; line-height: 1.2; }
-  .vac-multi { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; justify-content: center; }
-  .vac-multi li { margin: 4px 6px; padding: 6px 14px; border-radius: 999px; background: rgba(0, 0, 0, .06); font-weight: 800; font-size: clamp(.85rem, 2vh, 1.05rem); }
+  .vac-multi-unused { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; justify-content: center; }
+  .vac-multi-unused li { margin: 4px 6px; padding: 6px 14px; border-radius: 999px; background: rgba(0, 0, 0, .06); font-weight: 800; font-size: clamp(.85rem, 2vh, 1.05rem); }
   .s-vac .vac-title span { color: var(--vac-accent, #f08c00); }
   .s-vac .eyebrow { color: var(--vac-accent, #1c7ed6); }
 
@@ -848,6 +849,58 @@
       radial-gradient(circle, #ffffff 0 2px, transparent 3px) 0 0 / 90px 80px,
       linear-gradient(#0b1d3a, #12355b 70%, #e7f5ff 70%);
   }
+  .s-vac.theme-sante {
+    --vac-accent: #0ca678;
+    background:
+      radial-gradient(circle, #c3fae8 0 6px, transparent 7px) 0 0 / 120px 120px,
+      radial-gradient(circle, #ffffff 0 4px, transparent 5px) 50px 60px / 150px 140px,
+      linear-gradient(#e6fcf5, #d3f9d8);
+  }
+  /* Plusieurs absents : une carte par personne, à ses couleurs, qui apparaissent l'une après l'autre */
+  .absent-head { text-align: center; }
+  .absent-head .vac-title { font-size: calc(clamp(1.8rem, min(5vw, 8vh), 3.6rem) * var(--scale, 1)); }
+  .absent-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(calc(230px * var(--scale, 1)), 1fr));
+    gap: calc(16px * var(--scale, 1));
+    width: 100%;
+    margin-top: calc(16px * var(--scale, 1));
+  }
+  .absent-card {
+    --c: #1c7ed6;
+    box-sizing: border-box;
+    min-width: 0;
+    background: #ffffff;
+    border-radius: 22px;
+    border-top: 8px solid var(--c);
+    padding: calc(14px * var(--scale, 1)) calc(16px * var(--scale, 1));
+    box-shadow: 0 18px 36px -22px rgba(11, 57, 84, .6);
+    text-align: center;
+    opacity: 1;
+  }
+  .slide.active .absent-card { animation: cardIn .7s ease both; }
+  .slide.active .absent-card:nth-child(2) { animation-delay: .5s; }
+  .slide.active .absent-card:nth-child(3) { animation-delay: 1s; }
+  .slide.active .absent-card:nth-child(4) { animation-delay: 1.5s; }
+  .slide.active .absent-card:nth-child(5) { animation-delay: 2s; }
+  .slide.active .absent-card:nth-child(n+6) { animation-delay: 2.5s; }
+  @keyframes cardIn { from { opacity: 0; } to { opacity: 1; } }
+  .absent-card .e { font-size: calc(clamp(1.8rem, min(4vw, 6vh), 3rem) * var(--scale, 1)); line-height: 1.1; }
+  .absent-card .k { font-weight: 800; text-transform: uppercase; letter-spacing: .1em; font-size: calc(.75rem * var(--scale, 1)); color: var(--c); margin-top: 4px; }
+  .absent-card .n { font-family: var(--display); font-size: calc(clamp(1.5rem, min(3.6vw, 5.4vh), 2.6rem) * var(--scale, 1)); line-height: 1.05; color: #0b3954; overflow-wrap: anywhere; }
+  .absent-card .d { font-weight: 800; color: var(--c); font-size: calc(clamp(.85rem, 2vh, 1.05rem) * var(--scale, 1)); }
+  .absent-card .j { margin-top: 6px; font-weight: 800; font-size: calc(clamp(.9rem, 2.2vh, 1.15rem) * var(--scale, 1)); color: #31556b; }
+  .absent-card .j b { font-family: var(--display); font-weight: 400; font-size: 1.6em; color: var(--c); }
+  .absent-card.t-japon { --c: #c92a2a; background: #fff5f7; }
+  .absent-card.t-montagne { --c: #1971c2; background: #f1f8ff; }
+  .absent-card.t-italie { --c: #2b8a3e; background: #fff9f0; }
+  .absent-card.t-ville { --c: #7048e8; background: #f8f5ff; }
+  .absent-card.t-tropiques { --c: #0c8599; background: #f0fdff; }
+  .absent-card.t-nord { --c: #0ca678; background: #f0fbf8; }
+  .absent-card.t-campagne { --c: #2f9e44; background: #f4fdf5; }
+  .absent-card.t-plage { --c: #f08c00; background: #fffaf0; }
+  .absent-card.t-sante { --c: #0ca678; background: #effcf7; }
+  .simple .slide.active .absent-card { animation: none; }
   .s-vac.theme-campagne {
     --vac-accent: #2f9e44;
     background:
@@ -1064,15 +1117,21 @@
   <!-- Bonnes vacances (onglet Équipe du dashboard) -->
   <section class="slide s-vac" data-id="vacation" data-tone="beach" aria-label="Bonnes vacances">
     <div class="inner" id="vac-inner">
-      <div class="vac-box" id="vac-box">
-        <div class="vac-icons" id="vac-icons" aria-hidden="true">🏖️🌴🍹</div>
-        <div class="eyebrow">En vacances</div>
-        <p class="vac-title" id="vac-title">–</p>
-        <p class="vac-dest" id="vac-dest" hidden></p>
-        <div class="vac-count" id="vac-count" hidden><span class="n" id="vac-days">–</span><span class="t" id="vac-days-text"></span></div>
-        <ul class="vac-multi" id="vac-multi" hidden></ul>
-        <p class="vac-back" id="vac-back"></p>
-        <p class="vac-note" id="vac-note"></p>
+      <div class="vac-wrap" id="vac-wrap">
+        <div class="vac-box" id="vac-box">
+          <div class="vac-icons" id="vac-icons" aria-hidden="true">🏖️🌴🍹</div>
+          <div class="eyebrow" id="vac-kind">En vacances</div>
+          <p class="vac-title" id="vac-title">–</p>
+          <p class="vac-dest" id="vac-dest" hidden></p>
+          <div class="vac-count" id="vac-count" hidden><span class="n" id="vac-days">–</span><span class="t" id="vac-days-text"></span></div>
+          <p class="vac-back" id="vac-back"></p>
+          <p class="vac-note" id="vac-note"></p>
+        </div>
+        <div class="absent-head" id="absent-head" hidden>
+          <div class="eyebrow">Absents en ce moment</div>
+          <p class="vac-title">On pense à eux&nbsp;!</p>
+        </div>
+        <div class="absent-cards" id="absent-cards" hidden></div>
       </div>
     </div>
   </section>
@@ -1602,40 +1661,53 @@
     const list = onVacation(now).slice().sort((a, b) => (a.to || "9999").localeCompare(b.to || "9999"));
     if (!list.length) return;
     const long = d => new Date(d + "T12:00:00").toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
+    const short = d => new Date(d + "T12:00:00").toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "short" });
     const left = v => v.to ? daysUntil(new Date(v.to + "T12:00:00"), now) : null;
-    // Thème : celui de la première personne (celle qui rentre le plus tôt)
-    const theme = store.vacationTheme(list[0]);
     const slide = allSlidesVac();
-    store.VACATION_THEMES.forEach(t => slide.classList.toggle("theme-" + t.id, t.id === theme.id && t.id !== "plage"));
-    $("vac-icons").textContent = theme.emoji;
-    $("vac-title").innerHTML = `Bonnes vacances, <span>${escapeHtml(joinNames(list.map(v => v.name)))}</span>&nbsp;!`;
-    const dests = list.filter(v => v.destination).map(v => list.length > 1 ? `${v.name} : ${v.destination}` : v.destination);
-    $("vac-dest").hidden = !dests.length;
-    $("vac-dest").textContent = dests.length ? `📍 ${dests.join(" · ")}` : "";
-    // Compte à rebours avant le retour
     const one = list.length === 1 ? list[0] : null;
-    const days = one ? left(one) : null;
-    $("vac-count").hidden = days === null;
-    $("vac-multi").hidden = !!one || !list.some(v => v.to);
-    if (days !== null) {
-      $("vac-days").textContent = days;
-      $("vac-days-text").textContent = days === 1 ? `dernier jour à tenir,\n${one.name} rentre demain !` : `jours à tenir\navant le retour de ${one.name}`;
-      $("vac-days-text").style.whiteSpace = "pre-line";
-    }
-    $("vac-multi").innerHTML = "";
-    if (!one) {
-      list.filter(v => v.to).forEach(v => {
-        const li = document.createElement("li");
-        const d = left(v);
-        li.textContent = `${v.name} : ${d === 1 ? "retour demain" : `plus que ${d} jours`}`;
-        $("vac-multi").appendChild(li);
+    // Une personne : grand encadré au thème de sa destination (ou « bon rétablissement »)
+    // Plusieurs : une carte chacun, chacune à ses couleurs, sur un fond neutre
+    const theme = one ? store.vacationTheme(one) : null;
+    store.VACATION_THEMES.forEach(t => slide.classList.toggle("theme-" + t.id, !!theme && t.id === theme.id && t.id !== "plage"));
+    $("vac-box").hidden = !one;
+    $("absent-head").hidden = !!one;
+    $("absent-cards").hidden = !!one;
+    if (one) {
+      const kind = store.absenceKind(one);
+      const sick = kind.id === "maladie";
+      $("vac-icons").textContent = theme.emoji;
+      $("vac-kind").textContent = sick ? "Arrêt maladie" : "En vacances";
+      $("vac-title").innerHTML = `${kind.title}, <span>${escapeHtml(one.name)}</span>&nbsp;!`;
+      $("vac-dest").hidden = sick || !one.destination;
+      $("vac-dest").textContent = one.destination ? `📍 ${one.destination}` : "";
+      const days = left(one);
+      $("vac-count").hidden = days === null;
+      if (days !== null) {
+        $("vac-days").textContent = days;
+        $("vac-days-text").textContent = sick
+          ? (days === 1 ? `jour avant le retour\nde ${one.name}` : `jours avant le retour\nde ${one.name}`)
+          : (days === 1 ? `dernier jour à tenir,\n${one.name} rentre demain !` : `jours à tenir\navant le retour de ${one.name}`);
+        $("vac-days-text").style.whiteSpace = "pre-line";
+      }
+      $("vac-back").textContent = one.to ? `${sick ? "Retour prévu le" : "De retour le"} ${long(one.to)}` : (sick ? "Remets-toi bien !" : "Profite bien !");
+      $("vac-note").textContent = one.note || theme.note;
+    } else {
+      const cards = $("absent-cards");
+      cards.innerHTML = "";
+      list.forEach(v => {
+        const kind = store.absenceKind(v), t = store.vacationTheme(v), d = left(v);
+        const card = document.createElement("div");
+        card.className = "absent-card t-" + t.id;
+        card.innerHTML =
+          `<div class="e" aria-hidden="true">${t.emoji}</div>` +
+          `<div class="k">${escapeHtml(kind.title)}</div>` +
+          `<div class="n">${escapeHtml(v.name)}</div>` +
+          (kind.id !== "maladie" && v.destination ? `<div class="d">📍 ${escapeHtml(v.destination)}</div>` : "") +
+          (d !== null ? `<div class="j">${d === 1 ? "retour <b>demain</b>" : `encore <b>${d}</b> jours`}<br>${kind.id === "maladie" ? "retour prévu" : "retour"} ${escapeHtml(short(v.to))}</div>` : "");
+        cards.appendChild(card);
       });
     }
-    $("vac-back").textContent = one ? (one.to ? `De retour le ${long(one.to)}` : "Profite bien !") : "";
-    $("vac-back").hidden = !one;
-    const note = list.map(v => v.note).filter(Boolean)[0];
-    $("vac-note").textContent = note || theme.note;
-    fitBox("vac-inner", "vac-box");
+    fitBox("vac-inner", "vac-wrap");
   }
   function allSlidesVac() { return document.querySelector(".s-vac"); }
 
