@@ -125,7 +125,14 @@
   .toast { position: sticky; bottom: max(12px, env(safe-area-inset-bottom, 0px)); margin-top: 16px; padding: 10px 14px; border-radius: 12px; font-weight: 800; background: var(--fg); color: var(--bg); }
   .toast.error { background: var(--danger); color: #ffffff; }
   .empty { color: var(--muted); margin: 8px 0 0; }
-  .votes { font-weight: 800; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .who { display: flex; align-items: center; gap: 10px; font-weight: 700; color: var(--muted); }
+  .login { max-width: 420px; margin: 40px auto 0; }
+  .login .btn { width: 100%; margin-top: 4px; }
+  .login-error { color: var(--danger); font-weight: 800; min-height: 1.5em; margin: 8px 0 0; }
+  .demo-hint { margin: 12px 0 0; color: var(--muted); font-size: .9rem; }
+  .code-state { font-weight: 800; }
+  .code-state.on { color: var(--ok); }
+  .code-state.off { color: var(--danger); }
   h2.sub { margin-top: 24px; padding-top: 18px; border-top: 2px solid var(--line); }
   .draw-now { font-family: var(--display); font-weight: 400; font-size: 1.5rem; color: var(--accent); }
   .table-wrap { overflow-x: auto; }
@@ -142,8 +149,24 @@
   <header>
     <h1>Dashboard MatDora</h1>
     <span class="mode" id="mode">–</span>
+    <span class="who" id="who" hidden><span id="who-name"></span><button class="btn" type="button" id="logout">Se déconnecter</button></span>
   </header>
-  <p class="links">Les changements arrivent sur l'écran en moins de 20 secondes. <a id="link-tv" href="index.html">Voir l'écran</a> · <a id="link-vote" href="vote.html">Page de vote</a></p>
+  <p class="links">Les changements arrivent sur l'écran en moins de 20 secondes. <a id="link-tv" href="index.html">Voir l'écran</a></p>
+
+  <!-- Connexion -->
+  <section class="panel login" id="login" hidden>
+    <h2>Connexion</h2>
+    <p class="help">Réservé aux admins.</p>
+    <form id="login-form">
+      <div class="field"><label for="login-user">Identifiant</label><input id="login-user" autocomplete="username" required></div>
+      <div class="field"><label for="login-pass">Mot de passe</label><input id="login-pass" type="password" autocomplete="current-password" required></div>
+      <button class="btn primary" type="submit" id="login-submit">Se connecter</button>
+      <p class="login-error" id="login-error" role="alert"></p>
+    </form>
+    <p class="demo-hint" id="demo-hint" hidden>Mode démo : identifiant <strong>admin</strong>, mot de passe <strong>admin</strong>.</p>
+  </section>
+
+  <div id="app" hidden>
 
   <p class="panel" id="off" hidden>Le dashboard n'est pas encore branché : il faut configurer Supabase (voir SETUP.md). Pour essayer avec des données d'exemple, ajoute <strong>#mock</strong> à la fin de l'adresse.</p>
 
@@ -153,7 +176,21 @@
     <button role="tab" data-tab="happiness">Happiness event</button>
     <button role="tab" data-tab="photos">Photos</button>
     <button role="tab" data-tab="lunch">Repas</button>
+    <button role="tab" data-tab="access">Accès</button>
   </nav>
+
+  <!-- Accès -->
+  <section class="panel" id="tab-access" role="tabpanel" hidden>
+    <h2>Code d'accès du site</h2>
+    <p class="help">L'écran TV demande ce code une seule fois, puis s'en souvient. Si tu le changes, chaque écran redemande le nouveau code. Sans code, le site est ouvert à tous.</p>
+    <div class="row"><span class="grow code-state" id="code-state">–</span><span id="code-remove-box"></span></div>
+    <form class="actions" id="code-form">
+      <input id="code-new" minlength="4" maxlength="40" autocomplete="off" placeholder="Nouveau code (4 caractères min.)" aria-label="Nouveau code d'accès" required>
+      <button class="btn primary" type="submit">Enregistrer le code</button>
+    </form>
+    <h2 class="sub">Comptes admins</h2>
+    <p class="help">Les comptes du dashboard se créent dans Supabase : voir SETUP.md, partie « Comptes admins ».</p>
+  </section>
 
   <!-- Slides -->
   <section class="panel" id="tab-slides" role="tabpanel" hidden>
@@ -234,7 +271,7 @@
     </div>
 
     <h2 class="sub">Liste des restos</h2>
-    <p class="help">Coche les jours d'ouverture. « Pas dispo » retire le resto du tirage et des votes (vacances, travaux…). Chaque changement est enregistré tout de suite.</p>
+    <p class="help">Coche les jours d'ouverture. « Pas dispo » retire le resto du tirage et de l'écran (vacances, travaux…). Chaque changement est enregistré tout de suite.</p>
     <div class="table-wrap">
       <table class="restos">
         <thead><tr><th scope="col">Resto</th><th scope="col" title="Lundi">L</th><th scope="col" title="Mardi">M</th><th scope="col" title="Mercredi">Me</th><th scope="col" title="Jeudi">J</th><th scope="col" title="Vendredi">V</th><th scope="col">Pas dispo</th><th scope="col"><span hidden>Supprimer</span></th></tr></thead>
@@ -247,15 +284,17 @@
       <button class="btn primary" type="submit">Ajouter à la liste</button>
     </form>
 
-    <h2 class="sub">Votes du jour</h2>
-    <p class="help">Chacun vote et propose depuis son téléphone (QR code sur l'écran). Ici, tu peux retirer une proposition du jour.</p>
+    <h2 class="sub">Propositions du jour</h2>
+    <p class="help">En plus des restos ouverts de la liste, tu peux ajouter un resto juste pour aujourd'hui. Il s'affiche sur l'écran avec les autres choix.</p>
     <div id="lunch-list"></div>
-    <p class="empty" id="lunch-empty" hidden>Aucun vote ni proposition aujourd'hui.</p>
+    <p class="empty" id="lunch-empty" hidden>Aucune proposition en plus aujourd'hui.</p>
     <form class="actions" id="lunch-form">
       <input id="lunch-name" maxlength="60" placeholder="Proposer un resto pour aujourd'hui" aria-label="Nom du resto à proposer aujourd'hui" required>
       <button class="btn primary" type="submit">Proposer</button>
     </form>
   </section>
+
+  </div>
 
   <div class="toast" id="toast" role="status" hidden></div>
 </div>
@@ -273,7 +312,6 @@
   $("mode").textContent = { supabase: "Connecté à Supabase", demo: "Mode démo (#mock)", off: "Non configuré" }[store.mode];
   $("mode").className = "mode " + store.mode;
   $("link-tv").href = "index.html" + demo;
-  $("link-vote").href = "vote.html" + demo;
 
   let toastTimer = null;
   function toast(text, isError) {
@@ -290,6 +328,7 @@
       return true;
     } catch (e) {
       toast(e.message || "Ça n'a pas marché. Vérifie ta connexion et réessaie.", true);
+      if (e.denied) showLogin("Session expirée : reconnecte-toi.");
       return false;
     }
   }
@@ -315,7 +354,7 @@
   }
 
   /* ---------- Onglets ---------- */
-  const TABS = ["slides", "pauses", "happiness", "photos", "lunch"];
+  const TABS = ["slides", "pauses", "happiness", "photos", "lunch", "access"];
   function openTab(name) {
     TABS.forEach(t => {
       $("tab-" + t).hidden = t !== name;
@@ -608,29 +647,25 @@
   async function loadLunch() {
     const day = store.today();
     await store.ensureDraw(day);
-    const data = await store.lunch(day, store.voterId());
+    const data = await store.lunch(day);
     $("draw-now").textContent = data.draw ? `🎲 ${data.draw.name}`
       : data.candidates.length ? "Pas encore tiré (11:30)" : "Aucun resto ouvert aujourd'hui";
     $("draw-reroll").textContent = data.draw ? "🎲 Relancer" : "🎲 Tirer au sort maintenant";
     $("draw-reroll").disabled = !data.candidates.length;
     renderRestos(data.restaurants);
 
-    // Votes du jour : seulement les choix qui existent pour aujourd'hui (proposés ou votés)
+    // Propositions du jour : les choix ajoutés pour aujourd'hui seulement
     const list = $("lunch-list");
     list.innerHTML = "";
     const today = data.options.filter(o => o.id);
     $("lunch-empty").hidden = today.length > 0;
-    today.sort((a, b) => b.votes - a.votes).forEach(o => {
+    today.forEach(o => {
       const row = document.createElement("div");
       row.className = "row";
       const name = document.createElement("span");
       name.className = "grow";
       name.textContent = o.name;
-      const votes = document.createElement("span");
-      votes.className = "votes";
-      votes.textContent = `${o.votes} vote${o.votes > 1 ? "s" : ""}`;
       row.appendChild(name);
-      row.appendChild(votes);
       row.appendChild(confirmButton("Retirer", () => attempt(async () => { await store.deleteOption(o.id); await loadLunch(); }, "Proposition retirée.")));
       list.appendChild(row);
     });
@@ -653,18 +688,84 @@
     attempt(async () => { await store.propose(store.today(), name); $("lunch-name").value = ""; await loadLunch(); }, "Resto proposé pour aujourd'hui.");
   });
 
+  /* ---------- Accès : code du site ---------- */
+  async function loadAccess() {
+    const active = await store.siteCodeActive();
+    $("code-state").textContent = active ? "Un code est demandé pour voir le site." : "Aucun code : le site est ouvert à tous.";
+    $("code-state").className = "grow code-state " + (active ? "on" : "off");
+    $("code-remove-box").innerHTML = "";
+    if (active) {
+      $("code-remove-box").appendChild(confirmButton("Retirer le code", () => attempt(async () => {
+        await store.setSiteCode(null);
+        store.rememberCode(null);
+        await loadAccess();
+      }, "Code retiré : le site est ouvert à tous.")));
+    }
+  }
+  $("code-form").addEventListener("submit", e => {
+    e.preventDefault();
+    const code = $("code-new").value.trim();
+    if (code.length < 4) { toast("Le code doit faire au moins 4 caractères.", true); return; }
+    attempt(async () => {
+      await store.setSiteCode(code);
+      store.rememberCode(code);  // ce navigateur garde l'accès à l'écran
+      $("code-new").value = "";
+      await loadAccess();
+    }, "Code enregistré. Les écrans vont demander le nouveau code.");
+  });
+
+  /* ---------- Connexion ---------- */
+  function showLogin(message) {
+    $("app").hidden = true;
+    $("who").hidden = true;
+    $("login").hidden = false;
+    $("login-error").textContent = message || "";
+    $("demo-hint").hidden = store.mode !== "demo";
+  }
+  $("login-form").addEventListener("submit", e => {
+    e.preventDefault();
+    $("login-error").textContent = "";
+    $("login-submit").disabled = true;
+    window.ready = (async () => {
+      try {
+        const who = await store.login($("login-user").value, $("login-pass").value);
+        $("login-pass").value = "";
+        await openDashboard(who);
+      } catch (err) {
+        $("login-error").textContent = err.message || "Connexion impossible.";
+      }
+      $("login-submit").disabled = false;
+    })();
+  });
+  $("logout").addEventListener("click", async () => {
+    await store.logout();
+    showLogin("Tu es déconnecté.");
+  });
+
   /* ---------- Démarrage ---------- */
+  let timerStarted = false;
+  async function openDashboard(who) {
+    $("login").hidden = true;
+    $("app").hidden = false;
+    $("who").hidden = false;
+    $("who-name").textContent = who.username;
+    const ok = await attempt(async () => { settings = await store.getSettings(); });
+    renderSlides(); renderPauses(); renderHappiness();
+    if (ok) await Promise.all([attempt(loadPhotos), attempt(loadLunch), attempt(loadAccess)]);
+    if (!timerStarted) {
+      timerStarted = true;
+      setInterval(() => { if (!$("app").hidden) loadLunch().catch(() => {}); }, 15000);
+    }
+  }
+
   async function start() {
     if (store.mode === "off") {
       $("off").hidden = false;
-      document.querySelectorAll("form button, .actions button").forEach(b => { b.disabled = true; });
-      renderSlides(); renderPauses(); renderHappiness();
       return;
     }
-    const ok = await attempt(async () => { settings = await store.getSettings(); });
-    renderSlides(); renderPauses(); renderHappiness();
-    if (ok) await Promise.all([attempt(loadPhotos), attempt(loadLunch)]);
-    setInterval(() => { loadLunch().catch(() => {}); }, 15000);
+    const who = await store.currentAdmin();
+    if (!who) { showLogin(); return; }
+    await openDashboard(who);
   }
   window.ready = start();
 </script>

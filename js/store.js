@@ -1,7 +1,9 @@
-/* Données du diaporama, partagées par l'écran, le dashboard et la page de vote.
+/* Données du diaporama, partagées par l'écran et le dashboard.
    - Supabase (API REST, sans librairie) quand config.js est rempli
    - Démo locale quand l'adresse contient #mock (données d'exemple dans ce navigateur)
    - Sinon "off" : l'écran affiche seulement les slides fixes
+   Sécurité : le dashboard se connecte avec identifiant + mot de passe (Supabase Auth),
+   l'écran envoie le code du site (en-tête x-site-code) ; Supabase refuse sans eux.
    Écrit sans ?. ni ?? pour rester compatible avec les vieux Silk (Fire TV). */
 (function () {
   const cfg = window.MATDORA_CONFIG || {};
@@ -43,14 +45,6 @@
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
   }
 
-  function voterId() {
-    try {
-      let id = localStorage.getItem("matdora-voter");
-      if (!id) { id = Math.random().toString(36).slice(2) + Date.now().toString(36); localStorage.setItem("matdora-voter", id); }
-      return id;
-    } catch (e) { return "anonyme-" + Math.random().toString(36).slice(2); }
-  }
-
   // Complète la config enregistrée avec les valeurs par défaut (et les slides ajoutées depuis)
   function withDefaults(saved) {
     const out = Object.assign({}, DEFAULTS, saved || {});
@@ -61,13 +55,20 @@
     return out;
   }
 
-  function countVotes(options, votes, voter) {
-    const mine = votes.filter(v => v.voter === voter)[0];
-    return {
-      options: options.map(o => Object.assign({}, o, { votes: votes.filter(v => v.option_id === o.id).length })),
-      total: votes.length,
-      myVote: mine ? mine.option_id : null
-    };
+  /* ---------- Accès ---------- */
+  const CODE_KEY = "matdora-site-code", SESSION_KEY = "matdora-admin";
+  function readLocal(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+  function writeLocal(k, v) { try { if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) { /* rien */ } }
+  // Code du site mémorisé sur cet appareil (la TV le tape une seule fois)
+  function storedCode() { return readLocal(CODE_KEY) || ""; }
+  function rememberCode(code) { writeLocal(CODE_KEY, code ? code : null); }
+  function loadSession() { try { return JSON.parse(readLocal(SESSION_KEY) || "null"); } catch (e) { return null; } }
+  function saveSession(sess) { writeLocal(SESSION_KEY, sess ? JSON.stringify(sess) : null); }
+  // L'identifiant devient l'e-mail du compte : "tom" → "tom@matdora.app"
+  function usernameToEmail(u) { u = u.trim().toLowerCase(); return u.indexOf("@") !== -1 ? u : u + "@matdora.app"; }
+  async function sha256(text) {
+    const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("");
   }
 
   // Réduit une photo avant envoi (max 1920 px, JPEG) : plus léger pour la Fire TV
@@ -95,15 +96,41 @@
     const base = cfg.supabaseUrl.replace(/\/+$/, "");
     const key = cfg.supabaseKey;
 
+    // Session admin : jeton renouvelé une minute avant expiration
+    async function token() {
+      const sess = loadSession();
+      if (!sess) return null;
+      if (Date.now() < sess.expires_at - 60000) return sess.access_token;
+      try {
+        const res = await fetch(`${base}/auth/v1/token?grant_type=refresh_token`, {
+          method: "POST",
+          headers: { apikey: key, "Content-Type": "application/json" },
+          body: JSON.stringify({ refresh_token: sess.refresh_token })
+        });
+        if (!res.ok) throw new Error("session expirée");
+        const t = await res.json();
+        saveSession(Object.assign({}, sess, { access_token: t.access_token, refresh_token: t.refresh_token, expires_at: Date.now() + t.expires_in * 1000 }));
+        return t.access_token;
+      } catch (e) {
+        saveSession(null);
+        return null;
+      }
+    }
+
     async function api(path, opts) {
       opts = opts || {};
-      const headers = Object.assign({ apikey: key, Authorization: "Bearer " + key }, opts.headers || {});
+      const bearer = (await token()) || key;
+      const headers = Object.assign({ apikey: key, Authorization: "Bearer " + bearer }, opts.headers || {});
+      const code = storedCode();
+      if (code) headers["x-site-code"] = code;
       let body = opts.body;
       if (opts.json !== undefined) { headers["Content-Type"] = "application/json"; body = JSON.stringify(opts.json); }
       const res = await fetch(base + path, { method: opts.method || "GET", headers, body });
       const text = await res.text();
       if (!res.ok) {
-        const err = new Error(`Supabase ${res.status} : ${text.slice(0, 200)}`);
+        const denied = res.status === 401 || res.status === 403 || /row-level security|42501/.test(text);
+        const err = new Error(denied ? "Accès refusé : reconnecte-toi au dashboard." : `Supabase ${res.status} : ${text.slice(0, 200)}`);
+        err.denied = denied;
         err.status = res.status;
         throw err;
       }
@@ -112,6 +139,55 @@
     const photoUrl = path => `${base}/storage/v1/object/public/photos/${path}`;
 
     return {
+      // ----- Accès -----
+      async login(username, password) {
+        const res = await fetch(`${base}/auth/v1/token?grant_type=password`, {
+          method: "POST",
+          headers: { apikey: key, "Content-Type": "application/json" },
+          body: JSON.stringify({ email: usernameToEmail(username), password })
+        });
+        if (!res.ok) throw new Error("Identifiant ou mot de passe incorrect.");
+        const t = await res.json();
+        saveSession({ access_token: t.access_token, refresh_token: t.refresh_token, expires_at: Date.now() + t.expires_in * 1000, username: username.trim() });
+        let admin = false;
+        try { admin = await api("/rest/v1/rpc/is_admin", { method: "POST", json: {} }); } catch (e) { admin = false; }
+        if (admin !== true) {
+          saveSession(null);
+          throw new Error("Ce compte n'a pas accès au dashboard (il n'est pas dans la liste des admins).");
+        }
+        return { username: username.trim() };
+      },
+      async logout() {
+        const t = await token();
+        saveSession(null);
+        if (t) fetch(`${base}/auth/v1/logout`, { method: "POST", headers: { apikey: key, Authorization: "Bearer " + t } }).catch(() => {});
+      },
+      async currentAdmin() {
+        const t = await token();
+        const sess = loadSession();
+        return t && sess ? { username: sess.username } : null;
+      },
+      // Un code est-il demandé, et celui-ci est-il bon ?
+      async siteAccess(code) {
+        try {
+          return await api("/rest/v1/rpc/site_access", { method: "POST", json: { code: code || "" } });
+        } catch (e) {
+          if (e.status === 404) return { required: false, ok: true };  // sécurité pas encore installée
+          throw e;
+        }
+      },
+      async siteCodeActive() {
+        const rows = await orEmpty(api("/rest/v1/site_secret?select=code_hash&id=eq.1"), []);
+        return !!(rows[0] && rows[0].code_hash);
+      },
+      async setSiteCode(code) {
+        await api("/rest/v1/site_secret?on_conflict=id", {
+          method: "POST",
+          headers: { Prefer: "resolution=merge-duplicates" },
+          json: { id: 1, code_hash: code ? await sha256(code) : null, updated_at: new Date().toISOString() }
+        });
+      },
+
       async getSettings() {
         const rows = await api("/rest/v1/settings?select=key,value");
         const saved = {};
@@ -148,10 +224,9 @@
       deleteImage(path) {
         return api(`/storage/v1/object/photos/${path}`, { method: "DELETE" }).catch(() => {});
       },
-      async lunch(day, voter) {
+      async lunch(day) {
         const options = await api(`/rest/v1/lunch_options?select=id,name,created_at&day=eq.${day}&order=created_at`);
-        const votes = await api(`/rest/v1/lunch_votes?select=option_id,voter&day=eq.${day}`);
-        return countVotes(options, votes, voter);
+        return { options };
       },
       async propose(day, name) {
         try {
@@ -161,13 +236,6 @@
           if (e.status === 409) throw new Error(`« ${name} » est déjà proposé aujourd'hui.`);
           throw e;
         }
-      },
-      vote(day, optionId, voter) {
-        return api("/rest/v1/lunch_votes?on_conflict=day,voter", {
-          method: "POST",
-          headers: { Prefer: "resolution=merge-duplicates" },
-          json: { day, voter, option_id: optionId }
-        });
       },
       deleteOption(id) {
         return api(`/rest/v1/lunch_options?id=eq.${id}`, { method: "DELETE" });
@@ -245,13 +313,9 @@
           { id: "o2", day, name: "Exemple : Sushi", created_at: d.toISOString() },
           { id: "o3", day, name: "Exemple : Food truck", created_at: d.toISOString() }
         ],
-        votes: [
-          { day, voter: "demo-a", option_id: "o1" },
-          { day, voter: "demo-b", option_id: "o1" },
-          { day, voter: "demo-c", option_id: "o2" }
-        ],
         restaurants: seedRestaurants(),
-        draws: []
+        draws: [],
+        siteCode: null  // en démo, le code est gardé tel quel (c'est local)
       };
     }
     function seedRestaurants() {
@@ -291,6 +355,25 @@
 
     return {
       reset() { try { localStorage.removeItem(KEY); } catch (e) { /* rien */ } memory = null; },
+      // Démo : identifiant "admin", mot de passe "admin"
+      login(username, password) {
+        if (username.trim().toLowerCase() !== "admin" || password !== "admin") {
+          return Promise.reject(new Error("Identifiant ou mot de passe incorrect."));
+        }
+        saveSession({ demo: true, username: "admin", expires_at: Date.now() + 8 * 3600000 });
+        return later({ username: "admin" });
+      },
+      logout() { saveSession(null); return later(null); },
+      currentAdmin() {
+        const sess = loadSession();
+        return later(sess && sess.demo && Date.now() < sess.expires_at ? { username: sess.username } : null);
+      },
+      siteAccess(code) {
+        const c = load().siteCode;
+        return later({ required: !!c, ok: !c || code === c });
+      },
+      siteCodeActive() { return later(!!load().siteCode); },
+      setSiteCode(code) { const s = load(); s.siteCode = code || null; save(s); return later(null); },
       getSettings() { return later(withDefaults(load().settings)); },
       saveSetting(key, value) { const s = load(); s.settings[key] = value; save(s); return later(null); },
       listPhotos() { return later(load().photos.slice()); },
@@ -305,9 +388,8 @@
       deletePhoto(photo) { const s = load(); s.photos = s.photos.filter(p => p.id !== photo.id); save(s); return later(null); },
       async uploadImage(blob, prefix) { return { url: await blobToDataUrl(blob), path: `demo-${prefix || "image"}-${id()}` }; },
       deleteImage() { return later(null); },
-      lunch(day, voter) {
-        const s = load();
-        return later(countVotes(s.options.filter(o => o.day === day), s.votes.filter(v => v.day === day), voter));
+      lunch(day) {
+        return later({ options: load().options.filter(o => o.day === day) });
       },
       propose(day, name) {
         const s = load();
@@ -319,17 +401,9 @@
         save(s);
         return later(o);
       },
-      vote(day, optionId, voter) {
-        const s = load();
-        s.votes = s.votes.filter(v => !(v.day === day && v.voter === voter));
-        s.votes.push({ day, voter, option_id: optionId });
-        save(s);
-        return later(null);
-      },
       deleteOption(optionId) {
         const s = load();
         s.options = s.options.filter(o => o.id !== optionId);
-        s.votes = s.votes.filter(v => v.option_id !== optionId);
         save(s);
         return later(null);
       },
@@ -389,18 +463,19 @@
   }
   const sameName = (a, b) => a.trim().toLowerCase() === b.trim().toLowerCase();
 
-  // Choix du jour = restos ouverts ce jour-là + propositions du jour, avec les votes et le tirage
-  async function lunch(day, voter) {
-    const all = await Promise.all([impl.lunch(day, voter), impl.listRestaurants(), impl.getDraw(day)]);
+  // Choix du jour = restos ouverts ce jour-là + propositions du jour, et le tirage
+  async function lunch(day) {
+    const all = await Promise.all([impl.lunch(day), impl.listRestaurants(), impl.getDraw(day)]);
     const base = all[0], restos = all[1], draw = all[2];
     const open = restos.filter(r => openOn(r, day));
     const options = base.options.map(o => Object.assign({}, o));
     open.forEach(r => {
       const found = options.filter(o => sameName(o.name, r.name))[0];
       if (found) found.restaurant_id = r.id;
-      else options.push({ id: null, name: r.name, votes: 0, restaurant_id: r.id });
+      else options.push({ id: null, name: r.name, restaurant_id: r.id });
     });
-    return { options, total: base.total, myVote: base.myVote, draw, candidates: open, restaurants: restos, drawTime: drawTime(day) };
+    options.sort((a, b) => a.name.localeCompare(b.name));
+    return { options, draw, candidates: open, restaurants: restos, drawTime: drawTime(day) };
   }
 
   function pickRandom(list) { return list[Math.floor(Math.random() * list.length)]; }
@@ -426,26 +501,9 @@
     return impl.getDraw(day);
   }
 
-  // Voter pour un choix : crée d'abord l'option du jour si c'est un resto de la liste pas encore proposé
-  async function voteFor(day, option, voter) {
-    let optionId = option.id;
-    if (!optionId) {
-      try {
-        optionId = (await impl.propose(day, option.name)).id;
-      } catch (e) {
-        const again = await impl.lunch(day, voter);
-        const found = again.options.filter(o => sameName(o.name, option.name))[0];
-        if (!found) throw e;
-        optionId = found.id;
-      }
-    }
-    await impl.vote(day, optionId, voter);
-    return optionId;
-  }
-
-  const lunchApi = impl ? { lunch, ensureDraw, reroll, voteFor, lunchRaw: impl.lunch } : {};
+  const lunchApi = impl ? { lunch, ensureDraw, reroll, lunchRaw: impl.lunch } : {};
   window.MatDoraStore = Object.assign(
-    { mode, SLIDES, DEFAULTS, HM_REMINDER: "Va sur le channel HM pour voter pour la date et annoncer ta présence !", today, voterId, withDefaults, resizeImage, openOn, drawTime, weekday, DRAW_HOUR, DRAW_MINUTE },
+    { mode, SLIDES, DEFAULTS, HM_REMINDER: "Va sur le channel HM pour voter pour la date et annoncer ta présence !", today, withDefaults, storedCode, rememberCode, usernameToEmail, resizeImage, openOn, drawTime, weekday, DRAW_HOUR, DRAW_MINUTE },
     impl || { getSettings: () => Promise.resolve(withDefaults(null)) },
     lunchApi
   );

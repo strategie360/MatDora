@@ -26,6 +26,8 @@
   ];
   const results = [];
   const RUN = Date.now().toString(36);
+  // Config Supabase réelle (pour #live), lue dans config.js sans l'exécuter dans cette page
+  window.MATDORA_LIVE_CONFIG = null;
   const sleep = ms => new Promise(r => setTimeout(r, ms));
   // Attend qu'une condition soit vraie (les onglets en arrière-plan ralentissent les minuteries)
   async function waitFor(cond, timeout = 4000) {
@@ -60,6 +62,16 @@
       const e = el.getBoundingClientRect();
       return e.top >= r.top - 1 && e.bottom <= r.bottom + 1 && e.left >= r.left - 1 && e.right <= r.right + 1;
     });
+  }
+
+  async function adminLogin(aw, ad) {
+    await aw.ready;
+    if (!ad.getElementById("login").hidden) {
+      ad.getElementById("login-user").value = "admin";
+      ad.getElementById("login-pass").value = "admin";
+      ad.getElementById("login-form").dispatchEvent(new aw.Event("submit", { cancelable: true }));
+      await aw.ready;
+    }
   }
 
   async function imagesReady(doc) {
@@ -286,9 +298,8 @@
     check(g, "happiness : titre de l'event affiché", td.getElementById("happy-title").textContent.indexOf("apéro") !== -1, td.getElementById("happy-title").textContent);
     check(g, "happiness : compte à rebours affiché", /^dans \d/.test(td.getElementById("happy-in").textContent), td.getElementById("happy-in").textContent);
     const lunchRows = () => [...td.querySelectorAll("#lunch-list li")].map(li => li.textContent.replace(/\s+/g, " ").trim());
-    check(g, "repas : 3 propositions, la plus votée en tête", lunchRows().length === 3 && lunchRows()[0].indexOf("Pizzeria") !== -1 && td.querySelector("#lunch-list li").classList.contains("lead"), lunchRows().join(" | "));
-    check(g, "repas : QR code vers la page de vote", !!td.querySelector("#qr-vote img, #qr-vote canvas") && tw.LINKS.vote.endsWith("vote.html#mock"), tw.LINKS.vote);
-    check(g, "photos : QR code vers le dashboard", !!td.querySelector("#qr-photos img, #qr-photos canvas") && tw.LINKS.admin.endsWith("admin.html#mock,photos"), tw.LINKS.admin);
+    check(g, "repas : les choix du jour affichés", lunchRows().length === 3 && lunchRows().join("|").indexOf("Pizzeria") !== -1, lunchRows().join(" | "));
+    check(g, "repas : plus de votes ni de QR code", !td.querySelector(".lunch-count, .lunch-bar, .qr, #qr-vote, #qr-photos") && !/vote/i.test(td.getElementById("lunch-inner").textContent));
     // Mosaïque : plusieurs photos à la fois
     const tilesShown = () => [...td.querySelectorAll("#gallery .tile")].map(t => {
       const on = t.querySelector("img.on");
@@ -329,34 +340,15 @@
     })();
     check(g, "happiness sans event : « arrive bientôt »", happyEmpty === "Le prochain event arrive bientôt", happyEmpty);
 
-    // Page de vote
-    const vote = await load("../vote.html#mock", 375, 812);
-    const vw = vote.contentWindow, vd = vote.contentDocument;
-    await sleep(200);
-    check(g, "vote : 3 restos affichés", vd.querySelectorAll(".option").length === 3);
-    vd.getElementById("name").value = "  Resto   du test ";
-    vd.getElementById("propose").dispatchEvent(new vw.Event("submit", { cancelable: true }));
-    await waitFor(() => vd.querySelector(".option.mine .name").textContent === "Resto du test");
-    const mine = vd.querySelector(".option.mine .name");
-    check(g, "vote : proposer ajoute le resto avec mon vote", vd.querySelectorAll(".option").length === 4 && mine && mine.textContent === "Resto du test", mine ? mine.textContent : "aucun vote");
-    vd.getElementById("name").value = "resto du TEST";
-    vd.getElementById("propose").dispatchEvent(new vw.Event("submit", { cancelable: true }));
-    await waitFor(() => vd.getElementById("status").classList.contains("error"));
-    check(g, "vote : doublon refusé avec un message", vd.getElementById("status").classList.contains("error") && vd.querySelectorAll(".option").length === 4, vd.getElementById("status").textContent);
-    const sushi = [...vd.querySelectorAll(".option")].filter(b => b.textContent.indexOf("Sushi") !== -1)[0];
-    sushi.click();
-    await waitFor(() => vd.querySelector(".option.mine .name").textContent === "Exemple : Sushi");
-    const mine2 = vd.querySelector(".option.mine .name");
-    check(g, "vote : changer d'avis déplace mon vote", mine2 && mine2.textContent === "Exemple : Sushi" && vd.querySelectorAll(".option.mine").length === 1, mine2 ? mine2.textContent : "");
-    vote.remove();
+    // Une proposition du jour ajoutée dans le dashboard s'affiche avec les autres
+    await tw.MatDoraStore.propose(tw.MatDoraStore.today(), "Resto du test");
     await tw.refresh();
-    const sushiRow = lunchRows().filter(r => r.indexOf("Sushi") !== -1)[0] || "";
-    check(g, "écran : le vote apparaît sur la slide Repas", sushiRow.indexOf("2 votes") !== -1 && lunchRows().length === 4, lunchRows().join(" | "));
+    check(g, "écran : une proposition du jour s'ajoute aux choix", lunchRows().length === 4 && lunchRows().indexOf("Resto du test") !== -1, lunchRows().join(" | "));
 
     // Dashboard
     const adm = await load("../admin.html#mock", 1280, 900);
     const aw = adm.contentWindow, ad = adm.contentDocument;
-    await aw.ready;
+    await adminLogin(aw, ad);
     check(g, "dashboard : mode démo indiqué", ad.getElementById("mode").textContent === "Mode démo (#mock)");
     check(g, "dashboard : 7 slides listées", ad.querySelectorAll("#slides-list .row").length === 7);
     ad.getElementById("slide-jira").click();
@@ -502,7 +494,7 @@
     // Jours d'ouverture et "Pas dispo"
     let d = await s.lunch(MON, "t");
     check(g, "lundi : restos ouverts = Pizzeria, Sushi (Food truck fermé, Brasserie pas dispo)", names(d.candidates) === "Exemple : Pizzeria, Exemple : Sushi", names(d.candidates));
-    check(g, "lundi : les restos ouverts apparaissent dans les choix (0 vote)", d.options.length === 2 && d.options.every(o => o.id === null && o.votes === 0));
+    check(g, "lundi : les restos ouverts apparaissent dans les choix (0 vote)", d.options.length === 2 && d.options.every(o => o.id === null));
     d = await s.lunch(TUE, "t");
     check(g, "mardi : le Food truck est ouvert", names(d.candidates) === "Exemple : Food truck, Exemple : Pizzeria, Exemple : Sushi", names(d.candidates));
     d = await s.lunch(SAT, "t");
@@ -531,14 +523,6 @@
     check(g, "Pas dispo : Sushi retiré des choix et du tirage", names(d.candidates) === "Exemple : Pizzeria" && !d.options.some(o => o.name === "Exemple : Sushi"));
     check(g, "Pas dispo : le tirage ne peut tomber que sur Pizzeria", (await s.reroll(MON)).name === "Exemple : Pizzeria");
     await s.updateRestaurant("r2", { unavailable: false });
-
-    // Voter pour un resto de la liste (pas encore proposé ce jour-là)
-    const pizza = (await s.lunch(MON, "t")).options.filter(o => o.name === "Exemple : Pizzeria")[0];
-    await s.voteFor(MON, pizza, "votant-1");
-    await s.voteFor(MON, pizza, "votant-2");
-    d = await s.lunch(MON, "votant-1");
-    const pz = d.options.filter(o => o.name === "Exemple : Pizzeria")[0];
-    check(g, "voter pour un resto de la liste : option créée, 2 votes", pz.id && pz.votes === 2 && d.myVote === pz.id && d.options.filter(o => o.name === "Exemple : Pizzeria").length === 1);
 
     // Pour l'affichage d'aujourd'hui, tous les restos ouverts tous les jours (le test ne dépend pas du jour réel)
     for (const r of await s.listRestaurants()) await s.updateRestaurant(r.id, { days: [0, 1, 2, 3, 4, 5, 6] });
@@ -572,39 +556,31 @@
     for (const [w, h] of [[1920, 1080], [1366, 768], [1280, 720], [375, 667]]) {
       tv.width = w; tv.height = h;
       await sleep(250);
-      tw.renderLunch(await s.lunch(today, "ecran"));
+      const data = await s.lunch(today);
+      tw.renderLunch(data);
       const shown = td.querySelectorAll("#lunch-list li").length;
-      check(g, `écran ${w}×${h} : la slide Repas tient sans dépasser`, li.scrollHeight <= li.clientHeight + 1 && li.scrollWidth <= li.clientWidth + 1, `${li.scrollWidth}×${li.scrollHeight} dans ${li.clientWidth}×${li.clientHeight}, ${shown} lignes`);
-      check(g, `écran ${w}×${h} : « + N autres » pour le reste`, !td.getElementById("lunch-more").hidden && shown >= 2, `${shown} lignes, ${td.getElementById("lunch-more").textContent}`);
+      check(g, `écran ${w}×${h} : tous les choix affichés (${data.options.length})`, shown === data.options.length, `${shown} / ${data.options.length}`);
+      check(g, `écran ${w}×${h} : la slide Repas tient sans dépasser`, fitsBox(li), `${li.scrollWidth}×${li.scrollHeight} dans ${li.clientWidth}×${li.clientHeight}`);
+      check(g, `écran ${w}×${h} : noms lisibles (≥ 11 px)`, [...td.querySelectorAll(".lunch-name")].every(n => parseFloat(tw.getComputedStyle(n).fontSize) >= 11), tw.getComputedStyle(td.querySelector(".lunch-name")).fontSize);
     }
     tv.width = 1920; tv.height = 1080;
     await sleep(250);
-    tw.renderLunch(await s.lunch(today, "ecran"));
-    check(g, "écran 16:9 : 8 choix sur 2 colonnes", td.querySelectorAll("#lunch-list li").length === 8 && tw.getComputedStyle(td.getElementById("lunch-list")).gridTemplateColumns.split(" ").length === 2);
+    tw.renderLunch(await s.lunch(today));
+    check(g, "écran 16:9 : 15 choix sur 3 colonnes", td.querySelectorAll("#lunch-list li").length === 15 && tw.getComputedStyle(td.getElementById("lunch-list")).gridTemplateColumns.split(" ").length === 3);
+    for (let i = 13; i <= 30; i++) await s.propose(today, `Restaurant au nom vraiment très long numéro ${i}`);
+    tw.renderLunch(await s.lunch(today));
+    check(g, "écran 16:9 : 33 choix, tous affichés et dans l'écran", td.querySelectorAll("#lunch-list li").length === 33 && fitsBox(li));
 
-    // Page de vote : tirage + bouton Relancer, vote pour un resto de la liste
+    // Un resto ajouté à la liste apparaît d'office dans les choix de l'écran
     await s.addRestaurant("Exemple : Crêperie");
     await s.updateRestaurant((await s.listRestaurants()).filter(r => r.name === "Exemple : Crêperie")[0].id, { days: [0, 1, 2, 3, 4, 5, 6] });
-    const vote = await load("../vote.html#mock", 375, 812);
-    const vw = vote.contentWindow, vd = vote.contentDocument;
-    await waitFor(() => vd.querySelectorAll(".option").length > 0);
-    const drawNow = (await s.getDraw(today)).name;
-    check(g, "vote : encart du tirage avec le resto du jour", !vd.getElementById("draw").hidden && vd.getElementById("draw-name").textContent === drawNow || weekend, `${vd.getElementById("draw-name").textContent} / attendu ${drawNow}`);
-    const before = vd.getElementById("draw-name").textContent;
-    vd.getElementById("reroll").click();
-    await waitFor(() => vd.getElementById("draw-name").textContent !== before);
-    check(g, "vote : « Relancer » change le resto du jour", vd.getElementById("draw-name").textContent !== before, `${before} → ${vd.getElementById("draw-name").textContent}`);
-    const crepe = [...vd.querySelectorAll(".option")].filter(b => b.textContent.indexOf("Crêperie") !== -1)[0];
-    check(g, "vote : un resto de la liste apparaît même sans proposition", !!crepe);
-    crepe.click();
-    await waitFor(() => vd.querySelector(".option.mine") && vd.querySelector(".option.mine").textContent.indexOf("Crêperie") !== -1);
-    check(g, "vote : voter pour ce resto marche", !!vd.querySelector(".option.mine") && vd.querySelector(".option.mine").textContent.indexOf("Crêperie") !== -1);
-    vote.remove();
+    await tw.refresh();
+    check(g, "écran : un resto de la liste apparaît sans proposition", [...td.querySelectorAll(".lunch-name")].some(n => n.textContent === "Exemple : Crêperie"));
 
     // Dashboard : liste des restos
     const adm = await load("../admin.html#mock,lunch", 1280, 900);
     const aw = adm.contentWindow, ad = adm.contentDocument;
-    await aw.ready;
+    await adminLogin(aw, ad);
     await waitFor(() => ad.querySelectorAll("#restos-body tr").length === 5);
     check(g, "dashboard : 5 restos dans la liste", ad.querySelectorAll("#restos-body tr").length === 5);
     check(g, "dashboard : Brasserie cochée « Pas dispo » et barrée", ad.getElementById("resto-r4-off").checked && ad.getElementById("resto-r4-off").closest("tr").classList.contains("off"));
@@ -648,7 +624,7 @@
     tw.deck.show(tw.deck.ids.indexOf("happiness"));
     const adm = await load("../admin.html#mock,happiness", 1280, 900);
     const aw = adm.contentWindow, ad = adm.contentDocument;
-    await aw.ready;
+    await adminLogin(aw, ad);
     const visible = el => !el.hidden && tw.getComputedStyle(el).display !== "none";
     const save = async () => {
       ad.getElementById("happy-form").dispatchEvent(new aw.Event("submit", { cancelable: true }));
@@ -722,80 +698,184 @@
     await save();
     check(g, "image retirée : plus affichée", !visible(td.getElementById("happy-img")) && !td.getElementById("happy-inner").classList.contains("has-image"));
 
-    // Un élément masqué l'est vraiment, sur les 3 pages (sans dépendre d'un style externe)
-    const vote = await load("../vote.html#mock", 375, 812);
-    await sleep(500);
-    for (const [name, doc, win] of [["écran", td, tw], ["dashboard", ad, aw], ["vote", vote.contentDocument, vote.contentWindow]]) {
+    // Un élément masqué l'est vraiment, sur les 2 pages (sans dépendre d'un style externe)
+    for (const [name, doc, win] of [["écran", td, tw], ["dashboard", ad, aw]]) {
       const leaks = [...doc.querySelectorAll("[hidden]")].filter(el => win.getComputedStyle(el).display !== "none");
       check(g, `${name} : tout élément masqué est vraiment caché`, leaks.length === 0, leaks.map(el => el.id || el.className).join(", "));
     }
-    vote.remove();
     adm.remove();
     tv.remove();
     localStorage.removeItem("matdora-demo");
   }
 
-  // Vrai Supabase : seulement avec tests/run.html#live (écrit puis efface des données de test)
+  // Sécurité en mode démo : connexion au dashboard et code d'accès du site
+  async function testAccess() {
+    const g = "accès (démo)";
+    localStorage.removeItem("matdora-demo");
+    localStorage.removeItem("matdora-admin");
+    localStorage.removeItem("matdora-site-code");
+
+    // Dashboard : connexion obligatoire
+    let adm = await load("../admin.html#mock", 1280, 900);
+    let aw = adm.contentWindow, ad = adm.contentDocument;
+    await aw.ready;
+    check(g, "dashboard : écran de connexion, rien d'autre", !ad.getElementById("login").hidden && ad.getElementById("app").hidden);
+    ad.getElementById("login-user").value = "admin";
+    ad.getElementById("login-pass").value = "mauvais";
+    ad.getElementById("login-form").dispatchEvent(new aw.Event("submit", { cancelable: true }));
+    await aw.ready;
+    check(g, "dashboard : mauvais mot de passe refusé", ad.getElementById("app").hidden && ad.getElementById("login-error").textContent === "Identifiant ou mot de passe incorrect.", ad.getElementById("login-error").textContent);
+    ad.getElementById("login-pass").value = "admin";
+    ad.getElementById("login-form").dispatchEvent(new aw.Event("submit", { cancelable: true }));
+    await aw.ready;
+    check(g, "dashboard : bon mot de passe → dashboard", !ad.getElementById("app").hidden && ad.getElementById("login").hidden && ad.getElementById("who-name").textContent === "admin");
+    adm.remove();
+    adm = await load("../admin.html#mock,access", 1280, 900);
+    aw = adm.contentWindow; ad = adm.contentDocument;
+    await aw.ready;
+    check(g, "dashboard : reste connecté en rechargeant", !ad.getElementById("app").hidden);
+    check(g, "dashboard : onglet Accès, pas de code au départ", !ad.getElementById("tab-access").hidden && ad.getElementById("code-state").textContent.indexOf("Aucun code") === 0);
+
+    // Écran ouvert tant qu'aucun code n'est réglé
+    let tv = await load("../index.html#mock", 1280, 720);
+    let tw = tv.contentWindow, td = tv.contentDocument;
+    await tw.refresh();
+    check(g, "écran sans code réglé : ouvert", td.getElementById("lock").hidden);
+    tv.remove();
+
+    // L'admin règle un code
+    ad.getElementById("code-new").value = "abc";
+    ad.getElementById("code-form").dispatchEvent(new aw.Event("submit", { cancelable: true }));
+    await sleep(100);
+    check(g, "code trop court refusé", ad.getElementById("toast").classList.contains("error"));
+    ad.getElementById("code-new").value = "dora2026";
+    ad.getElementById("code-form").dispatchEvent(new aw.Event("submit", { cancelable: true }));
+    await waitFor(() => ad.getElementById("code-state").textContent.indexOf("Un code") === 0);
+    check(g, "code enregistré dans le dashboard", ad.getElementById("code-state").textContent.indexOf("Un code est demandé") === 0);
+
+    // Une TV qui ne connaît pas le code
+    localStorage.removeItem("matdora-site-code");
+    tv = await load("../index.html#mock", 1280, 720);
+    tw = tv.contentWindow; td = tv.contentDocument;
+    await tw.refresh();
+    const lock = td.getElementById("lock");
+    check(g, "écran : demande le code", !lock.hidden && tw.getComputedStyle(lock).display !== "none" && !td.getElementById("lock-form").hidden);
+    const idxLocked = tw.deck.index;
+    tw.deck.duration = 300;
+    await sleep(1200);
+    check(g, "écran verrouillé : les slides ne tournent pas", tw.deck.index === idxLocked, `${idxLocked} → ${tw.deck.index}`);
+    tw.deck.duration = 0;
+    td.getElementById("lock-code").value = "faux";
+    td.getElementById("lock-form").dispatchEvent(new tw.Event("submit", { cancelable: true }));
+    await waitFor(() => td.getElementById("lock-error").textContent !== "");
+    check(g, "écran : mauvais code refusé", td.getElementById("lock-error").textContent === "Code incorrect." && !lock.hidden);
+    td.getElementById("lock-code").value = "dora2026";
+    td.getElementById("lock-form").dispatchEvent(new tw.Event("submit", { cancelable: true }));
+    await waitFor(() => lock.hidden);
+    check(g, "écran : bon code → les slides s'affichent", lock.hidden && tw.getComputedStyle(lock).display === "none");
+    check(g, "écran : le code est mémorisé sur l'appareil", localStorage.getItem("matdora-site-code") === "dora2026");
+    tv.remove();
+
+    // Rechargement : plus besoin de le retaper
+    tv = await load("../index.html#mock", 1280, 720);
+    tw = tv.contentWindow; td = tv.contentDocument;
+    await tw.refresh();
+    check(g, "écran rechargé : pas de nouvelle demande", td.getElementById("lock").hidden);
+
+    // L'admin change le code : l'écran le redemande au prochain rafraîchissement
+    await tw.MatDoraStore.setSiteCode("nouveau-code");
+    await tw.refresh();
+    check(g, "code changé : l'écran redemande le code", !td.getElementById("lock").hidden && td.getElementById("lock-error").textContent.indexOf("Le code a changé") === 0, td.getElementById("lock-error").textContent);
+    td.getElementById("lock-code").value = "nouveau-code";
+    td.getElementById("lock-form").dispatchEvent(new tw.Event("submit", { cancelable: true }));
+    await waitFor(() => td.getElementById("lock").hidden);
+    check(g, "nouveau code accepté", td.getElementById("lock").hidden);
+
+    // Les flèches tapées dans le champ du code ne changent pas de slide
+    await tw.MatDoraStore.setSiteCode("encore-un");
+    await tw.refresh();
+    const idx = tw.deck.index;
+    td.getElementById("lock-code").dispatchEvent(new tw.KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
+    check(g, "écran : taper dans le champ ne change pas de slide", tw.deck.index === idx);
+    tv.remove();
+
+    // Retirer le code depuis le dashboard
+    adm.remove();
+    adm = await load("../admin.html#mock,access", 1280, 900);
+    aw = adm.contentWindow; ad = adm.contentDocument;
+    await aw.ready;
+    const removeBtn = ad.querySelector("#code-remove-box .btn.danger");
+    removeBtn.click(); removeBtn.click();
+    await waitFor(() => ad.getElementById("code-state").textContent.indexOf("Aucun code") === 0);
+    check(g, "code retiré : site ouvert", ad.getElementById("code-state").textContent.indexOf("Aucun code") === 0);
+
+    // Déconnexion
+    ad.getElementById("logout").click();
+    await waitFor(() => !ad.getElementById("login").hidden);
+    check(g, "déconnexion : retour à l'écran de connexion", !ad.getElementById("login").hidden && ad.getElementById("app").hidden && !localStorage.getItem("matdora-admin"));
+    adm.remove();
+    localStorage.removeItem("matdora-demo");
+    localStorage.removeItem("matdora-site-code");
+  }
+
+  // Vrai Supabase : seulement avec tests/run.html#live. Ne modifie rien : vérifie que tout est refusé
+  // à un visiteur sans compte, et que le code du site est exigé quand il est réglé.
   async function testLive() {
     const g = "Supabase réel";
-    const f = await load("../index.html", 1280, 800);
-    const w = f.contentWindow, s = w.MatDoraStore;
-    check(g, "config.js branché sur Supabase", s.mode === "supabase", s.mode);
-    if (s.mode !== "supabase") { f.remove(); return; }
-    w.deck.pause(true);
-    await w.refresh();
-    check(g, "l'écran charge les données sans erreur", w.deck.ids.indexOf("lunch") !== -1, w.deck.ids.join());
+    const cfg = window.MATDORA_LIVE_CONFIG;
+    check(g, "config.js branché sur Supabase", !!(cfg && cfg.supabaseUrl && cfg.supabaseKey));
+    if (!cfg || !cfg.supabaseUrl) return;
+    const base = cfg.supabaseUrl, key = cfg.supabaseKey;
+    const anon = (path, opts) => fetch(base + path, Object.assign({}, opts || {}, {
+      headers: Object.assign({ apikey: key, Authorization: "Bearer " + key }, (opts && opts.headers) || {})
+    }));
 
-    const settings = await s.getSettings();
-    check(g, "lecture des réglages", Array.isArray(settings.slides) && settings.slides.length === 7);
+    // La sécurité est-elle installée ?
+    const access = await anon("/rest/v1/rpc/site_access", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code: "" }) });
+    check(g, "sécurité installée (setup.sql relancé)", access.ok, `HTTP ${access.status}`);
+    if (!access.ok) return;
+    const state = await access.json();
 
-    const day = s.today();
-    const name = "Test automatique MatDora " + Date.now().toString(36);
-    let option = null;
-    try {
-      option = await s.propose(day, name);
-      check(g, "proposer un resto", !!option && option.name === name);
-      await s.vote(day, option.id, "test-auto");
-      await s.vote(day, option.id, "test-auto");  // revoter ne doit pas doubler
-      const data = await s.lunch(day, "test-auto");
-      const mine = data.options.filter(o => o.id === option.id)[0];
-      check(g, "voter (une seule voix par personne)", mine && mine.votes === 1 && data.myVote === option.id, mine ? `${mine.votes} vote(s)` : "introuvable");
-      let refused = false;
-      try { await s.propose(day, name); } catch (e) { refused = /déjà proposé/.test(e.message); }
-      check(g, "doublon refusé", refused);
-    } catch (e) {
-      check(g, "repas : écriture", false, String(e));
-    } finally {
-      if (option) await s.deleteOption(option.id);
+    // Un visiteur sans compte ne peut rien écrire
+    const writes = [
+      ["réglages", "/rest/v1/settings", { key: "test-securite", value: 1 }],
+      ["photos", "/rest/v1/photos", { path: "test-securite.jpg" }],
+      ["restos", "/rest/v1/restaurants", { name: "Test sécurité" }],
+      ["propositions", "/rest/v1/lunch_options", { day: "2030-01-01", name: "Test sécurité" }],
+      ["code du site", "/rest/v1/site_secret?on_conflict=id", { id: 1, code_hash: null }],
+      ["admins", "/rest/v1/admins", { email: "pirate@example.com" }]
+    ];
+    for (const [name, path, body] of writes) {
+      const r = await anon(path, { method: "POST", headers: { "Content-Type": "application/json", Prefer: "return=minimal" }, body: JSON.stringify(body) });
+      check(g, `sans compte : écriture refusée (${name})`, r.status === 401 || r.status === 403, `HTTP ${r.status}`);
     }
-    const after = await s.lunch(day, "test-auto");
-    check(g, "nettoyage : resto de test supprimé (et son vote)", !after.options.some(o => o.name === name) && after.myVote === null);
+    const del = await anon("/rest/v1/restaurants?id=not.is.null", { method: "DELETE", headers: { Prefer: "return=representation" } });
+    const deleted = del.ok ? await del.json() : [];
+    check(g, "sans compte : suppression impossible (restos)", !del.ok || deleted.length === 0, `HTTP ${del.status}, ${deleted.length} ligne(s)`);
+    const up = await anon("/storage/v1/object/photos/test-securite.png", { method: "POST", headers: { "Content-Type": "image/png" }, body: new Blob([new Uint8Array([137, 80, 78, 71])], { type: "image/png" }) });
+    check(g, "sans compte : envoi de fichier refusé", !up.ok, `HTTP ${up.status}`);
+    const secret = await (await anon("/rest/v1/site_secret?select=code_hash")).json();
+    check(g, "sans compte : l'empreinte du code n'est pas lisible", Array.isArray(secret) && secret.length === 0, JSON.stringify(secret).slice(0, 80));
+    const admins = await (await anon("/rest/v1/admins?select=email")).json();
+    check(g, "sans compte : la liste des admins n'est pas lisible", Array.isArray(admins) && admins.length === 0);
 
-    let photo = null;
-    try {
-      const c = document.createElement("canvas");
-      c.width = 64; c.height = 48;
-      c.getContext("2d").fillRect(0, 0, 64, 48);
-      const blob = await new Promise(r => c.toBlob(r, "image/jpeg", 0.8));
-      photo = await s.addPhoto(blob, "Photo de test automatique", "Tests");
-      const res = await fetch(photo.url);
-      check(g, "photo envoyée et visible publiquement", res.ok && (await s.listPhotos()).some(p => p.id === photo.id), `HTTP ${res.status}`);
-    } catch (e) {
-      check(g, "photo : envoi", false, String(e));
-    } finally {
-      if (photo) await s.deletePhoto(photo);
+    // Code du site : sans lui, aucune donnée
+    if (state.required) {
+      const rows = await (await anon("/rest/v1/settings?select=key")).json();
+      check(g, "code réglé : sans code, aucune donnée", Array.isArray(rows) && rows.length === 0, `${rows.length} ligne(s)`);
+      const wrong = await (await anon("/rest/v1/settings?select=key", { headers: { "x-site-code": "mauvais-code-test" } })).json();
+      check(g, "code réglé : avec un faux code, aucune donnée", Array.isArray(wrong) && wrong.length === 0);
+    } else {
+      check(g, "aucun code réglé : le site est ouvert (règle-le dans le dashboard, onglet Accès)", true);
     }
-    if (photo) {
-      const cfg = w.MATDORA_CONFIG;
-      const objects = await (await fetch(`${cfg.supabaseUrl}/storage/v1/object/list/photos`, {
-        method: "POST",
-        headers: { apikey: cfg.supabaseKey, Authorization: "Bearer " + cfg.supabaseKey, "Content-Type": "application/json" },
-        body: JSON.stringify({ prefix: "", limit: 1000 })
-      })).json();
-      check(g, "nettoyage : photo de test supprimée (base et fichier)", !(await s.listPhotos()).some(p => p.id === photo.id) && !objects.some(o => o.name === photo.path),
-        `${objects.length} fichier(s) dans le bucket`);
-    }
-    f.remove();
+
+    // Connexion refusée avec un faux mot de passe
+    const login = await fetch(`${base}/auth/v1/token?grant_type=password`, {
+      method: "POST",
+      headers: { apikey: key, "Content-Type": "application/json" },
+      body: JSON.stringify({ email: "personne@matdora.app", password: "faux-mot-de-passe" })
+    });
+    check(g, "connexion avec un faux compte refusée", !login.ok, `HTTP ${login.status}`);
   }
 
   function report() {
@@ -817,11 +897,17 @@
 
   (async () => {
     try {
-      if (location.hash === "#live") await testLive();
+      if (location.hash === "#live") {
+        const src = await (await fetch("../config.js", { cache: "no-store" })).text();
+        const url = /supabaseUrl:\s*"([^"]*)"/.exec(src), k = /supabaseKey:\s*"([^"]*)"/.exec(src);
+        window.MATDORA_LIVE_CONFIG = { supabaseUrl: url ? url[1] : "", supabaseKey: k ? k[1] : "" };
+        await testLive();
+      }
       await testLogic();
       await testData();
       await testLunch();
       await testHappy();
+      await testAccess();
       localStorage.removeItem("matdora-demo");
       for (const [w, h] of VIEWPORTS) await testViewport(w, h);
       localStorage.removeItem("matdora-demo");

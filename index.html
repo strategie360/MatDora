@@ -592,31 +592,11 @@
   }
   .tile:first-child .tile-cap { font-family: var(--display); font-weight: 400; font-size: clamp(1.1rem, min(3vw, 4vh), 2rem); padding: 50px 16px 14px; }
   .tile:first-child .tile-cap b { font-family: var(--body); font-size: .45em; }
-  .gallery-add {
-    position: absolute;
-    right: var(--gutter-r);
-    bottom: 40px;
-    width: 120px;
-    text-align: center;
-    font-weight: 800;
-    font-size: .75rem;
-  }
-  .gallery-add {
-    background: rgba(14, 13, 12, .78);
-    border-radius: 12px;
-    padding: 8px 8px 6px;
-    z-index: 2;
-  }
-  .gallery-add .qr { background: #ffffff; padding: 6px; border-radius: 8px; margin-bottom: 6px; }
-
-  .qr img, .qr canvas { display: block; width: 100%; height: auto; }
-  .qr-fallback { font-size: .7rem; word-break: break-all; color: #213a17; }
-
   /* ---------- Slide Repas : vert pomme, façon menu ---------- */
   body[data-tone="lunch"] .seg { background: rgba(33, 58, 23, .18); }
   body[data-tone="lunch"] .seg i { background: #4f9a2b; }
   .s-lunch { background: #e9f5dc; color: #213a17; }
-  /* Condensé pour tenir sur un écran 16:9 : en-tête, resto du jour, votes sur 2 colonnes, QR à droite */
+  /* Condensé pour tenir sur un écran 16:9 : en-tête, resto du jour, puis tous les choix du jour en colonnes */
   .s-lunch .inner {
     max-width: 1280px;
     display: flex;
@@ -624,7 +604,7 @@
     justify-content: center;
     text-align: left;
   }
-  .lunch-main { flex: 1 1 auto; min-width: 0; margin-right: clamp(16px, 3vw, 40px); }
+  .lunch-main { flex: 1 1 auto; min-width: 0; }
   .lunch-head { display: flex; align-items: baseline; flex-wrap: wrap; }
   .lunch-head h2 { margin: 0 16px 0 0; }
   .s-lunch .eyebrow { color: #4f9a2b; }
@@ -658,12 +638,13 @@
   .draw-label { display: block; font-weight: 800; text-transform: uppercase; letter-spacing: .1em; font-size: clamp(.65rem, 1.5vh, .8rem); color: #a8d98a; }
   .draw-name { display: block; font-family: var(--display); font-weight: 400; font-size: clamp(1.3rem, min(3.6vw, 5.4vh), 2.6rem); line-height: 1.1; overflow-wrap: anywhere; }
   .draw.waiting .draw-name { color: #e9f5dc; opacity: .85; }
+  /* Tous les choix du jour : le nombre de colonnes et la taille du texte s'adaptent (script) */
   .lunch-list {
     list-style: none;
     margin: clamp(8px, 1.6vh, 14px) 0 0;
     padding: 0;
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(var(--cols, 2), minmax(0, 1fr));
     gap: clamp(6px, 1.2vh, 10px) 12px;
   }
   .lunch-list li {
@@ -673,18 +654,11 @@
     border: 2px solid transparent;
     min-width: 0;
   }
-  .lunch-list li.lead { border-color: #4f9a2b; }
+  .lunch-list li.drawn { border-color: #4f9a2b; background: #f4fbec; }
   .lunch-list li.drawn .lunch-name::before { content: "🎲 "; }
-  .lunch-row { display: flex; align-items: baseline; justify-content: space-between; }
-  .lunch-name { font-weight: 800; font-size: clamp(.85rem, min(2vw, 2.4vh), 1.15rem); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-right: 10px; }
-  .lunch-count { flex: none; font-weight: 800; font-size: clamp(.75rem, min(1.7vw, 2vh), 1rem); color: #4f9a2b; font-variant-numeric: tabular-nums; }
-  .lunch-bar { height: 5px; border-radius: 3px; background: rgba(79, 154, 43, .15); margin-top: 4px; overflow: hidden; }
-  .lunch-bar i { display: block; height: 100%; background: #4f9a2b; border-radius: 3px; transition: width .6s ease; }
+  .lunch-name { display: block; font-weight: 800; font-size: calc(clamp(.85rem, min(2vw, 2.4vh), 1.15rem) * var(--scale, 1)); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .lunch-more { margin: 6px 0 0; font-weight: 700; font-size: clamp(.75rem, 1.8vh, .95rem); color: #4f7a3a; }
   .lunch-empty { margin: clamp(10px, 2vh, 18px) 0 0; font-weight: 700; font-size: clamp(.95rem, 2.4vh, 1.2rem); }
-  .lunch-qr { flex: 0 0 auto; width: clamp(130px, min(18vw, 30vh), 220px); text-align: center; font-weight: 800; }
-  .lunch-qr .qr { background: #ffffff; padding: 8px; border-radius: 14px; border: 3px solid #213a17; }
-  .lunch-qr p { margin: 8px 0 0; font-size: clamp(.75rem, 1.8vh, .95rem); }
 
   /* ---------- Téléphone / écran en hauteur ---------- */
   @media (max-width: 760px), (max-aspect-ratio: 1/1) {
@@ -707,10 +681,6 @@
     .s-happy .has-image .happy-text { flex: none; align-items: center; text-align: center; }
     .s-lunch .inner { flex-direction: column; align-items: stretch; }
     .lunch-main { flex: none; margin: 0; }
-    .lunch-list { grid-template-columns: minmax(0, 1fr); }
-    .lunch-qr { width: 110px; margin: 12px auto 0; }
-    .lunch-qr p { display: none; }
-    .gallery-add { width: 84px; }
     .gallery[data-count="2"] { grid-template-columns: minmax(0, 1fr); grid-template-rows: repeat(2, minmax(0, 1fr)); }
     .gallery[data-count="3"],
     .gallery[data-count="4"] { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: minmax(0, 1.4fr) minmax(0, 1fr); }
@@ -743,6 +713,52 @@
   .simple figure[data-pos="2"],
   .simple figure.fly { opacity: 0; }
   .simple figure img { animation: none; will-change: auto; }
+
+  /* ---------- Écran de code d'accès ---------- */
+  .lock {
+    position: fixed;
+    top: 0; right: 0; bottom: 0; left: 0;
+    z-index: 30;
+    background: var(--bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding-left: var(--gutter-l);
+    padding-right: var(--gutter-r);
+  }
+  .lock-box { width: 100%; max-width: 420px; text-align: center; }
+  .lock h1 { font-size: clamp(2rem, min(7vw, 9vh), 3.4rem); }
+  .lock p { color: var(--muted); }
+  .lock form { display: flex; margin-top: 18px; }
+  .lock input {
+    flex: 1;
+    min-width: 0;
+    font: inherit;
+    font-size: 1.3rem;
+    font-weight: 800;
+    letter-spacing: .2em;
+    text-align: center;
+    color: var(--fg);
+    background: var(--surface);
+    border: 3px solid var(--line);
+    border-radius: 14px;
+    padding: 12px;
+    margin-right: 8px;
+  }
+  .lock input:focus { outline: none; border-color: var(--fur); }
+  .lock button {
+    font: inherit;
+    font-weight: 800;
+    font-size: 1.1rem;
+    color: var(--bg);
+    background: var(--fur);
+    border: 0;
+    border-radius: 14px;
+    padding: 12px 20px;
+    cursor: pointer;
+  }
+  .lock button:focus-visible { outline: 3px solid var(--fg); outline-offset: 2px; }
+  .lock-error { color: #b3261e; font-weight: 800; min-height: 1.5em; margin: 12px 0 0; }
 
   @media (prefers-reduced-motion: reduce) {
     .paw, figure img { animation: none !important; }
@@ -863,10 +879,9 @@
   <!-- Slide 6 : photos des events passés -->
   <section class="slide s-gallery" data-id="photos" data-tone="dark" aria-label="Photos des events passés">
     <div class="gallery" id="gallery"></div>
-    <div class="gallery-add"><div class="qr" id="qr-photos"></div>Ajoute tes photos</div>
   </section>
 
-  <!-- Slide 7 : repas du midi, vote par QR code -->
+  <!-- Slide 7 : repas du midi, resto tiré au sort et choix du jour -->
   <section class="slide s-lunch" data-id="lunch" data-tone="lunch" aria-label="Où on mange à midi">
     <div class="inner" id="lunch-inner">
       <div class="lunch-main">
@@ -880,10 +895,8 @@
           <button type="button" class="draw-reroll" id="tv-reroll">🎲 Relancer</button>
         </div>
         <ol class="lunch-list" id="lunch-list"></ol>
-        <p class="lunch-more" id="lunch-more" hidden></p>
-        <p class="lunch-empty" id="lunch-empty">Pas encore de proposition. Scanne le QR code pour proposer un resto&nbsp;!</p>
+        <p class="lunch-empty" id="lunch-empty">Aucun resto ouvert aujourd'hui. Ajoute-en dans le dashboard.</p>
       </div>
-      <div class="lunch-qr"><div class="qr" id="qr-vote"></div><p>Scanne pour voter, proposer ou relancer le tirage</p></div>
     </div>
   </section>
 
@@ -891,9 +904,21 @@
 
 <nav class="progress" id="progress" aria-hidden="true"></nav>
 
+<!-- Code d'accès du site (réglé dans le dashboard) -->
+<div class="lock" id="lock" hidden>
+  <div class="lock-box">
+    <h1>MatDora</h1>
+    <p id="lock-text">Vérification de l'accès…</p>
+    <form id="lock-form" hidden>
+      <input id="lock-code" type="password" autocomplete="off" aria-label="Code d'accès" placeholder="Code">
+      <button type="submit">Entrer</button>
+    </form>
+    <p class="lock-error" id="lock-error" role="alert"></p>
+  </div>
+</div>
+
 <script src="config.js"></script>
 <script src="js/store.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
   const $ = id => document.getElementById(id);
   const pad = n => String(n).padStart(2, "0");
@@ -1234,48 +1259,38 @@
     $("lunch-day").textContent = label.charAt(0).toUpperCase() + label.slice(1);
     renderDraw(data, now);
     const drawn = data && data.draw ? data.draw.name.toLowerCase() : "";
-    // Les plus votés d'abord ; à égalité, le resto tiré au sort, puis l'ordre alphabétique
+    // Tous les choix du jour, le resto tiré au sort en premier
     const all = (data ? data.options : []).slice().sort((a, b) =>
-      b.votes - a.votes || (b.name.toLowerCase() === drawn) - (a.name.toLowerCase() === drawn) || a.name.localeCompare(b.name));
-    const limit = innerWidth > innerHeight ? 8 : 5;
-    const options = all.slice(0, limit);
-    const max = Math.max(1, ...options.map(o => o.votes));
+      (b.name.toLowerCase() === drawn) - (a.name.toLowerCase() === drawn) || a.name.localeCompare(b.name));
+    const list = $("lunch-list");
     $("lunch-empty").hidden = all.length > 0;
-    $("lunch-list").innerHTML = "";
-    options.forEach((o, i) => {
+    list.innerHTML = "";
+    all.forEach(o => {
       const li = document.createElement("li");
-      const classes = [];
-      if (i === 0 && o.votes > 0) classes.push("lead");
-      if (o.name.toLowerCase() === drawn) classes.push("drawn");
-      li.className = classes.join(" ");
-      const row = document.createElement("div");
-      row.className = "lunch-row";
+      if (o.name.toLowerCase() === drawn) li.className = "drawn";
       const name = document.createElement("span");
       name.className = "lunch-name";
-      name.textContent = (i === 0 && o.votes > 0 ? "👑 " : "") + o.name;
-      const count = document.createElement("span");
-      count.className = "lunch-count";
-      count.textContent = `${o.votes} vote${o.votes > 1 ? "s" : ""}`;
-      row.appendChild(name);
-      row.appendChild(count);
-      const bar = document.createElement("div");
-      bar.className = "lunch-bar";
-      const fill = document.createElement("i");
-      fill.style.width = `${Math.round(o.votes / max * 100)}%`;
-      bar.appendChild(fill);
-      li.appendChild(row);
-      li.appendChild(bar);
-      $("lunch-list").appendChild(li);
+      name.textContent = o.name;
+      name.title = o.name;
+      li.appendChild(name);
+      list.appendChild(li);
     });
-    // Filet de sécurité : si ça dépasse quand même (petit écran), on retire des lignes
+    fitLunch(all.length);
+  }
+
+  // Plus il y a de choix, plus il y a de colonnes ; puis le texte rétrécit jusqu'à tout faire tenir
+  function fitLunch(n) {
     const inner = $("lunch-inner"), list = $("lunch-list");
-    while (inner.scrollHeight > inner.clientHeight + 1 && list.children.length > 1) list.removeChild(list.lastChild);
-    const hiddenCount = all.length - list.children.length;
-    $("lunch-more").hidden = hiddenCount <= 0;
-    $("lunch-more").textContent = `+ ${hiddenCount} autre${hiddenCount > 1 ? "s" : ""} choix sur la page de vote`;
-    if (hiddenCount > 0 && inner.scrollHeight > inner.clientHeight + 1 && list.children.length > 1) list.removeChild(list.lastChild);
+    const wide = innerWidth > innerHeight;
+    const cols = wide ? (n <= 5 ? 1 : n <= 12 ? 2 : n <= 24 ? 3 : 4) : (n <= 8 ? 1 : 2);
+    list.style.setProperty("--cols", cols);
+    list.style.setProperty("--scale", 1);
+    for (let scale = 0.92; scale >= 0.5 && inner.scrollHeight > inner.clientHeight + 1; scale -= 0.08) {
+      list.style.setProperty("--scale", scale);
+    }
   }
   window.renderLunch = renderLunch;
+  window.fitLunch = fitLunch;
 
   // Relancer le tirage directement depuis l'écran (souris, tactile ou télécommande)
   const rerollBtn = $("tv-reroll");
@@ -1295,26 +1310,6 @@
   });
   window.addEventListener("resize", () => { if (lunchData) renderLunch(lunchData); });
 
-  /* ---------- QR codes vers le vote et le dashboard ---------- */
-  const pageBase = location.href.split("#")[0].replace(/[^/]*$/, "");
-  const demoSuffix = store.mode === "demo" ? "#mock" : "";
-  const LINKS = { vote: pageBase + "vote.html" + demoSuffix, admin: pageBase + "admin.html" + (demoSuffix ? "#mock,photos" : "#photos") };
-  window.LINKS = LINKS;
-  function makeQR(el, url, size) {
-    if (el.dataset.url === url) return;
-    el.dataset.url = url;
-    el.innerHTML = "";
-    try {
-      new QRCode(el, { text: url, width: size, height: size, colorDark: "#111111", colorLight: "#ffffff", correctLevel: QRCode.CorrectLevel.M });
-    } catch (e) {
-      // Pas de librairie QR (hors ligne) : on affiche l'adresse
-      const span = document.createElement("span");
-      span.className = "qr-fallback";
-      span.textContent = url;
-      el.appendChild(span);
-    }
-  }
-
   /* ---------- Horloge commune ---------- */
   let doraRunning = render();
   renderPause();
@@ -1333,7 +1328,7 @@
   document.querySelectorAll(".slide").forEach(s => { allSlides[s.dataset.id] = s; });
   const progress = $("progress");
   let slides = [], segs = [], durations = [], forcedDuration = 0;
-  let index = 0, timer = null, paused = false;
+  let index = 0, timer = null, paused = false, locked = false;
 
   const deck = {
     get duration() { return forcedDuration || 15000; },
@@ -1345,6 +1340,7 @@
     next: () => show(index + 1),
     prev: () => show(index - 1),
     setSlides,
+    lock(on) { locked = on; on ? clearTimeout(timer) : show(index); },
     pause(on) { paused = on; document.body.classList.toggle("paused", on); on ? clearTimeout(timer) : show(index); }
   };
   window.deck = deck;
@@ -1401,7 +1397,7 @@
     document.body.dataset.slide = index;
     document.body.dataset.tone = slides[index].dataset.tone || "light";
     clearTimeout(timer);
-    if (!paused) timer = setTimeout(deck.next, ms);
+    if (!paused && !locked) timer = setTimeout(deck.next, ms);
   }
 
   // Toucher à gauche = précédente, ailleurs = suivante ; glisser vers la gauche = suivante
@@ -1416,24 +1412,75 @@
     else e.clientX < innerWidth / 3 ? deck.prev() : deck.next();
   });
   document.addEventListener("keydown", e => {
+    if (e.target && e.target.tagName === "INPUT") return;
     if (e.key === "ArrowRight") deck.next();
     else if (e.key === "ArrowLeft") deck.prev();
     else if (e.key === " " && e.target === document.body) { e.preventDefault(); deck.pause(!paused); }
   });
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) clearTimeout(timer);
-    else if (!paused) show(index);
+    else if (!paused && !locked) show(index);
   });
 
   setSlides(store.DEFAULTS.slides);
 
   /* ---------- Données (Supabase ou démo), relues toutes les 20 s ---------- */
+  /* ---------- Code d'accès ---------- */
+  // Tant que le code n'est pas bon, un écran le demande et rien d'autre ne s'affiche.
+  let unlocked = false;
+  function showLock(message) {
+    unlocked = false;
+    deck.lock(true);
+    $("lock").hidden = false;
+    $("lock-text").textContent = "Entre le code d'accès du site.";
+    $("lock-form").hidden = false;
+    $("lock-error").textContent = message || "";
+    setTimeout(() => { try { $("lock-code").focus(); } catch (e) { /* rien */ } }, 50);
+  }
+  function hideLock() {
+    $("lock").hidden = true;
+    $("lock-code").value = "";
+    if (!unlocked) { unlocked = true; deck.lock(false); }
+  }
+  async function checkAccess() {
+    try {
+      const access = await store.siteAccess(store.storedCode());
+      if (access.required && !access.ok) {
+        showLock(store.storedCode() ? "Le code a changé : entre le nouveau code." : "");
+        return false;
+      }
+      hideLock();
+      return true;
+    } catch (e) {
+      // Réseau coupé : on garde l'état actuel
+      console.warn("MatDora : vérification du code impossible", e);
+      return unlocked;
+    }
+  }
+  $("lock-form").addEventListener("submit", async e => {
+    e.preventDefault();
+    const code = $("lock-code").value.trim();
+    if (!code) return;
+    $("lock-error").textContent = "";
+    try {
+      const access = await store.siteAccess(code);
+      if (!access.ok) { $("lock-error").textContent = "Code incorrect."; $("lock-code").select(); return; }
+      store.rememberCode(code);
+      hideLock();
+      refresh();
+    } catch (err) {
+      $("lock-error").textContent = "Vérification impossible : vérifie la connexion.";
+    }
+  });
+  window.checkAccess = checkAccess;
+
   async function refresh() {
     if (store.mode === "off") return;
+    if (!(await checkAccess())) return;
     try {
       await store.ensureDraw(store.today()).catch(e => console.warn("MatDora : tirage impossible", e));
       const [settings, photos, lunch] = await Promise.all([
-        store.getSettings(), store.listPhotos(), store.lunch(store.today(), "ecran")
+        store.getSettings(), store.listPhotos(), store.lunch(store.today())
       ]);
       happiness = settings.happiness;
       setPauses(settings.pauses);
@@ -1450,8 +1497,9 @@
   }
   window.refresh = refresh;
   if (store.mode !== "off") {
-    makeQR($("qr-vote"), LINKS.vote, 240);
-    makeQR($("qr-photos"), LINKS.admin, 160);
+    // Écran de vérification tout de suite, pour ne rien montrer avant de savoir si un code est demandé
+    $("lock").hidden = false;
+    deck.lock(true);
     renderLunch(null);
     refresh();
     setInterval(refresh, 20000);
