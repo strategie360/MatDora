@@ -1613,12 +1613,36 @@
   window.addEventListener("resize", () => fitHappiness(true));
 
   /* ---------- Slide Photos d'events : polaroïds en vrac ---------- */
+  // Les photos sont tirées au hasard comme dans un paquet de cartes mélangé : chacune sort une fois
+  // avant que le paquet soit remélangé, et jamais une photo déjà sur la table.
   // Au départ, jusqu'à 7 photos posées en vrac (5 sur un écran en hauteur), décalées et tournées
   // au hasard. Toutes les 3 s, une nouvelle photo se pose à un endroit au hasard, pas sur la
   // dernière ajoutée. Seules les photos recouvertes à 100 % (plus du tout visibles) sont retirées.
   // Seule l'opacité est animée (léger pour Silk).
   const HIDDEN_RATIO = 1;
-  let eventPhotos = [], pCards = [], nextPhotoIdx = 0, zTop = 1, placeSeq = 0, lastNew = null;
+  let eventPhotos = [], pCards = [], bag = [], zTop = 1, placeSeq = 0, lastNew = null;
+
+  // Mélange de Fisher-Yates (vrai hasard, sans biais)
+  function shuffle(list) {
+    const a = list.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const t = a[i]; a[i] = a[j]; a[j] = t;
+    }
+    return a;
+  }
+  // Prochaine photo : la suivante du paquet mélangé qui n'est pas déjà sur la table
+  function drawPhoto() {
+    const onTable = pCards.filter(c => !c.leaving).map(c => c.photo);
+    for (let round = 0; round < 2; round++) {
+      if (!bag.length) bag = shuffle(eventPhotos.map((_, i) => i));
+      for (let k = 0; k < bag.length; k++) {
+        if (onTable.indexOf(bag[k]) === -1) return bag.splice(k, 1)[0];
+      }
+      bag = [];  // tout ce qui reste du paquet est déjà posé : on remélange
+    }
+    return Math.floor(Math.random() * eventPhotos.length);  // toutes les photos sont sur la table
+  }
 
   function galleryLayout() {
     const g = $("gallery"), W = g.clientWidth, H = g.clientHeight;
@@ -1732,7 +1756,6 @@
   }
 
   function setEventPhotos(list) {
-    list = list.slice(0, 40);  // les plus récentes, pour ménager la mémoire de la Fire TV
     const key = l => l.map(p => [p.id, p.event, p.caption].join("~")).join("|");
     if (key(list) === key(eventPhotos)) return;
     eventPhotos = list;
@@ -1742,8 +1765,8 @@
     // Zones mélangées : les photos ne sont jamais rangées dans le même ordre
     const slots = Array.from({ length: L.cols * L.rows }, (_, k) => k).sort(() => Math.random() - 0.5);
     pCards = [];
-    for (let k = 0; k < count; k++) makeCard(k, slots[k]);
-    nextPhotoIdx = count % Math.max(1, list.length);
+    bag = [];
+    for (let k = 0; k < count; k++) makeCard(drawPhoto(), slots[k]);
   }
 
   // Part d'un polaroïd recouverte par ceux posés au-dessus (échantillonnage de 9 × 9 points, bords compris)
@@ -1776,8 +1799,7 @@
 
   function swapTile() {
     if (eventPhotos.length < 2) return false;
-    const i = nextPhotoIdx;
-    nextPhotoIdx = (i + 1) % eventPhotos.length;
+    const i = drawPhoto();
     // Photo déjà sur la table : elle remonte sur le dessus, ailleurs (jamais de doublon)
     pCards.filter(c => c.photo === i).forEach(removeCard);
     const L = galleryLayout();
@@ -1791,6 +1813,7 @@
     pCards.slice().sort((a, b) => a.placedAt - b.placedAt).forEach(c => placeCard(c, L));
   });
   window.setEventPhotos = setEventPhotos;
+  window.drawPhoto = drawPhoto;
   window.swapTile = swapTile;
   window.autoPhotos = true;  // les tests le coupent pour piloter les photos eux-mêmes
   setInterval(() => { if (window.autoPhotos) swapTile(); }, 3000);

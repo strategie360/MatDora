@@ -397,6 +397,22 @@
     check(g, "photos : chaque légende va avec sa photo", pairs.every(([cap, name]) => cap.endsWith(name)), pairs.map(p => p.join("=")).join(" | "));
     const zs = onCards().map(el => Number(el.style.zIndex));
     check(g, "photos : chaque photo a sa hauteur dans la pile", new Set(zs).size === zs.length);
+    // Tirage au hasard : paquet mélangé, aucune limite sur le nombre de photos en base
+    const many = (n, tag) => Array.from({ length: n }, (_, i) => ({ id: tag + i, url: `../img/${(i % 3) + 1}.jpg?${tag}${i}`, caption: "Photo " + i, event: "Test" }));
+    tw.setEventPhotos(many(60, "m"));
+    check(g, "photos : plus de limite à 40, les 60 photos sont dans le tirage", tw.eval("eventPhotos.length") === 60);
+    const firstSet = tw.eval("pCards").map(c => c.photo).sort((a, b) => a - b).join();
+    tw.setEventPhotos(many(60, "n"));
+    const secondSet = tw.eval("pCards").map(c => c.photo).sort((a, b) => a - b).join();
+    check(g, "photos : l'affichage de départ change à chaque fois", firstSet !== secondSet && firstSet !== "0,1,2,3,4,5,6", `${firstSet} / ${secondSet}`);
+    const onTable = tw.eval("pCards").map(c => c.photo);
+    const draws = Array.from({ length: 53 }, () => tw.drawPhoto());
+    check(g, "photos : chaque photo sort une fois avant de revenir (paquet mélangé)", new Set(draws).size === 53 && draws.every(i => onTable.indexOf(i) === -1), `${new Set(draws).size} différentes sur 53`);
+    const ascending = draws.filter((v, k) => k > 0 && v === draws[k - 1] + 1).length;
+    check(g, "photos : aucun ordre visible (pas de suite croissante)", ascending < 10 && draws.join() !== draws.slice().sort((a, b) => a - b).join(), `${ascending} suites +1 sur 52`);
+    const nextRound = Array.from({ length: 10 }, () => tw.drawPhoto());
+    check(g, "photos : le paquet est remélangé une fois vide", nextRound.every(i => i >= 0 && i < 60 && onTable.indexOf(i) === -1) && new Set(nextRound).size === 10);
+
     // Retour aux photos de la démo
     tw.eval("eventPhotos = []");
     await tw.refresh();
