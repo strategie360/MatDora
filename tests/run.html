@@ -384,7 +384,9 @@
       const dist = Math.hypot((o.x + o.w / 2) - (n.x + n.w / 2), (o.y + o.h / 2) - (n.y + n.h / 2));
       check(g, "photos : posée à l'emplacement de l'ancienne", dist < Math.max(o.w, n.w) * 0.6, `${Math.round(dist)} px`);
       await sleep(900);
-      check(g, "photos : l'ancienne photo s'efface dessous", !oldestBefore.el.classList.contains("on") && tw.eval("pCards").indexOf(oldestBefore) === -1);
+      const covOld = tw.eval("pCards").indexOf(oldestBefore) !== -1 ? tw.photoCoverage(oldestBefore) : 1;
+      const stillThere = oldestBefore.el.classList.contains("on");
+      check(g, "photos : l'ancienne n'est retirée que si elle est cachée à 100 %", stillThere ? covOld < 1 : covOld >= 1, `encore là : ${stillThere}, recouverte à ${Math.round(covOld * 100)} %`);
       const z = c => Number(c.el.style.zIndex);
       // (la rotation automatique de la page peut poser d'autres photos entre-temps : on compare aux plus anciennes)
       check(g, "photos : la nouvelle est au-dessus de toutes celles d'avant", tw.eval("pCards").every(c => c === covered || c.placedAt > covered.placedAt || z(c) < z(covered)));
@@ -405,10 +407,10 @@
     tw.cleanPile();
     await sleep(800);
     check(g, "photos : jamais de doublon sur la table", !dupes, shownPhotos().join(", "));
-    check(g, "photos : 12 photos au plus sur la table", td.querySelectorAll("#gallery .polaroid.on").length <= 12 && maxPile <= 13, `${td.querySelectorAll("#gallery .polaroid.on").length} (max ${maxPile})`);
+    check(g, "photos : 15 photos au plus sur la table", td.querySelectorAll("#gallery .polaroid.on").length <= 15 && maxPile <= 16, `${td.querySelectorAll("#gallery .polaroid.on").length} (max ${maxPile})`);
     check(g, "photos : toutes les photos finissent par passer", seen.size === 9, `${seen.size} / 9`);
     const pile = tw.eval("pCards");
-    check(g, "photos : il ne reste que des photos qui se voient", pile.every(c => tw.photoCoverage(c) < 0.9), pile.map(c => tw.photoCoverage(c).toFixed(2)).join(" "));
+    check(g, "photos : il ne reste aucune photo cachée à 100 %", pile.every(c => tw.photoCoverage(c) < 1), pile.map(c => tw.photoCoverage(c).toFixed(2)).join(" "));
     const pairs = onCards().map(el => [el.querySelector(".cap").textContent, "Photo " + el.querySelector("img").getAttribute("src").split("?")[1]]);
     check(g, "photos : chaque légende va avec sa photo", pairs.every(([cap, name]) => cap.endsWith(name)), pairs.map(p => p.join("=")).join(" | "));
     const zs = onCards().map(el => Number(el.style.zIndex));

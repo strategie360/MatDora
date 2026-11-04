@@ -1523,10 +1523,11 @@
   // Au départ, jusqu'à 7 photos posées en vrac (5 sur un écran en hauteur), décalées et tournées
   // au hasard. Toutes les 3 s, une nouvelle photo arrive :
   //   1. s'il reste de la place, elle se pose dans l'espace le plus vide de la table ;
-  //   2. sinon, elle se pose sur la photo affichée depuis le plus longtemps, qui s'efface dessous.
-  // Les photos recouvertes à 90 % ou plus sont retirées (et la plus cachée au-delà de 12).
+  //   2. sinon, elle se pose sur la photo affichée depuis le plus longtemps.
+  // Seules les photos recouvertes à 100 % (plus du tout visibles) sont retirées. Par sécurité pour
+  // la mémoire de la Fire TV, au-delà de 15 photos sur la table, la plus cachée est retirée.
   // Seule l'opacité est animée (léger pour Silk).
-  const PILE_MAX = 12, HIDDEN_RATIO = 0.9, FREE_RATIO = 0.2;
+  const PILE_MAX = 15, HIDDEN_RATIO = 1, FREE_RATIO = 0.2;
   let eventPhotos = [], pCards = [], nextPhotoIdx = 0, zTop = 1, placeSeq = 0;
 
   function galleryLayout() {
@@ -1618,13 +1619,12 @@
     card.cap.innerHTML = caption(p);
     const show = () => {
       card.img.onload = card.img.onerror = null;
-      // Nouvelle photo : espace vide d'abord, sinon sur la plus ancienne (qui s'efface dessous)
+      // Nouvelle photo : espace vide d'abord, sinon par-dessus la plus ancienne
       const target = placeCard(card, galleryLayout(), card.fresh ? (w, h) => findSpot(card, w, h) : null);
       const wasFresh = card.fresh;
       card.fresh = false;
       card.el.classList.add("on");
       card.lastSpot = target;
-      if (target && target.oldest) setTimeout(() => removeCard(target.oldest), reduceMotion ? 0 : 650);
       // Le ménage se fait une fois la photo réellement posée (le chargement peut être lent sur la TV)
       if (wasFresh) setTimeout(cleanPile, reduceMotion ? 50 : 700);
     };
@@ -1663,7 +1663,7 @@
     nextPhotoIdx = count % Math.max(1, list.length);
   }
 
-  // Part d'un polaroïd recouverte par ceux posés au-dessus (échantillonnage de 7 × 7 points)
+  // Part d'un polaroïd recouverte par ceux posés au-dessus (échantillonnage de 9 × 9 points, bords compris)
   function coverage(card) {
     const r = card.el.getBoundingClientRect();
     if (!r.width || !r.height) return 0;
@@ -1672,13 +1672,13 @@
       .map(c => c.el.getBoundingClientRect());
     if (!above.length) return 0;
     let hidden = 0;
-    for (let ix = 0; ix < 7; ix++) {
-      for (let iy = 0; iy < 7; iy++) {
-        const x = r.left + r.width * (ix + 0.5) / 7, y = r.top + r.height * (iy + 0.5) / 7;
+    for (let ix = 0; ix < 9; ix++) {
+      for (let iy = 0; iy < 9; iy++) {
+        const x = r.left + 1 + (r.width - 2) * ix / 8, y = r.top + 1 + (r.height - 2) * iy / 8;
         if (above.some(a => x >= a.left && x <= a.right && y >= a.top && y <= a.bottom)) hidden++;
       }
     }
-    return hidden / 49;
+    return hidden / 81;
   }
   function removeCard(card) {
     card.leaving = true;
@@ -1686,7 +1686,7 @@
     card.el.classList.remove("on");
     setTimeout(() => { if (card.el.parentNode) card.el.parentNode.removeChild(card.el); }, 700);
   }
-  // Retire seulement ce qui ne se voit (presque) plus, puis la plus cachée si la table est trop pleine
+  // Retire seulement ce qui ne se voit plus du tout, puis la plus cachée si la table est trop pleine
   function cleanPile() {
     pCards.slice().forEach(c => { if (c.el.classList.contains("on") && coverage(c) >= HIDDEN_RATIO) removeCard(c); });
     while (pCards.length > PILE_MAX) {
