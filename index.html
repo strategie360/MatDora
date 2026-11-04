@@ -987,6 +987,85 @@
   .news-card .w { font-weight: 700; color: #4a5080; font-size: calc(clamp(.85rem, 2.1vh, 1.1rem) * var(--scale, 1)); margin-top: 6px; }
   .news-card .m { margin-top: 8px; font-size: calc(clamp(.9rem, 2.2vh, 1.15rem) * var(--scale, 1)); color: #343a66; white-space: pre-line; overflow-wrap: anywhere; }
 
+  /* ---------- Slide Ils nous ont quittés : un petit cimetière (avec humour), bougies et photos ---------- */
+  body[data-tone="rip"] .seg { background: rgba(255, 255, 255, .18); }
+  body[data-tone="rip"] .seg i { background: #ffd27a; }
+  .s-rip {
+    background:
+      radial-gradient(circle at 86% 16%, #f1f3f5 0 46px, rgba(241, 243, 245, .15) 47px 80px, transparent 81px),
+      radial-gradient(circle, rgba(255, 255, 255, .7) 0 1.5px, transparent 2.5px) 0 0 / 110px 90px,
+      linear-gradient(#141833 0%, #262c55 70%, #1f3b2a 70%, #183022 100%);
+    color: #f1f3f5;
+  }
+  .s-rip .inner { max-width: 1280px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .rip-wrap { width: 100%; display: flex; flex-direction: column; align-items: center; }
+  .rip-head { text-align: center; }
+  .rip-head .eyebrow { color: #ffd27a; }
+  .rip-head h2 { color: #f1f3f5; font-size: calc(clamp(1.8rem, min(5vw, 8vh), 3.6rem) * var(--scale, 1)); }
+  .rip-sub { margin: 6px 0 0; color: #c5cae9; font-weight: 700; font-size: calc(clamp(.9rem, 2.2vh, 1.15rem) * var(--scale, 1)); }
+  .tombs {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(calc(165px * var(--scale, 1)), calc(200px * var(--scale, 1))));
+    justify-content: center;
+    align-items: end;
+    gap: calc(18px * var(--scale, 1)) calc(16px * var(--scale, 1));
+    width: 100%;
+    margin-top: calc(18px * var(--scale, 1));
+  }
+  /* Pierre tombale : sommet arrondi, pierre grise */
+  .tomb {
+    position: relative;
+    box-sizing: border-box;
+    min-width: 0;
+    background: linear-gradient(#b8bec6, #8d949e);
+    color: #24282f;
+    border-radius: 50% 50% 8px 8px / 32% 32% 8px 8px;
+    padding: calc(16px * var(--scale, 1)) calc(12px * var(--scale, 1)) calc(14px * var(--scale, 1));
+    text-align: center;
+    box-shadow: inset 0 -6px 0 rgba(0, 0, 0, .15), 0 14px 24px -14px rgba(0, 0, 0, .8);
+  }
+  .slide.active .tomb { animation: cardIn .8s ease both; }
+  .slide.active .tomb:nth-child(2) { animation-delay: .25s; }
+  .slide.active .tomb:nth-child(3) { animation-delay: .5s; }
+  .slide.active .tomb:nth-child(4) { animation-delay: .75s; }
+  .slide.active .tomb:nth-child(5) { animation-delay: 1s; }
+  .slide.active .tomb:nth-child(n+6) { animation-delay: 1.25s; }
+  .tomb .rip { font-family: var(--display); letter-spacing: .12em; font-size: calc(.95rem * var(--scale, 1)); color: #4a5059; }
+  .tomb .face {
+    display: block;
+    width: calc(58px * var(--scale, 1));
+    height: calc(58px * var(--scale, 1));
+    margin: calc(6px * var(--scale, 1)) auto;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid #e9ecef;
+    background: #6c737d;
+    color: #e9ecef;
+    font-family: var(--display);
+    font-size: calc(1.4rem * var(--scale, 1));
+    line-height: calc(52px * var(--scale, 1));
+    filter: grayscale(.5);
+  }
+  .tomb .n { font-family: var(--display); font-size: calc(clamp(1.1rem, min(2.4vw, 3.6vh), 1.7rem) * var(--scale, 1)); line-height: 1.05; overflow-wrap: anywhere; }
+  .tomb .r { font-weight: 800; font-size: calc(.8rem * var(--scale, 1)); color: #3d434b; overflow-wrap: anywhere; }
+  .tomb .w { margin-top: 4px; font-weight: 700; font-size: calc(.75rem * var(--scale, 1)); color: #3d434b; }
+  /* Bougie qui vacille (opacité seulement) */
+  .candle { position: absolute; right: calc(-8px * var(--scale, 1)); bottom: calc(-6px * var(--scale, 1)); font-size: calc(1.6rem * var(--scale, 1)); line-height: 1; }
+  .candle::before {
+    content: "";
+    position: absolute;
+    left: 50%; top: -10%;
+    width: 1.6em; height: 1.6em;
+    margin-left: -.8em;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255, 214, 102, .55), transparent 65%);
+    animation: flicker 1.8s ease-in-out infinite alternate;
+  }
+  .tomb:nth-child(2n) .candle::before { animation-duration: 1.3s; }
+  .tomb:nth-child(3n) .candle::before { animation-duration: 2.2s; }
+  @keyframes flicker { 0% { opacity: .35; } 40% { opacity: 1; } 60% { opacity: .6; } 100% { opacity: .95; } }
+  .simple .slide.active .tomb, .simple .candle::before { animation: none; }
+
   /* ---------- Écran de code d'accès ---------- */
   .lock {
     position: fixed;
@@ -1224,6 +1303,20 @@
           <h2 id="news-title">Du nouveau dans l'équipe&nbsp;!</h2>
         </div>
         <div class="news-cards" id="news-cards"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Ils nous ont quittés : tous les départs passés (onglet Arrivées / départs du dashboard) -->
+  <section class="slide s-rip" data-id="cemetery" data-tone="rip" aria-label="Ils nous ont quittés">
+    <div class="inner" id="rip-inner">
+      <div class="rip-wrap" id="rip-wrap">
+        <div class="rip-head">
+          <div class="eyebrow">In memoriam</div>
+          <h2>Ils nous ont quittés</h2>
+          <p class="rip-sub" id="rip-sub">Mais ils restent dans nos cœurs 🕯️</p>
+        </div>
+        <div class="tombs" id="tombs"></div>
       </div>
     </div>
   </section>
@@ -1916,12 +2009,12 @@
   function allSlidesVac() { return document.querySelector(".s-vac"); }
 
   // Réduit le texte d'un encadré centré jusqu'à ce qu'il tienne dans l'écran
-  function fitBox(innerId, boxId) {
+  function fitBox(innerId, boxId, minScale) {
     const inner = $(innerId), box = $(boxId);
     const cs = getComputedStyle(inner);
     const avail = inner.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
     inner.style.setProperty("--scale", 1);
-    for (let s = 0.9; s >= 0.4 && (box.offsetHeight > avail + 1 || inner.scrollWidth > inner.clientWidth + 1); s -= 0.1) {
+    for (let s = 0.9; s >= (minScale || 0.4) - 0.001 && (box.offsetHeight > avail + 1 || inner.scrollWidth > inner.clientWidth + 1); s -= 0.05) {
       inner.style.setProperty("--scale", s);
     }
   }
@@ -1931,6 +2024,8 @@
   function activeNews(now) {
     const t = store.today(now);
     return teamNews.filter(n => n.name && n.date)
+      // un départ passé n'est plus une annonce : il rejoint « Ils nous ont quittés »
+      .filter(n => !(store.newsType(n).id === "depart" && n.date < t))
       .filter(n => { const w = store.newsWindow(n); return w.from <= t && t <= w.until; })
       .sort((a, b) => a.date.localeCompare(b.date));
   }
@@ -1946,7 +2041,7 @@
     const types = list.map(n => store.newsType(n).id).filter((x, i, a) => a.indexOf(x) === i);
     const head = types.length > 1 ? ["L'équipe bouge", "Du nouveau dans l'équipe !"]
       : types[0] === "bienvenue" ? ["Nouveaux visages", list.length > 1 ? "Bienvenue dans l'équipe !" : "Bienvenue dans l'équipe !"]
-      : types[0] === "depart" ? ["Au revoir", list.length > 1 ? "Ils nous ont quittés" : "Merci pour tout !"]
+      : types[0] === "depart" ? ["Au revoir", list.length > 1 ? "Ils nous quittent bientôt" : "Merci pour tout !"]
       : ["Bonne nouvelle", "Félicitations !"];
     $("news-eyebrow").textContent = head[0];
     $("news-title").textContent = head[1];
@@ -1972,11 +2067,49 @@
   window.renderNews = renderNews;
   window.activeNews = activeNews;
 
+  /* ---------- Slide Ils nous ont quittés ---------- */
+  // Tous les départs passés, du plus récent au plus ancien, sans limite de temps
+  function departed(now) {
+    const t = store.today(now);
+    return teamNews.filter(n => n.name && n.date && store.newsType(n).id === "depart" && n.date < t)
+      .sort((a, b) => b.date.localeCompare(a.date));
+  }
+  const initials = name => name.replace(/^Exemple : /, "").split(/\s+/).filter(Boolean).slice(0, 2).map(w => w.charAt(0).toUpperCase()).join("");
+  let ripKey = "";
+  function renderRip(now = new Date()) {
+    const key = store.today(now) + JSON.stringify(teamNews) + innerWidth + "x" + innerHeight;
+    if (key === ripKey) return;
+    ripKey = key;
+    const list = departed(now);
+    if (!list.length) return;
+    $("rip-sub").textContent = list.length > 1 ? `${list.length} collègues partis, mais toujours dans nos cœurs 🕯️` : "Parti, mais toujours dans nos cœurs 🕯️";
+    const tombs = $("tombs");
+    tombs.innerHTML = "";
+    const month = d => new Date(d + "T12:00:00").toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
+    list.forEach(n => {
+      const tomb = document.createElement("div");
+      tomb.className = "tomb";
+      tomb.innerHTML =
+        `<div class="rip">R.I.P.</div>` +
+        (n.photo ? `<img class="face" src="${escapeHtml(n.photo)}" alt="">` : `<span class="face" aria-hidden="true">${escapeHtml(initials(n.name))}</span>`) +
+        `<div class="n">${escapeHtml(n.name)}</div>` +
+        (n.role ? `<div class="r">${escapeHtml(n.role)}</div>` : "") +
+        `<div class="w">parti en ${escapeHtml(month(n.date))}</div>` +
+        `<span class="candle" aria-hidden="true">🕯️</span>`;
+      tombs.appendChild(tomb);
+    });
+    // Tout le monde doit être affiché : on peut rapetisser beaucoup s'il y a foule
+    fitBox("rip-inner", "rip-wrap", 0.2);
+    tombs.querySelectorAll("img").forEach(img => img.addEventListener("load", () => fitBox("rip-inner", "rip-wrap", 0.2)));
+  }
+  window.renderRip = renderRip;
+  window.departed = departed;
+
   window.renderBirthday = renderBirthday;
   window.renderVacation = renderVacation;
   window.onVacation = onVacation;
   window.upcomingBirthdays = upcomingBirthdays;
-  window.addEventListener("resize", () => { bdayKey = vacKey = newsKey = ""; renderBirthday(); renderVacation(); renderNews(); });
+  window.addEventListener("resize", () => { bdayKey = vacKey = newsKey = ripKey = ""; renderBirthday(); renderVacation(); renderNews(); renderRip(); });
 
   /* ---------- Horloge commune ---------- */
   let doraRunning = render();
@@ -1991,6 +2124,7 @@
     renderBirthday();
     renderVacation();
     renderNews();
+    renderRip();
     if (lunchData) renderDraw(lunchData);
   }, 1000);
 
@@ -2019,7 +2153,8 @@
   // Les slides à données ne s'affichent que si les données sont là (Anniversaires : au moins une
   // date ; Bonnes vacances : seulement quand quelqu'un est en vacances aujourd'hui)
   function available(id) {
-    if (["happiness", "photos", "lunch", "birthday", "vacation", "news"].indexOf(id) !== -1 && store.mode === "off") return false;
+    if (["happiness", "photos", "lunch", "birthday", "vacation", "news", "cemetery"].indexOf(id) !== -1 && store.mode === "off") return false;
+    if (id === "cemetery" && !departed(new Date()).length) return false;
     if (id === "news" && !activeNews(new Date()).length) return false;
     if (id === "photos" && !eventPhotos.length) return false;
     if (id === "birthday" && !upcomingBirthdays(new Date()).length) return false;
@@ -2163,6 +2298,7 @@
       absenceMessage = settings.absenceMessage;
       teamNews = settings.teamNews;
       renderNews();
+      renderRip();
       renderBirthday();
       renderVacation();
       setPauses(settings.pauses);

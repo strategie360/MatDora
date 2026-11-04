@@ -22,7 +22,8 @@
     { id: "lunch", label: "Repas du midi" },
     { id: "birthday", label: "Anniversaires" },
     { id: "vacation", label: "Congés et absences" },
-    { id: "news", label: "Arrivées et départs" }
+    { id: "news", label: "Arrivées et CDI" },
+    { id: "cemetery", label: "Ils nous ont quittés" }
   ];
   // Pauses : une liste d'horaires par jour (0 = dimanche … 6 = samedi)
   const WEEKDAY_PAUSES = ["10:00", "12:00", "16:00"];
@@ -332,7 +333,9 @@
           ],
           teamNews: [
             { id: "n1", type: "bienvenue", name: "Exemple : Léo", role: "Stagiaire marketing", date: today(new Date(d.getTime() - 1 * 86400000)), until: "", note: "" },
-            { id: "n2", type: "cdi", name: "Exemple : Inès", role: "Alternante → CDI développeuse", date: today(new Date(d.getTime() + 3 * 86400000)), until: "", note: "" }
+            { id: "n2", type: "cdi", name: "Exemple : Inès", role: "Alternante → CDI développeuse", date: today(new Date(d.getTime() + 3 * 86400000)), until: "", note: "" },
+            { id: "n3", type: "depart", name: "Exemple : Marc", role: "Chef de projet", date: today(new Date(d.getTime() - 40 * 86400000)), until: "", note: "" },
+            { id: "n4", type: "depart", name: "Exemple : Julie", role: "Stagiaire RH", date: today(new Date(d.getTime() - 120 * 86400000)), until: "", note: "" }
           ]
         },
         photos: [

@@ -316,7 +316,7 @@
   <!-- Arrivées / départs -->
   <section class="panel" id="tab-news" role="tabpanel" hidden>
     <h2>👋 Arrivées, départs et CDI</h2>
-    <p class="help">Chaque annonce s'affiche sur l'écran 7 jours avant sa date et jusqu'à 14 jours après (ou jusqu'à la date que tu choisis). S'il y en a plusieurs, chacune a sa carte.</p>
+    <p class="help">Arrivées et CDI : affichés sur la slide « Du nouveau dans l'équipe » 7 jours avant la date et jusqu'à 14 jours après (ou jusqu'à la date que tu choisis). Départs : annoncés jusqu'au dernier jour, puis ils rejoignent pour toujours la slide « Ils nous ont quittés » 🕯️, avec leur photo.</p>
     <form class="team-form" id="news-form">
       <h3 id="news-form-title">Ajouter une annonce</h3>
       <div class="team-fields">
@@ -329,6 +329,18 @@
         <div class="field"><label for="news-date" id="news-date-label">Date d'arrivée</label><input id="news-date" type="date" required></div>
         <div class="field"><label for="news-until">Afficher jusqu'au <span class="hint">(facultatif)</span></label><input id="news-until" type="date"></div>
         <div class="field grow-field"><label for="news-note">Petit mot <span class="hint">(facultatif)</span></label><input id="news-note" maxlength="160"></div>
+      </div>
+      <div class="field">
+        <span class="label-like"><strong>Photo</strong> <span class="hint">(facultatif, affichée en petit, surtout pour « Ils nous ont quittés »)</span></span>
+        <div class="image-pick">
+          <img id="news-photo-preview" alt="Photo actuelle" hidden>
+          <label class="dropzone small" id="news-drop">
+            <input id="news-photo" type="file" accept="image/*">
+            <span class="dz-icon" aria-hidden="true">🙂</span>
+            <span class="dz-main" id="news-drop-text">Choisis une photo ou glisse-la ici</span>
+          </label>
+          <button class="btn danger" type="button" id="news-photo-remove" hidden>Retirer la photo</button>
+        </div>
       </div>
       <p class="preview" id="news-preview" aria-live="polite"></p>
       <div class="actions">
@@ -721,7 +733,8 @@
   /* ---------- Zones de dépôt (choisir ou glisser des fichiers) ---------- */
   const DROPS = {
     photo: { zone: "photo-drop", input: "photo-files", text: "photo-drop-text", empty: "Choisis des photos ou glisse-les ici" },
-    happy: { zone: "happy-drop", input: "happy-image", text: "happy-drop-text", empty: "Choisis une image ou glisse-la ici" }
+    happy: { zone: "happy-drop", input: "happy-image", text: "happy-drop-text", empty: "Choisis une image ou glisse-la ici" },
+    news: { zone: "news-drop", input: "news-photo", text: "news-drop-text", empty: "Choisis une photo ou glisse-la ici" }
   };
   function updateDrop(key) {
     const d = DROPS[key], files = [...$(d.input).files];
@@ -1180,6 +1193,7 @@
         const next = settings.teamNews.filter(x => x.id !== n.id);
         await store.saveSetting("teamNews", next);
         settings.teamNews = next;
+        if (n.photoPath) await store.deleteImage(n.photoPath);
         if (editingNews === n.id) stopEditNews();
         renderNewsList();
       }, `Annonce de ${n.name} retirée.`)));
@@ -1194,6 +1208,8 @@
     $("news-date").value = n.date || "";
     $("news-until").value = n.until || "";
     $("news-note").value = n.note || "";
+    newsPhoto = n.photo ? { url: n.photo, path: n.photoPath || "" } : null;
+    renderNewsPhoto();
     $("news-form-title").textContent = `Modifier l'annonce de ${n.name}`;
     $("news-submit").textContent = "Enregistrer les modifications";
     $("news-cancel").hidden = false;
@@ -1204,6 +1220,9 @@
   function stopEditNews() {
     editingNews = null;
     $("news-form").reset();
+    newsPhoto = null;
+    renderNewsPhoto();
+    updateDrop("news");
     $("news-date").value = store.today();
     $("news-form-title").textContent = "Ajouter une annonce";
     $("news-submit").textContent = "Ajouter";
@@ -1212,6 +1231,19 @@
     newsPreview();
   }
   $("news-cancel").addEventListener("click", stopEditNews);
+  let newsPhoto = null;  // { url, path } de la photo de l'annonce en cours
+  function renderNewsPhoto() {
+    $("news-photo-preview").hidden = !newsPhoto;
+    if (newsPhoto) $("news-photo-preview").src = newsPhoto.url;
+    $("news-photo-remove").hidden = !newsPhoto;
+  }
+  $("news-photo-remove").addEventListener("click", () => {
+    newsPhoto = null;
+    $("news-photo").value = "";
+    updateDrop("news");
+    renderNewsPhoto();
+    toast("Photo retirée. Pense à enregistrer.");
+  });
   $("news-date").value = store.today();
   $("news-form").addEventListener("submit", e => {
     e.preventDefault();
@@ -1220,7 +1252,12 @@
     if (n.until && n.until < n.date) { toast("« Afficher jusqu'au » doit être après la date.", true); return; }
     const wasEditing = editingNews;
     attempt(async () => {
-      const entry = Object.assign({ id: wasEditing || newId() }, n);
+      const before = wasEditing ? settings.teamNews.filter(x => x.id === wasEditing)[0] : null;
+      const file = $("news-photo").files[0];
+      if (file) newsPhoto = await store.uploadImage(await store.resizeImage(file, 600), "team");
+      const entry = Object.assign({ id: wasEditing || newId() }, n, { photo: newsPhoto ? newsPhoto.url : null, photoPath: newsPhoto ? newsPhoto.path : null });
+      // Ancienne photo remplacée ou retirée : supprimée du stockage
+      if (before && before.photoPath && before.photoPath !== entry.photoPath) await store.deleteImage(before.photoPath);
       const next = wasEditing ? settings.teamNews.map(x => x.id === wasEditing ? entry : x) : settings.teamNews.concat([entry]);
       await store.saveSetting("teamNews", next);
       settings.teamNews = next;
