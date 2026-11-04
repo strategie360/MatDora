@@ -322,6 +322,7 @@
     const lunchRows = () => [...td.querySelectorAll("#lunch-list .lunch-name")].map(n => n.textContent.trim());
     check(g, "repas : les choix du jour affichés", lunchRows().length === 3 && lunchRows().join("|").indexOf("Pizzeria") !== -1, lunchRows().join(" | "));
     check(g, "repas : plus de votes ni de QR code", !td.querySelector(".lunch-count, .lunch-bar, .qr, #qr-vote, #qr-photos") && !/vote/i.test(td.getElementById("lunch-inner").textContent));
+    tw.autoPhotos = false;  // le test pose les photos lui-même
     // Polaroïds en vrac : plusieurs photos à la fois, de travers, sans sortir de l'écran
     const shownPhotos = () => [...td.querySelectorAll("#gallery .polaroid.on img")].map(i => i.getAttribute("src"));
     await waitFor(() => shownPhotos().length === 3);
@@ -346,68 +347,33 @@
     check(g, "photos : proportions gardées (aucun recadrage)", ratios.length === 7 && ratios.every(([shown, real]) => Math.abs(shown - real) / real < 0.03),
       ratios.map(r => r.map(x => x.toFixed(2)).join("/")).join(" "));
     check(g, "photos : le cadre épouse la photo", [...td.querySelectorAll("#gallery .polaroid.on")].every(el => Math.abs(el.clientWidth - el.querySelector("img").clientWidth - 20) <= 1));
-    // 1. Il reste de la place : la nouvelle photo se pose dans un espace vide, sans rien retirer
+    // Nouvelle photo : au hasard, jamais sur la dernière ajoutée ; aucune photo visible n'est retirée
     const onCards = () => [...td.querySelectorAll("#gallery .polaroid.on")];
     const newest = () => { const p = tw.eval("pCards"); return p[p.length - 1]; };
-    tw.eval("pCards.slice(2).forEach(removeCard)");
-    await waitFor(() => onCards().length === 2, 2000);
-    await sleep(800);
-    for (let k = 0; k < 2; k++) {
-      const count = onCards().length;
+    const rect = c => tw.eval("cardRect")(c);
+    const overlap = (a, b) => Math.max(0, Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x)) * Math.max(0, Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y)) / (a.w * a.h);
+    const centers = [];
+    let prev = null, onLast = 0, removedVisible = 0;
+    for (let k = 0; k < 8; k++) {
+      // Couverture de chaque photo juste avant : une photo encore visible ne doit pas disparaître
+      const beforeCov = tw.eval("pCards").map(c => [c, tw.photoCoverage(c)]);
       tw.swapTile();
       await waitFor(() => newest().el.classList.contains("on"), 2000);
-      await sleep(950);
-      const n = newest(), r = tw.eval("cardRect")(n.el ? n : n);
-      const others = tw.eval("pCards").filter(c => c !== n && c.el.classList.contains("on"));
-      const ov = others.reduce((sum, c) => {
-        const o = tw.eval("cardRect")(c);
-        return sum + Math.max(0, Math.min(r.x + r.w, o.x + o.w) - Math.max(r.x, o.x)) * Math.max(0, Math.min(r.y + r.h, o.y + o.h) - Math.max(r.y, o.y));
-      }, 0) / (r.w * r.h);
-      check(g, `photos : place libre → posée dans un espace vide (${k + 1})`, n.lastSpot && n.lastSpot.free && ov < 0.35 && onCards().length === count + 1,
-        `libre : ${n.lastSpot && n.lastSpot.free}, chevauchement ${ov.toFixed(2)}, ${count} → ${onCards().length}`);
-    }
-
-    // 2. Table pleine : la nouvelle photo se pose sur celle affichée depuis le plus longtemps, qui s'efface
-    let covered = null, oldestBefore = null;
-    for (let k = 0; k < 20 && !covered; k++) {
-      const visible = tw.eval("pCards").filter(c => c.el.classList.contains("on") && !c.leaving);
-      oldestBefore = visible.slice().sort((a, b) => (a.touched || a.placedAt) - (b.touched || b.placedAt))[0];
-      tw.swapTile();
-      await waitFor(() => newest().el.classList.contains("on"), 2000);
-      if (newest().lastSpot && !newest().lastSpot.free) covered = newest();
-      else await sleep(950);
-    }
-    check(g, "photos : table pleine → la nouvelle photo va sur la plus ancienne", !!covered && covered.lastSpot.oldest === oldestBefore,
-      covered ? `ancienne visée : ${covered.lastSpot.oldest === oldestBefore}` : "la table ne s'est jamais remplie");
-    if (covered) {
-      const o = tw.eval("cardRect")(oldestBefore), n = tw.eval("cardRect")(covered);
-      const dist = Math.hypot((o.x + o.w / 2) - (n.x + n.w / 2), (o.y + o.h / 2) - (n.y + n.h / 2));
-      check(g, "photos : posée à l'emplacement de l'ancienne", dist < Math.max(o.w, n.w) * 0.6, `${Math.round(dist)} px`);
-      await sleep(900);
-      const covOld = tw.eval("pCards").indexOf(oldestBefore) !== -1 ? tw.photoCoverage(oldestBefore) : 1;
-      const stillThere = oldestBefore.el.classList.contains("on");
-      check(g, "photos : l'ancienne n'est retirée que si elle est cachée à 100 %", stillThere ? covOld < 1 : covOld >= 1, `encore là : ${stillThere}, recouverte à ${Math.round(covOld * 100)} %`);
-      const z = c => Number(c.el.style.zIndex);
-      // (la rotation automatique de la page peut poser d'autres photos entre-temps : on compare aux plus anciennes)
-      check(g, "photos : la nouvelle est au-dessus de toutes celles d'avant", tw.eval("pCards").every(c => c === covered || c.placedAt > covered.placedAt || z(c) < z(covered)));
-    }
-
-    // 3. Table pleine, plusieurs photos de suite : elles visent des photos différentes, réparties sur l'écran
-    const targets = [], centers = [];
-    for (let k = 0; k < 6; k++) {
-      tw.swapTile();
-      await waitFor(() => newest().el.classList.contains("on"), 2000);
-      const n = newest();
-      if (n.lastSpot && !n.lastSpot.free) targets.push(n.lastSpot.oldest);
-      const r = tw.eval("cardRect")(n);
+      const n = newest(), r = rect(n);
       centers.push([r.x + r.w / 2, r.y + r.h / 2]);
-      await sleep(950);
+      if (prev && prev.el.classList.contains("on") && overlap(r, rect(prev)) > 0.3) onLast++;
+      await sleep(900);
+      // (la photo déplacée parce qu'elle revient sur le dessus ne compte pas)
+      removedVisible += beforeCov.filter(([c, cov]) => cov < 1 && !c.el.classList.contains("on") && c.photo !== n.photo).length;
+      prev = n;
     }
-    check(g, "photos : jamais deux fois de suite au même endroit", new Set(targets).size === targets.length, `${targets.length} photos visées, ${new Set(targets).size} différentes`);
+    check(g, "photos : jamais posée sur la dernière ajoutée", onLast === 0, `${onLast} fois sur 8`);
+    check(g, "photos : aucune photo encore visible n'est retirée", removedVisible === 0, `${removedVisible} retirée(s)`);
     const W = td.getElementById("gallery").clientWidth, H = td.getElementById("gallery").clientHeight;
     const xs = centers.map(c => c[0]), ys = centers.map(c => c[1]);
-    check(g, "photos : nouvelles photos réparties sur l'écran", Math.max(...xs) - Math.min(...xs) > W * 0.35 || Math.max(...ys) - Math.min(...ys) > H * 0.35,
+    check(g, "photos : posées au hasard, partout sur l'écran", Math.max(...xs) - Math.min(...xs) > W * 0.3 && Math.max(...ys) - Math.min(...ys) > H * 0.15,
       centers.map(c => c.map(Math.round).join(",")).join(" | "));
+    check(g, "photos : chaque nouvelle photo reste dans l'écran", centers.every(([x, y]) => x > 0 && x < W && y > 0 && y < H));
 
     // Beaucoup de nouvelles photos : jamais de doublon, jamais plus de 12 sur la table
     const seen = new Set(shownPhotos());
@@ -424,7 +390,6 @@
     tw.cleanPile();
     await sleep(800);
     check(g, "photos : jamais de doublon sur la table", !dupes, shownPhotos().join(", "));
-    check(g, "photos : 15 photos au plus sur la table", td.querySelectorAll("#gallery .polaroid.on").length <= 15 && maxPile <= 16, `${td.querySelectorAll("#gallery .polaroid.on").length} (max ${maxPile})`);
     check(g, "photos : toutes les photos finissent par passer", seen.size === 9, `${seen.size} / 9`);
     const pile = tw.eval("pCards");
     check(g, "photos : il ne reste aucune photo cachée à 100 %", pile.every(c => tw.photoCoverage(c) < 1), pile.map(c => tw.photoCoverage(c).toFixed(2)).join(" "));
