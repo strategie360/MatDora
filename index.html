@@ -493,7 +493,20 @@
     align-items: center;
     justify-content: center;
   }
-  .happy-text { display: flex; flex-direction: column; align-items: center; min-width: 0; }
+  /* Le texte est posé sur un panneau uni : les confettis restent autour, pas derrière les mots */
+  .happy-text {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 0;
+    box-sizing: border-box;
+    max-width: 100%;
+    background: #23235c;
+    border: 2px solid rgba(255, 193, 69, .45);
+    border-radius: 26px;
+    padding: clamp(16px, 3.4vh, 36px) clamp(18px, 3.4vw, 44px);
+    box-shadow: 0 24px 50px -24px rgba(0, 0, 0, .8);
+  }
   .happy-text > * + * { margin-top: clamp(10px, 2.4vh, 22px); }
   /* Avec une image : image à gauche, texte à droite aligné à gauche */
   .happy-img { display: block; min-width: 0; max-width: 44%; max-height: 100%; height: auto; border-radius: 18px; margin-right: clamp(16px, 3vw, 44px); box-shadow: 0 18px 40px -18px rgba(0, 0, 0, .7); object-fit: contain; }
@@ -523,7 +536,7 @@
     margin-bottom: 0;
   }
   .happy-place { font-weight: 800; font-size: clamp(1rem, min(3vw, 3vh), 1.4rem); color: #ff9ccb; margin-bottom: 0; }
-  .happy-desc { max-width: 52ch; font-size: clamp(.95rem, min(2.6vw, 2.6vh), 1.2rem); color: #d9d5f5; margin-bottom: 0; white-space: pre-line; overflow-wrap: anywhere; }
+  .happy-desc { max-width: 52ch; font-size: clamp(.95rem, min(2.6vw, 2.6vh), 1.2rem); color: #f1efff; margin-bottom: 0; white-space: pre-line; overflow-wrap: anywhere; }
   /* Texte long : aligné à gauche et plus large ; la taille est réduite par le script pour tout faire tenir */
   .happy-desc.long { max-width: 78ch; text-align: left; line-height: 1.45; }
   .happy-desc.cut { overflow: hidden; -webkit-mask-image: linear-gradient(#000 80%, transparent); mask-image: linear-gradient(#000 80%, transparent); }
@@ -552,7 +565,7 @@
     padding: 10px 10px 0;
     box-shadow: 0 16px 30px -14px rgba(0, 0, 0, .75);
     opacity: 0;
-    transition: opacity .9s ease;
+    transition: opacity .6s ease;
   }
   .polaroid.on { opacity: 1; }
   /* morceau de scotch */
@@ -565,7 +578,8 @@
     background: rgba(255, 244, 200, .7);
     box-shadow: 0 1px 2px rgba(0, 0, 0, .15);
   }
-  .polaroid img { display: block; width: 100%; object-fit: cover; background: #e9e1d4; }
+  /* La photo garde ses proportions : c'est le polaroïd qui s'adapte (taille calculée par le script) */
+  .polaroid img { display: block; background: #e9e1d4; }
   .polaroid .cap {
     padding: 8px 4px 12px;
     text-align: center;
@@ -1158,7 +1172,7 @@
 
   /* ---------- Slide Photos d'events : polaroïds en vrac ---------- */
   // Jusqu'à 7 photos posées en vrac (5 sur un écran en hauteur), chacune dans sa zone mais
-  // décalée et tournée au hasard. Toutes les 3,5 s, la plus ancienne s'efface et une autre
+  // décalée et tournée au hasard. Toutes les 2 s, la plus ancienne s'efface et une autre
   // photo se pose ailleurs dans sa zone, par-dessus les autres. Seule l'opacité est animée.
   let eventPhotos = [], pCards = [], nextPhotoIdx = 0, nextCard = 0, zTop = 1;
 
@@ -1172,19 +1186,25 @@
     return { W, H, cols, rows, w: Math.max(80, Math.round(w)), max: wide ? 7 : 5 };
   }
 
+  // À appeler une fois l'image chargée : le polaroïd prend les proportions de la photo (rien n'est recadré)
   function placeCard(card, L) {
     const c = card.slot % L.cols, r = Math.floor(card.slot / L.cols) % L.rows;
     const cw = L.W / L.cols, ch = L.H / L.rows;
     // Taille, décalage et rotation au hasard : un vrai tas de photos
-    const w = Math.round(L.w * (0.82 + Math.random() * 0.3));
-    const h = w * 1.05;
+    const box = L.w * (0.82 + Math.random() * 0.3) - 20;
+    const maxH = Math.min(box * 1.05, L.H * (L.W >= L.H ? 0.55 : 0.4));
+    const nw = card.img.naturalWidth || 4, nh = card.img.naturalHeight || 3;
+    const k = Math.min(box / nw, maxH / nh);
+    const iw = Math.round(nw * k), ih = Math.round(nh * k);
+    card.img.style.width = iw + "px";
+    card.img.style.height = ih + "px";
+    card.el.style.width = (iw + 20) + "px";
+    const w = iw + 20, h = card.el.offsetHeight || ih + 50;
     let x = cw * (c + 0.5) + (Math.random() - 0.5) * cw * 0.6;
     let y = ch * (r + 0.5) + (Math.random() - 0.5) * ch * 0.7;
     x = Math.max(w / 2 + 10, Math.min(L.W - w / 2 - 10, x));
     y = Math.max(h / 2 + 12, Math.min(L.H - h / 2 - 8, y));
     card.rot = Math.round((Math.random() - 0.5) * 36);
-    card.el.style.width = w + "px";
-    card.img.style.height = Math.round((w - 20) * 0.8) + "px";
     card.el.style.left = Math.round(x - w / 2) + "px";
     card.el.style.top = Math.round(y - h / 2) + "px";
     card.el.style.transform = `rotate(${card.rot}deg)`;
@@ -1203,7 +1223,11 @@
     card.photo = i;
     card.img.alt = p.caption || "Photo d'event";
     card.cap.innerHTML = caption(p);
-    const show = () => { card.img.onload = card.img.onerror = null; card.el.classList.add("on"); };
+    const show = () => {
+      card.img.onload = card.img.onerror = null;
+      placeCard(card, galleryLayout());
+      card.el.classList.add("on");
+    };
     card.img.onload = card.img.onerror = show;
     card.img.src = p.url;
     if (card.img.complete && card.img.naturalWidth) show();
@@ -1232,7 +1256,6 @@
       gallery.appendChild(el);
       const card = { el, img, cap, photo: -1, slot: slots[k], rot: 0 };
       pCards.push(card);
-      placeCard(card, L);
       putPhoto(card, k);
     }
     nextPhotoIdx = count % Math.max(1, list.length);
@@ -1249,7 +1272,7 @@
     nextCard = (nextCard + 1) % pCards.length;
     card.photo = i;  // réservée tout de suite : pas de doublon pendant le fondu
     card.el.classList.remove("on");
-    setTimeout(() => { placeCard(card, galleryLayout()); putPhoto(card, i); }, reduceMotion ? 0 : 900);
+    setTimeout(() => putPhoto(card, i), reduceMotion ? 0 : 600);
     return true;
   }
   window.addEventListener("resize", () => {
@@ -1258,7 +1281,7 @@
   });
   window.setEventPhotos = setEventPhotos;
   window.swapTile = swapTile;
-  setInterval(swapTile, 3500);
+  setInterval(swapTile, 2000);
 
   /* ---------- Slide Repas ---------- */
   let lunchData = null;

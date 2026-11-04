@@ -320,6 +320,10 @@
       return cx > gal.left && cx < gal.right && cy > gal.top && cy < gal.bottom && r.width < gal.width * 0.45;
     });
     check(g, "photos : chaque polaroïd est dans l'écran, à taille raisonnable", inside);
+    const ratios = [...td.querySelectorAll("#gallery .polaroid.on img")].map(i => [i.clientWidth / i.clientHeight, i.naturalWidth / i.naturalHeight]);
+    check(g, "photos : proportions gardées (aucun recadrage)", ratios.length === 7 && ratios.every(([shown, real]) => Math.abs(shown - real) / real < 0.03),
+      ratios.map(r => r.map(x => x.toFixed(2)).join("/")).join(" "));
+    check(g, "photos : le cadre épouse la photo", [...td.querySelectorAll("#gallery .polaroid.on")].every(el => Math.abs(el.clientWidth - el.querySelector("img").clientWidth - 20) <= 1));
     const before = shownPhotos().slice().sort().join();
     const seen = new Set(shownPhotos());
     let dupes = false;
@@ -675,6 +679,10 @@
       ad.getElementById("toast").hidden = true;
       await tw.refresh();
     };
+
+    // Texte lisible : posé sur un panneau uni, pas directement sur les confettis
+    const panelBg = tw.getComputedStyle(td.querySelector(".happy-text")).backgroundColor;
+    check(g, "texte sur un panneau uni et opaque", /^rgb\(/.test(panelBg), panelBg);
 
     // Sans date
     check(g, "dashboard : la date n'est plus obligatoire", !ad.getElementById("happy-date").required);
