@@ -58,6 +58,7 @@
     // Équipe : anniversaires (prénom, jour, mois) et vacances (prénom, du, retour le, petit mot)
     out.birthdays = Array.isArray(out.birthdays) ? out.birthdays : [];
     out.vacations = Array.isArray(out.vacations) ? out.vacations : [];
+    out.absenceMessage = typeof out.absenceMessage === "string" ? out.absenceMessage : "";
     // Arrivées et départs : bienvenue (stagiaire, alternant…), départ, passage en CDI
     out.teamNews = Array.isArray(out.teamNews) ? out.teamNews : [];
     return out;

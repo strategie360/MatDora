@@ -890,6 +890,21 @@
   .absent-card .n { font-family: var(--display); font-size: calc(clamp(1.5rem, min(3.6vw, 5.4vh), 2.6rem) * var(--scale, 1)); line-height: 1.05; color: #0b3954; overflow-wrap: anywhere; }
   .absent-card .d { font-weight: 800; color: var(--c); font-size: calc(clamp(.85rem, 2vh, 1.05rem) * var(--scale, 1)); }
   .absent-card .j { margin-top: 6px; font-weight: 800; font-size: calc(clamp(.9rem, 2.2vh, 1.15rem) * var(--scale, 1)); color: #31556b; }
+  .absent-card .m { margin-top: 6px; font-size: calc(clamp(.8rem, 1.9vh, 1rem) * var(--scale, 1)); color: #31556b; font-style: italic; overflow-wrap: anywhere; }
+  .vac-msg {
+    margin: calc(16px * var(--scale, 1)) 0 0;
+    max-width: 60ch;
+    text-align: center;
+    background: rgba(255, 255, 255, .92);
+    color: #0b3954;
+    border-radius: 16px;
+    padding: calc(10px * var(--scale, 1)) calc(18px * var(--scale, 1));
+    font-weight: 800;
+    font-size: calc(clamp(1rem, min(2.6vw, 2.8vh), 1.4rem) * var(--scale, 1));
+    box-shadow: 0 14px 30px -20px rgba(11, 57, 84, .6);
+    white-space: pre-line;
+    overflow-wrap: anywhere;
+  }
   .absent-card .j b { font-family: var(--display); font-weight: 400; font-size: 1.6em; color: var(--c); }
   .absent-card.t-japon { --c: #c92a2a; background: #fff5f7; }
   .absent-card.t-montagne { --c: #1971c2; background: #f1f8ff; }
@@ -1185,6 +1200,7 @@
           <p class="vac-title">On pense à eux&nbsp;!</p>
         </div>
         <div class="absent-cards" id="absent-cards" hidden></div>
+        <p class="vac-msg" id="vac-msg" hidden></p>
       </div>
     </div>
   </section>
@@ -1456,10 +1472,12 @@
   window.addEventListener("resize", () => fitHappiness(true));
 
   /* ---------- Slide Photos d'events : polaroïds en vrac ---------- */
-  // Jusqu'à 7 photos posées en vrac (5 sur un écran en hauteur), chacune dans sa zone mais
-  // décalée et tournée au hasard. Toutes les 3 s, la plus ancienne s'efface et une autre
-  // photo se pose ailleurs dans sa zone, par-dessus les autres. Seule l'opacité est animée.
-  let eventPhotos = [], pCards = [], nextPhotoIdx = 0, nextCard = 0, zTop = 1;
+  // Au départ, jusqu'à 7 photos posées en vrac (5 sur un écran en hauteur), décalées et tournées
+  // au hasard. Toutes les 3 s, une nouvelle photo se pose PAR-DESSUS les autres, sans en retirer.
+  // On ne retire que les photos presque entièrement recouvertes (et, au-delà de 12 photos sur la
+  // table, la plus cachée), pour ménager la Fire TV. Seule l'opacité est animée.
+  const PILE_MAX = 12, HIDDEN_RATIO = 0.9;
+  let eventPhotos = [], pCards = [], nextPhotoIdx = 0, zTop = 1;
 
   function galleryLayout() {
     const g = $("gallery"), W = g.clientWidth, H = g.clientHeight;
@@ -1518,48 +1536,80 @@
     if (card.img.complete && card.img.naturalWidth) show();
   }
 
+  function makeCard(i, slot) {
+    const el = document.createElement("div");
+    el.className = "polaroid";
+    const img = document.createElement("img");
+    const cap = document.createElement("div");
+    cap.className = "cap";
+    el.appendChild(img);
+    el.appendChild(cap);
+    $("gallery").appendChild(el);
+    const card = { el, img, cap, photo: -1, slot, rot: 0 };
+    pCards.push(card);
+    putPhoto(card, i);
+    return card;
+  }
+
   function setEventPhotos(list) {
     list = list.slice(0, 40);  // les plus récentes, pour ménager la mémoire de la Fire TV
     const key = l => l.map(p => [p.id, p.event, p.caption].join("~")).join("|");
     if (key(list) === key(eventPhotos)) return;
     eventPhotos = list;
-    const gallery = $("gallery");
-    gallery.innerHTML = "";
+    $("gallery").innerHTML = "";
     const L = galleryLayout();
     const count = Math.min(list.length, L.max);
     // Zones mélangées : les photos ne sont jamais rangées dans le même ordre
     const slots = Array.from({ length: L.cols * L.rows }, (_, k) => k).sort(() => Math.random() - 0.5);
     pCards = [];
-    for (let k = 0; k < count; k++) {
-      const el = document.createElement("div");
-      el.className = "polaroid";
-      const img = document.createElement("img");
-      const cap = document.createElement("div");
-      cap.className = "cap";
-      el.appendChild(img);
-      el.appendChild(cap);
-      gallery.appendChild(el);
-      const card = { el, img, cap, photo: -1, slot: slots[k], rot: 0 };
-      pCards.push(card);
-      putPhoto(card, k);
-    }
+    for (let k = 0; k < count; k++) makeCard(k, slots[k]);
     nextPhotoIdx = count % Math.max(1, list.length);
-    nextCard = 0;
+  }
+
+  // Part d'un polaroïd recouverte par ceux posés au-dessus (échantillonnage de 7 × 7 points)
+  function coverage(card) {
+    const r = card.el.getBoundingClientRect();
+    if (!r.width || !r.height) return 0;
+    const z = Number(card.el.style.zIndex) || 0;
+    const above = pCards.filter(c => c !== card && (Number(c.el.style.zIndex) || 0) > z && c.el.classList.contains("on"))
+      .map(c => c.el.getBoundingClientRect());
+    if (!above.length) return 0;
+    let hidden = 0;
+    for (let ix = 0; ix < 7; ix++) {
+      for (let iy = 0; iy < 7; iy++) {
+        const x = r.left + r.width * (ix + 0.5) / 7, y = r.top + r.height * (iy + 0.5) / 7;
+        if (above.some(a => x >= a.left && x <= a.right && y >= a.top && y <= a.bottom)) hidden++;
+      }
+    }
+    return hidden / 49;
+  }
+  function removeCard(card) {
+    pCards = pCards.filter(c => c !== card);
+    card.el.classList.remove("on");
+    setTimeout(() => { if (card.el.parentNode) card.el.parentNode.removeChild(card.el); }, 700);
+  }
+  // Retire seulement ce qui ne se voit (presque) plus, puis la plus cachée si la table est trop pleine
+  function cleanPile() {
+    pCards.slice().forEach(c => { if (c.el.classList.contains("on") && coverage(c) >= HIDDEN_RATIO) removeCard(c); });
+    while (pCards.length > PILE_MAX) {
+      const most = pCards.slice().sort((a, b) => coverage(b) - coverage(a))[0];
+      removeCard(most);
+    }
   }
 
   function swapTile() {
-    if (eventPhotos.length <= pCards.length) return false;  // tout est déjà affiché
-    const shown = pCards.map(c => c.photo);
-    let i = nextPhotoIdx, guard = 0;
-    while (shown.indexOf(i) !== -1 && guard++ < eventPhotos.length) i = (i + 1) % eventPhotos.length;
+    if (eventPhotos.length < 2) return false;
+    const i = nextPhotoIdx;
     nextPhotoIdx = (i + 1) % eventPhotos.length;
-    const card = pCards[nextCard];
-    nextCard = (nextCard + 1) % pCards.length;
-    card.photo = i;  // réservée tout de suite : pas de doublon pendant le fondu
-    card.el.classList.remove("on");
-    setTimeout(() => putPhoto(card, i), reduceMotion ? 0 : 600);
+    // Photo déjà sur la table : elle remonte sur le dessus, ailleurs (jamais de doublon)
+    pCards.filter(c => c.photo === i).forEach(removeCard);
+    const L = galleryLayout();
+    makeCard(i, Math.floor(Math.random() * L.cols * L.rows));
+    setTimeout(cleanPile, reduceMotion ? 50 : 800);
     return true;
   }
+  window.photoCoverage = coverage;
+  window.cleanPile = cleanPile;
   window.addEventListener("resize", () => {
     const L = galleryLayout();
     pCards.forEach(c => placeCard(c, L));
@@ -1713,7 +1763,7 @@
   }
 
   /* ---------- Slide Bonnes vacances ---------- */
-  let vacations = [];
+  let vacations = [], absenceMessage = "";
   // En vacances aujourd'hui : depuis "from" (inclus) jusqu'à la veille du retour ("to")
   function onVacation(now) {
     const t = store.today(now);
@@ -1721,9 +1771,12 @@
   }
   let vacKey = "";
   function renderVacation(now = new Date()) {
-    const key = store.today(now) + JSON.stringify(vacations) + innerWidth + "x" + innerHeight;
+    const key = store.today(now) + JSON.stringify(vacations) + absenceMessage + innerWidth + "x" + innerHeight;
     if (key === vacKey) return;
     vacKey = key;
+    // Message pour toute la slide (réglé dans l'onglet Congés)
+    $("vac-msg").hidden = !absenceMessage;
+    $("vac-msg").textContent = absenceMessage ? `💬 ${absenceMessage}` : "";
     const list = onVacation(now).slice().sort((a, b) => (a.to || "9999").localeCompare(b.to || "9999"));
     if (!list.length) return;
     const long = d => new Date(d + "T12:00:00").toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
@@ -1769,7 +1822,8 @@
           `<div class="k">${escapeHtml(kind.title)}</div>` +
           `<div class="n">${escapeHtml(v.name)}</div>` +
           (kind.id !== "maladie" && v.destination ? `<div class="d">📍 ${escapeHtml(v.destination)}</div>` : "") +
-          (d !== null ? `<div class="j">${d === 1 ? "retour <b>demain</b>" : `encore <b>${d}</b> jours`}<br>${kind.id === "maladie" ? "retour prévu" : "retour"} ${escapeHtml(short(v.to))}</div>` : "");
+          (d !== null ? `<div class="j">${d === 1 ? "retour <b>demain</b>" : `encore <b>${d}</b> jours`}<br>${kind.id === "maladie" ? "retour prévu" : "retour"} ${escapeHtml(short(v.to))}</div>` : "") +
+          (v.note ? `<div class="m">« ${escapeHtml(v.note)} »</div>` : "");
         cards.appendChild(card);
       });
     }
@@ -2022,6 +2076,7 @@
       happiness = settings.happiness;
       birthdays = settings.birthdays;
       vacations = settings.vacations;
+      absenceMessage = settings.absenceMessage;
       teamNews = settings.teamNews;
       renderNews();
       renderBirthday();

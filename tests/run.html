@@ -324,22 +324,44 @@
     check(g, "photos : proportions gardées (aucun recadrage)", ratios.length === 7 && ratios.every(([shown, real]) => Math.abs(shown - real) / real < 0.03),
       ratios.map(r => r.map(x => x.toFixed(2)).join("/")).join(" "));
     check(g, "photos : le cadre épouse la photo", [...td.querySelectorAll("#gallery .polaroid.on")].every(el => Math.abs(el.clientWidth - el.querySelector("img").clientWidth - 20) <= 1));
-    const before = shownPhotos().slice().sort().join();
+    // Une nouvelle photo se pose par-dessus : seules les photos (presque) entièrement cachées sont retirées
+    const onCards = () => [...td.querySelectorAll("#gallery .polaroid.on")];
+    const beforeCards = onCards();
+    tw.swapTile();
+    await waitFor(() => onCards().length === 8, 2000);
+    const topCard = onCards().sort((a, b) => Number(b.style.zIndex) - Number(a.style.zIndex))[0];
+    check(g, "photos : la nouvelle photo est posée par-dessus", topCard.querySelector("img").getAttribute("src").split("?")[1] === "7" && onCards().length === 8,
+      `${onCards().length} photos, dessus : ${topCard.querySelector(".cap").textContent}`);
+    const hiddenBefore = beforeCards.map(el => [el, tw.eval("pCards").filter(c => c.el === el)[0]]).map(([el, c]) => [el, c ? tw.photoCoverage(c) : 1]);
+    await sleep(1000);
+    const wrongly = hiddenBefore.filter(([el, cov]) => cov < 0.9 && !el.classList.contains("on"));
+    const kept = hiddenBefore.filter(([el, cov]) => cov >= 0.9 && el.classList.contains("on"));
+    check(g, "photos : aucune photo visible n'est retirée", wrongly.length === 0, wrongly.map(([, c]) => c.toFixed(2)).join(" "));
+    check(g, "photos : les photos entièrement cachées sont retirées", kept.length === 0, kept.map(([, c]) => c.toFixed(2)).join(" "));
+
+    // Beaucoup de nouvelles photos : jamais de doublon, jamais plus de 12 sur la table
     const seen = new Set(shownPhotos());
-    let dupes = false;
-    for (let k = 0; k < 9; k++) {
+    let dupes = false, maxPile = 0;
+    for (let k = 0; k < 20; k++) {
       tw.swapTile();
-      await waitFor(() => shownPhotos().length === 7, 3000);
+      await sleep(120);
       const now = shownPhotos();
       if (new Set(now).size !== now.length) dupes = true;
       now.forEach(u => seen.add(u));
+      maxPile = Math.max(maxPile, td.querySelectorAll("#gallery .polaroid.on").length);
     }
-    check(g, "photos : un polaroïd change à la fois, sans doublon à l'écran", !dupes && shownPhotos().slice().sort().join() !== before, shownPhotos().join(", "));
+    await sleep(1000);
+    tw.cleanPile();
+    await sleep(800);
+    check(g, "photos : jamais de doublon sur la table", !dupes, shownPhotos().join(", "));
+    check(g, "photos : 12 photos au plus sur la table", td.querySelectorAll("#gallery .polaroid.on").length <= 12 && maxPile <= 13, `${td.querySelectorAll("#gallery .polaroid.on").length} (max ${maxPile})`);
     check(g, "photos : toutes les photos finissent par passer", seen.size === 9, `${seen.size} / 9`);
-    const pairs = [...td.querySelectorAll("#gallery .polaroid")].map(el => [el.querySelector(".cap").textContent, "Photo " + el.querySelector("img").getAttribute("src").split("?")[1]]);
+    const pile = tw.eval("pCards");
+    check(g, "photos : il ne reste que des photos qui se voient", pile.every(c => tw.photoCoverage(c) < 0.9), pile.map(c => tw.photoCoverage(c).toFixed(2)).join(" "));
+    const pairs = onCards().map(el => [el.querySelector(".cap").textContent, "Photo " + el.querySelector("img").getAttribute("src").split("?")[1]]);
     check(g, "photos : chaque légende va avec sa photo", pairs.every(([cap, name]) => cap.endsWith(name)), pairs.map(p => p.join("=")).join(" | "));
-    const zs = [...td.querySelectorAll("#gallery .polaroid")].map(el => Number(el.style.zIndex));
-    check(g, "photos : la dernière posée passe au-dessus", new Set(zs).size === zs.length);
+    const zs = onCards().map(el => Number(el.style.zIndex));
+    check(g, "photos : chaque photo a sa hauteur dans la pile", new Set(zs).size === zs.length);
     // Retour aux photos de la démo
     tw.eval("eventPhotos = []");
     await tw.refresh();
@@ -820,6 +842,13 @@
     check(g, "arrêt maladie : « jours avant le retour » (pas « à tenir »)", txt("vac-days") === "5" && txt("vac-days-text").replace(/\s+/g, " ") === "jours avant le retour de Paul" && txt("vac-back").indexOf("Retour prévu le") === 0, `${txt("vac-days-text")} / ${txt("vac-back")}`);
     tw.eval('vacations = [{ id: "m", kind: "maladie", name: "Paul", from: "2026-11-02", to: "2026-11-09", note: "" }, { id: "v", name: "Sarah", destination: "Japon", from: "2026-11-01", to: "2026-11-12", note: "" }]; vacKey = ""');
     tw.renderVacation(at("2026-11-04T10:00:00"));
+    tw.eval('vacations[1].note = "Ramène-nous des mochis !"; absenceMessage = "Courage à ceux qui restent !"; vacKey = ""');
+    tw.renderVacation(at("2026-11-04T10:00:00"));
+    check(g, "message de la personne sur sa carte", cards()[1].textContent.indexOf("« Ramène-nous des mochis ! »") !== -1, cards()[1].textContent);
+    check(g, "message pour toute la slide", !td.getElementById("vac-msg").hidden && txt("vac-msg") === "💬 Courage à ceux qui restent !", txt("vac-msg"));
+    tw.eval('absenceMessage = ""; vacKey = ""');
+    tw.renderVacation(at("2026-11-04T10:00:00"));
+    check(g, "sans message : rien d'affiché", td.getElementById("vac-msg").hidden);
     check(g, "vacances et maladie ensemble : une carte chacun, à ses couleurs", cards().length === 2 && cards()[0].classList.contains("t-sante") && cards()[0].textContent.indexOf("Bon rétablissement") !== -1 && cards()[1].classList.contains("t-japon") && cards()[1].textContent.indexOf("Japon") !== -1,
       cards().map(c => c.className + ":" + c.textContent).join(" | "));
     tw.eval('vacations = [{ id: "v", name: "Sarah", from: "2026-11-02", to: "2026-11-09", note: "" }, { id: "w", name: "Paul", from: "2026-11-20", to: null, note: "" }]; vacKey = ""');
@@ -830,9 +859,15 @@
     const aw = adm.contentWindow, ad = adm.contentDocument;
     await adminLogin(aw, ad);
     check(g, "dashboard : onglet Anniversaires, sans les congés", !ad.getElementById("tab-team").hidden && ad.querySelectorAll("#bday-list .row").length === 3 && !ad.getElementById("tab-team").contains(ad.getElementById("vac-form")));
-    ad.querySelector('[data-tab="absences"]').click();
-    check(g, "dashboard : onglet Congés séparé", !ad.getElementById("tab-absences").hidden && ad.getElementById("tab-team").hidden && ad.querySelectorAll("#vac-list .row").length === 1);
     const submit = id => ad.getElementById(id).dispatchEvent(new aw.Event("submit", { cancelable: true }));
+    ad.querySelector('[data-tab="absences"]').click();
+    ad.getElementById("absmsg").value = "Courage à ceux qui restent ! ☕";
+    submit("absmsg-form");
+    await waitFor(() => ad.getElementById("toast").textContent === "Message de la slide enregistré.");
+    check(g, "dashboard : message de la slide enregistré", (await tw.MatDoraStore.getSettings()).absenceMessage === "Courage à ceux qui restent ! ☕");
+    await tw.refresh();
+    check(g, "dashboard → écran : message affiché sur la slide", txt("vac-msg") === "💬 Courage à ceux qui restent ! ☕", txt("vac-msg"));
+    check(g, "dashboard : onglet Congés séparé", !ad.getElementById("tab-absences").hidden && ad.getElementById("tab-team").hidden && ad.querySelectorAll("#vac-list .row").length === 1);
     ad.getElementById("bday-name").value = "Nina";
     ad.getElementById("bday-day").value = "31";
     ad.getElementById("bday-month").value = "2";

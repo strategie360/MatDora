@@ -273,6 +273,14 @@
   <section class="panel" id="tab-absences" role="tabpanel" hidden>
     <h2>🏖️ Congés et absences</h2>
     <p class="help">L'écran affiche une slide du premier jour jusqu'à la veille du retour : « Bonnes vacances » avec un thème selon la destination, ou « Bon rétablissement » pour un arrêt maladie, avec le nombre de jours avant le retour. S'il y a plusieurs absents, chacun a sa carte.</p>
+    <form class="team-form" id="absmsg-form">
+      <h3>Message affiché sur la slide</h3>
+      <div class="team-fields">
+        <div class="field grow-field"><label for="absmsg">Message pour toute l'équipe <span class="hint">(facultatif, laissé vide = pas de message)</span></label>
+          <input id="absmsg" maxlength="200" placeholder="Ex. Courage à ceux qui restent ! ☕"></div>
+        <div class="field"><span class="label-spacer" aria-hidden="true">&nbsp;</span><button class="btn primary" type="submit">Enregistrer le message</button></div>
+      </div>
+    </form>
     <form class="team-form" id="vac-form">
       <h3 id="vac-form-title">Ajouter une absence</h3>
       <div class="team-fields">
@@ -286,7 +294,7 @@
       <div class="team-fields">
         <div class="field"><label for="vac-from">Premier jour</label><input id="vac-from" type="date" required></div>
         <div class="field"><label for="vac-to">De retour le <span class="hint">(facultatif)</span></label><input id="vac-to" type="date"></div>
-        <div class="field grow-field"><label for="vac-note">Petit mot <span class="hint">(facultatif)</span></label><input id="vac-note" maxlength="140" placeholder="Ex. Ramène-nous du soleil !"></div>
+        <div class="field grow-field"><label for="vac-note">Message pour cette personne <span class="hint">(facultatif, sur sa carte)</span></label><input id="vac-note" maxlength="140" placeholder="Ex. Ramène-nous du soleil !"></div>
       </div>
       <p class="preview" id="vac-preview" aria-live="polite"></p>
       <div class="actions">
@@ -1215,7 +1223,15 @@
     }, wasEditing ? `Annonce de ${n.name} modifiée.` : `Annonce ajoutée : ${store.newsType(n).title}, ${n.name} !`);
   });
 
-  function renderTeam() { renderBirthdays(); renderAbsences(); renderNewsList(); }
+  // Message pour toute la slide Congés
+  $("absmsg-form").addEventListener("submit", e => {
+    e.preventDefault();
+    const msg = $("absmsg").value.trim();
+    attempt(async () => { await store.saveSetting("absenceMessage", msg); settings.absenceMessage = msg; },
+      msg ? "Message de la slide enregistré." : "Message de la slide retiré.");
+  });
+
+  function renderTeam() { $("absmsg").value = settings.absenceMessage || ""; renderBirthdays(); renderAbsences(); renderNewsList(); }
   newsPreview();
   vacPreview();
 
