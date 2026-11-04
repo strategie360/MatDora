@@ -335,6 +335,16 @@
   }
   .schedule li.past { opacity: .45; text-decoration: line-through; }
   .schedule li.next { background: #ffd27a; border-color: #ffd27a; color: #1e4a43; }
+  /* Pendant la pause : la question remplace l'heure */
+  .schedule li.now { background: #ff8787; border-color: #ff8787; color: #ffffff; }
+  .s-pause.on-break .big-time {
+    font-size: clamp(2.2rem, min(7vw, 11vh), 5.4rem);
+    line-height: 1.05;
+    text-wrap: balance;
+    color: #ffd27a;
+  }
+  .s-pause.on-break .day { background: #ff8787; color: #ffffff; }
+  .s-pause.on-break h2 { color: #ffffff; font-size: clamp(2rem, min(6.4vw, 9vh), 4.6rem); }
 
   /* ---------- Slide Imputations : post-it jaune, encre bleu nuit ---------- */
   .s-jira { background: #ffd84d; color: #1d1b3a; }
@@ -1077,7 +1087,7 @@
     <div class="inner">
       <div>
         <div class="eyebrow">Pause avec l'équipe</div>
-        <h2>Prochaine pause</h2>
+        <h2 id="pause-title">Prochaine pause</h2>
       </div>
       <span class="day" id="pause-day">Aujourd'hui</span>
       <p class="big-time" id="pause-time">–</p>
@@ -1346,9 +1356,43 @@
   }
   setPauses(store.DEFAULTS.pauses);
 
+  // Durée d'une pause : 30 min, sauf celle de 12:00 qui est la pause déjeuner (12:00 → 14:00)
+  const BREAK_MINUTES = 30, LUNCH = [12, 0], LUNCH_MINUTES = 120;
+  function breakMinutes(h, m) { return h === LUNCH[0] && m === LUNCH[1] ? LUNCH_MINUTES : BREAK_MINUTES; }
+  // Pause en cours (aujourd'hui), ou null
+  function currentBreak(now) {
+    const today = SCHEDULE[now.getDay()] || [];
+    for (let i = 0; i < today.length; i++) {
+      const [h, m] = today[i];
+      const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m);
+      const end = new Date(start.getTime() + breakMinutes(h, m) * 60000);
+      if (now >= start && now < end) return { h, m, start, end, lunch: breakMinutes(h, m) === LUNCH_MINUTES };
+    }
+    return null;
+  }
+  window.currentBreak = currentBreak;
+
   // Les pastilles montrent les pauses du jour de la prochaine pause
   let pauseItems = [], chipsKey = "";
   function renderPause(now = new Date()) {
+    const brk = currentBreak(now);
+    const slide = document.querySelector(".s-pause");
+    slide.classList.toggle("on-break", !!brk);
+    if (brk) {
+      // Pendant la pause (30 min, ou 12:00 → 14:00 pour déjeuner) : « Tu n'es pas en pause ? »
+      setChips(now, SCHEDULE[now.getDay()]);
+      $("pause-day").hidden = false;
+      $("pause-day").textContent = brk.lunch ? "Pause déjeuner 🍽️" : "Pause ☕";
+      $("pause-title").textContent = brk.lunch ? "C'est l'heure de manger !" : "C'est la pause !";
+      $("pause-time").textContent = "Tu n'es pas en pause ?";
+      $("pause-in").innerHTML = `jusqu'à <strong>${pad(brk.end.getHours())}:${pad(brk.end.getMinutes())}</strong> · encore <strong>${duration(brk.end - now).replace(/ \d+ s$/, "").replace(/^0 min$/, "moins d'1 min")}</strong>`;
+      SCHEDULE[now.getDay()].forEach(([h, m], i) => {
+        const isNow = h === brk.h && m === brk.m;
+        pauseItems[i].className = isNow ? "now" : (h * 60 + m < brk.h * 60 + brk.m ? "past" : "");
+      });
+      return;
+    }
+    $("pause-title").textContent = "Prochaine pause";
     const t = nextPause(now);
     $("pause-day").hidden = !t;
     if (!t) {
@@ -1360,17 +1404,7 @@
       return;
     }
     const list = SCHEDULE[t.getDay()];
-    const key = t.toDateString() + "|" + list.join(";");
-    if (key !== chipsKey) {
-      chipsKey = key;
-      $("pause-list").innerHTML = "";
-      pauseItems = list.map(([h, m]) => {
-        const li = document.createElement("li");
-        li.textContent = `${pad(h)}:${pad(m)}`;
-        $("pause-list").appendChild(li);
-        return li;
-      });
-    }
+    setChips(t, list);
     const sameDay = t.toDateString() === now.toDateString();
     $("pause-day").textContent = dayLabel(t, now);
     $("pause-time").textContent = `${pad(t.getHours())}:${pad(t.getMinutes())}`;
@@ -1378,6 +1412,20 @@
     list.forEach(([h, m], i) => {
       const isNext = h === t.getHours() && m === t.getMinutes();
       pauseItems[i].className = isNext ? "next" : (sameDay && (h < t.getHours() || (h === t.getHours() && m < t.getMinutes())) ? "past" : "");
+    });
+  }
+
+  // Pastilles des pauses d'un jour (reconstruites seulement si le jour ou les horaires changent)
+  function setChips(day, list) {
+    const key = day.toDateString() + "|" + list.join(";");
+    if (key === chipsKey) return;
+    chipsKey = key;
+    $("pause-list").innerHTML = "";
+    pauseItems = list.map(([h, m]) => {
+      const li = document.createElement("li");
+      li.textContent = `${pad(h)}:${pad(m)}`;
+      $("pause-list").appendChild(li);
+      return li;
     });
   }
 

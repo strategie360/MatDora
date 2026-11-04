@@ -205,6 +205,28 @@
       `${doc.getElementById("pause-day").textContent} / ${doc.getElementById("pause-in").textContent}`);
     win.renderPause();
 
+    // Pendant la pause : 30 min (« C'est la pause ! »), sauf 12:00 → 14:00 (« C'est l'heure de manger ! »)
+    const pz = id => doc.getElementById(id).textContent;
+    const onBreak = () => doc.querySelector(".s-pause").classList.contains("on-break");
+    const chips = () => [...doc.querySelectorAll("#pause-list li")].map(li => `${li.textContent}:${li.className || "-"}`).join(" ");
+    win.renderPause(at("2026-11-03T10:10:00"));
+    check(g, "pause 10:00, à 10:10 : « C'est la pause ! Tu n'es pas en pause ? »", onBreak() && pz("pause-title") === "C'est la pause !" && pz("pause-time") === "Tu n'es pas en pause ?", `${pz("pause-title")} / ${pz("pause-time")}`);
+    check(g, "pause 10:00, à 10:10 : « jusqu'à 10:30 · encore 20 min »", pz("pause-in") === "jusqu'à 10:30 · encore 20 min", pz("pause-in"));
+    check(g, "pause en cours : pastille 10:00 en rouge", chips() === "10:00:now 12:00:- 16:00:-", chips());
+    win.renderPause(at("2026-11-03T10:30:00"));
+    check(g, "pause 10:00, à 10:30 : retour à « Prochaine pause » 12:00", !onBreak() && pz("pause-title") === "Prochaine pause" && pz("pause-time") === "12:00", `${pz("pause-title")} / ${pz("pause-time")}`);
+    win.renderPause(at("2026-11-03T12:45:00"));
+    check(g, "déjeuner à 12:45 : « C'est l'heure de manger ! »", onBreak() && pz("pause-title") === "C'est l'heure de manger !" && pz("pause-day") === "Pause déjeuner 🍽️" && pz("pause-time") === "Tu n'es pas en pause ?", `${pz("pause-title")} / ${pz("pause-day")}`);
+    check(g, "déjeuner : « jusqu'à 14:00 · encore 1 h 15 min »", pz("pause-in") === "jusqu'à 14:00 · encore 1 h 15 min", pz("pause-in"));
+    check(g, "déjeuner : 10:00 passée, 12:00 en cours", chips() === "10:00:past 12:00:now 16:00:-", chips());
+    win.renderPause(at("2026-11-03T13:59:40"));
+    check(g, "déjeuner à 13:59:40 : « encore moins d'1 min »", pz("pause-in") === "jusqu'à 14:00 · encore moins d'1 min", pz("pause-in"));
+    win.renderPause(at("2026-11-03T14:00:00"));
+    check(g, "à 14:00 : prochaine pause 16:00", !onBreak() && pz("pause-time") === "16:00", pz("pause-time"));
+    win.renderPause(at("2026-11-07T10:10:00"));
+    check(g, "samedi 10:10 (pas de pause ce jour-là) : pas de mode pause", !onBreak());
+    win.renderPause();
+
     // Slide Imputations
     check(g, "slide Imputations : Jira TTE et Jira CGI affichés", text.includes("Jira TTE") && text.includes("Jira CGI"));
     const jira = now => { win.renderJira(at(now)); return `${doc.getElementById("jira-day").textContent} | ${doc.getElementById("jira-hint").textContent}`; };
@@ -364,7 +386,8 @@
       await sleep(900);
       check(g, "photos : l'ancienne photo s'efface dessous", !oldestBefore.el.classList.contains("on") && tw.eval("pCards").indexOf(oldestBefore) === -1);
       const z = c => Number(c.el.style.zIndex);
-      check(g, "photos : la nouvelle est au-dessus de toutes", tw.eval("pCards").every(c => c === covered || z(c) < z(covered)));
+      // (la rotation automatique de la page peut poser d'autres photos entre-temps : on compare aux plus anciennes)
+      check(g, "photos : la nouvelle est au-dessus de toutes celles d'avant", tw.eval("pCards").every(c => c === covered || c.placedAt > covered.placedAt || z(c) < z(covered)));
     }
 
     // Beaucoup de nouvelles photos : jamais de doublon, jamais plus de 12 sur la table
