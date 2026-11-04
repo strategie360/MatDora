@@ -87,7 +87,7 @@
     const win = f.contentWindow, doc = f.contentDocument;
     await win.document.fonts?.ready;
     await win.refresh();
-    check(g, "les 7 slides sont dans la rotation", win.deck.count === 7, win.deck.ids.join(", "));
+    check(g, "les 9 slides sont dans la rotation", win.deck.count === 9, win.deck.ids.join(", "));
     const imgs = await imagesReady(doc);
     check(g, "script chargé (diaporama prêt)", typeof win.deck === "object");
     if (typeof win.deck !== "object") return;
@@ -294,7 +294,7 @@
     const tw = tv.contentWindow, td = tv.contentDocument;
     tw.deck.pause(true);
     await tw.refresh();
-    check(g, "écran : 7 slides avec les données", tw.deck.ids.join() === "dora,pause,jira,rdv,happiness,photos,lunch", tw.deck.ids.join());
+    check(g, "écran : 9 slides avec les données", tw.deck.ids.join() === "dora,pause,jira,rdv,happiness,photos,lunch,birthday,vacation", tw.deck.ids.join());
     check(g, "happiness : titre de l'event affiché", td.getElementById("happy-title").textContent.indexOf("apéro") !== -1, td.getElementById("happy-title").textContent);
     check(g, "happiness : compte à rebours affiché", /^dans \d/.test(td.getElementById("happy-in").textContent), td.getElementById("happy-in").textContent);
     const lunchRows = () => [...td.querySelectorAll("#lunch-list .lunch-name")].map(n => n.textContent.trim());
@@ -360,12 +360,12 @@
     const aw = adm.contentWindow, ad = adm.contentDocument;
     await adminLogin(aw, ad);
     check(g, "dashboard : mode démo indiqué", ad.getElementById("mode").textContent === "Mode démo (#mock)");
-    check(g, "dashboard : 7 slides listées", ad.querySelectorAll("#slides-list .row").length === 7);
+    check(g, "dashboard : 9 slides listées", ad.querySelectorAll("#slides-list .row").length === 9);
     ad.getElementById("slide-jira").click();
     ad.getElementById("slides-save").click();
     await sleep(400);
     await tw.refresh();
-    check(g, "dashboard → écran : slide décochée retirée", tw.deck.ids.indexOf("jira") === -1 && tw.deck.count === 6, tw.deck.ids.join());
+    check(g, "dashboard → écran : slide décochée retirée", tw.deck.ids.indexOf("jira") === -1 && tw.deck.count === 8, tw.deck.ids.join());
 
     ad.querySelector('[data-tab="pauses"]').click();
     check(g, "dashboard : onglet Pauses s'ouvre", !ad.getElementById("tab-pauses").hidden && ad.getElementById("tab-slides").hidden);
@@ -759,6 +759,97 @@
     localStorage.removeItem("matdora-demo");
   }
 
+  // Équipe : anniversaires et vacances
+  async function testTeam() {
+    const g = "équipe (démo)";
+    localStorage.removeItem("matdora-demo");
+    const tv = await load("../index.html#mock", 1280, 720);
+    const tw = tv.contentWindow, td = tv.contentDocument;
+    tw.deck.pause(true);
+    await tw.refresh();
+    const at = x => new tw.Date(x);
+    const txt = id => td.getElementById(id).textContent;
+
+    // Anniversaires (dates fixes)
+    tw.eval('birthdays = [{ id: "a", name: "Sarah", day: 5, month: 11 }, { id: "b", name: "Paul", day: 5, month: 11 }, { id: "c", name: "Zoé", day: 2, month: 1 }]');
+    tw.renderBirthday(at("2026-11-05T09:00:00"));
+    check(g, "anniversaire le jour J : « Paul et Sarah ! »", txt("bday-label") === "Joyeux anniversaire" && txt("bday-name") === "Paul et Sarah !", `${txt("bday-label")} / ${txt("bday-name")}`);
+    check(g, "anniversaire le jour J : le suivant annoncé en dessous", txt("bday-next").indexOf("Zoé") !== -1, txt("bday-next"));
+    tw.renderBirthday(at("2026-11-04T09:00:00"));
+    check(g, "veille : « Prochain anniversaire … demain »", txt("bday-label") === "Prochain anniversaire" && /demain$/.test(txt("bday-sub")), `${txt("bday-name")} / ${txt("bday-sub")}`);
+    tw.renderBirthday(at("2026-12-31T09:00:00"));
+    check(g, "fin d'année : Zoé le 2 janvier, dans 2 jours", txt("bday-name") === "Zoé" && txt("bday-sub") === "2 janvier · dans 2 jours", `${txt("bday-name")} / ${txt("bday-sub")}`);
+
+    // Vacances (dates fixes) : du premier jour jusqu'à la veille du retour
+    tw.eval('vacations = [{ id: "v", name: "Sarah", from: "2026-11-02", to: "2026-11-09", note: "" }, { id: "w", name: "Paul", from: "2026-11-20", to: null, note: "" }]');
+    const names = d => tw.onVacation(at(d)).map(v => v.name).join(",");
+    check(g, "vacances : avant le premier jour, personne", names("2026-11-01T10:00:00") === "");
+    check(g, "vacances : premier jour, Sarah", names("2026-11-02T10:00:00") === "Sarah");
+    check(g, "vacances : veille du retour, Sarah", names("2026-11-08T22:00:00") === "Sarah");
+    check(g, "vacances : jour du retour, plus personne", names("2026-11-09T08:00:00") === "");
+    check(g, "vacances : sans date de retour, jusqu'à ce qu'on la retire", names("2027-03-01T10:00:00") === "Paul");
+    tw.renderVacation(at("2026-11-04T10:00:00"));
+    check(g, "slide vacances : « Bonnes vacances, Sarah ! »", txt("vac-title").replace(/\s+/g, " ") === "Bonnes vacances, Sarah !", txt("vac-title"));
+    check(g, "slide vacances : date de retour", txt("vac-back") === "De retour le lundi 9 novembre", txt("vac-back"));
+    check(g, "slide vacances : petit mot par défaut", txt("vac-note").indexOf("café") !== -1);
+    await tw.refresh();
+
+    // Dashboard : onglet Équipe
+    const adm = await load("../admin.html#mock,team", 1280, 900);
+    const aw = adm.contentWindow, ad = adm.contentDocument;
+    await adminLogin(aw, ad);
+    check(g, "dashboard : onglet Équipe", !ad.getElementById("tab-team").hidden && ad.querySelectorAll("#bday-list .row").length === 3 && ad.querySelectorAll("#vac-list .row").length === 1);
+    const submit = id => ad.getElementById(id).dispatchEvent(new aw.Event("submit", { cancelable: true }));
+    ad.getElementById("bday-name").value = "Nina";
+    ad.getElementById("bday-day").value = "31";
+    ad.getElementById("bday-month").value = "2";
+    submit("bday-form");
+    await sleep(100);
+    check(g, "dashboard : 31 février refusé", ad.getElementById("toast").classList.contains("error") && ad.querySelectorAll("#bday-list .row").length === 3);
+    const now = new Date();
+    ad.getElementById("bday-day").value = String(now.getDate());
+    ad.getElementById("bday-month").value = String(now.getMonth() + 1);
+    submit("bday-form");
+    await waitFor(() => ad.querySelectorAll("#bday-list .row").length === 4);
+    check(g, "dashboard : anniversaire ajouté (marqué « aujourd'hui »)", [...ad.querySelectorAll("#bday-list .row")].some(r => r.textContent.indexOf("Nina") !== -1 && r.textContent.indexOf("aujourd'hui") !== -1));
+    await tw.refresh();
+    check(g, "écran : « Joyeux anniversaire » avec Nina", tw.deck.ids.indexOf("birthday") !== -1 && txt("bday-name").indexOf("Nina") !== -1, txt("bday-name"));
+
+    // Vacances : on retire l'exemple, la slide disparaît ; on ajoute Sarah, elle revient
+    const vacDel = ad.querySelector("#vac-list .btn.danger");
+    vacDel.click(); vacDel.click();
+    await waitFor(() => ad.querySelectorAll("#vac-list .row").length === 0);
+    await tw.refresh();
+    check(g, "personne en vacances : pas de slide vacances", tw.deck.ids.indexOf("vacation") === -1, tw.deck.ids.join());
+    check(g, "dashboard : premier jour pré-rempli avec aujourd'hui", ad.getElementById("vac-from").value === tw.MatDoraStore.today());
+    const inDays = n => tw.MatDoraStore.today(new Date(Date.now() + n * 86400000));
+    ad.getElementById("vac-name").value = "Sarah";
+    ad.getElementById("vac-to").value = tw.MatDoraStore.today();
+    submit("vac-form");
+    await sleep(100);
+    check(g, "dashboard : retour avant le départ refusé", ad.getElementById("toast").classList.contains("error") && ad.querySelectorAll("#vac-list .row").length === 0);
+    ad.getElementById("vac-to").value = inDays(7);
+    ad.getElementById("vac-note").value = "Ramène-nous du soleil !";
+    submit("vac-form");
+    await waitFor(() => ad.querySelectorAll("#vac-list .row").length === 1);
+    check(g, "dashboard : Sarah en vacances en ce moment", ad.querySelector("#vac-list .row").textContent.indexOf("en vacances en ce moment") !== -1);
+    await tw.refresh();
+    check(g, "écran : slide « Bonnes vacances, Sarah ! »", tw.deck.ids.indexOf("vacation") !== -1 && txt("vac-title").replace(/\s+/g, " ") === "Bonnes vacances, Sarah !" && txt("vac-note") === "Ramène-nous du soleil !", `${txt("vac-title")} / ${txt("vac-note")}`);
+
+    // Tout tient à l'écran, même avec beaucoup de monde
+    tw.eval('vacations = ' + JSON.stringify(["Sarah", "Paul", "Léo", "Inès", "Hugo"].map(n => ({ id: n, name: n, from: "2020-01-01", to: "2099-01-01", note: "" }))));
+    for (const [w, h] of [[1920, 1080], [1280, 720], [375, 667]]) {
+      tv.width = w; tv.height = h;
+      await sleep(250);
+      tw.eval("vacKey = ''; bdayKey = ''");
+      tw.renderVacation(); tw.renderBirthday();
+      check(g, `vacances et anniversaires tiennent à l'écran (${w}×${h})`, fitsBox(td.getElementById("vac-inner")) && fitsBox(td.getElementById("bday-inner")));
+    }
+    adm.remove();
+    tv.remove();
+    localStorage.removeItem("matdora-demo");
+  }
+
   // Sécurité en mode démo : connexion au dashboard et code d'accès du site
   async function testAccess() {
     const g = "accès (démo)";
@@ -960,6 +1051,7 @@
       await testData();
       await testLunch();
       await testHappy();
+      await testTeam();
       await testAccess();
       localStorage.removeItem("matdora-demo");
       for (const [w, h] of VIEWPORTS) await testViewport(w, h);

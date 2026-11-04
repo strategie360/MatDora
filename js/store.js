@@ -19,7 +19,9 @@
     { id: "rdv", label: "RDV Matthieu Hunel" },
     { id: "happiness", label: "Happiness event" },
     { id: "photos", label: "Photos d'events" },
-    { id: "lunch", label: "Repas du midi" }
+    { id: "lunch", label: "Repas du midi" },
+    { id: "birthday", label: "Anniversaires" },
+    { id: "vacation", label: "Bonnes vacances" }
   ];
   // Pauses : une liste d'horaires par jour (0 = dimanche … 6 = samedi)
   const WEEKDAY_PAUSES = ["10:00", "12:00", "16:00"];
@@ -52,6 +54,9 @@
     SLIDES.forEach(d => { if (!list.some(s => s.id === d.id)) list.push({ id: d.id, enabled: true, duration: 15 }); });
     out.slides = list;
     out.pauses = normPauses(saved && saved.pauses);
+    // Équipe : anniversaires (prénom, jour, mois) et vacances (prénom, du, retour le, petit mot)
+    out.birthdays = Array.isArray(out.birthdays) ? out.birthdays : [];
+    out.vacations = Array.isArray(out.vacations) ? out.vacations : [];
     return out;
   }
 
@@ -312,7 +317,15 @@
             date: `${today(thursday)}T18:00`,
             place: "Exemple : la terrasse du 3e",
             description: "Exemple de description : jeux, buffet et playlist de l'équipe."
-          }
+          },
+          birthdays: [
+            { id: "b1", name: "Exemple : Léa", day: d.getDate(), month: d.getMonth() + 1 },
+            { id: "b2", name: "Exemple : Hugo", day: new Date(d.getTime() + 9 * 86400000).getDate(), month: new Date(d.getTime() + 9 * 86400000).getMonth() + 1 },
+            { id: "b3", name: "Exemple : Inès", day: new Date(d.getTime() + 40 * 86400000).getDate(), month: new Date(d.getTime() + 40 * 86400000).getMonth() + 1 }
+          ],
+          vacations: [
+            { id: "v1", name: "Exemple : Sarah", from: today(new Date(d.getTime() - 2 * 86400000)), to: today(new Date(d.getTime() + 6 * 86400000)), note: "" }
+          ]
         },
         photos: [
           { id: "p1", path: "img/2.jpg", url: "img/2.jpg", caption: "Exemple : le sourire officiel", event: "Exemple : arrivée de Dora", created_at: d.toISOString() },

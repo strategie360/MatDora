@@ -209,8 +209,43 @@
     <button role="tab" data-tab="happiness">Happiness event</button>
     <button role="tab" data-tab="photos">Photos</button>
     <button role="tab" data-tab="lunch">Repas</button>
+    <button role="tab" data-tab="team">Équipe</button>
     <button role="tab" data-tab="access">Accès</button>
   </nav>
+
+  <!-- Équipe : anniversaires et vacances -->
+  <section class="panel" id="tab-team" role="tabpanel" hidden>
+    <h2>Anniversaires 🎂</h2>
+    <p class="help">Le jour J, l'écran souhaite l'anniversaire ; les autres jours, il annonce le prochain.</p>
+    <div id="bday-list"></div>
+    <p class="empty" id="bday-empty" hidden>Aucun anniversaire pour l'instant.</p>
+    <form class="actions" id="bday-form">
+      <input id="bday-name" maxlength="40" placeholder="Prénom" aria-label="Prénom" required>
+      <input id="bday-day" type="number" min="1" max="31" placeholder="Jour" aria-label="Jour de l'anniversaire" class="secs" required>
+      <select id="bday-month" aria-label="Mois de l'anniversaire" required>
+        <option value="">Mois</option>
+        <option value="1">janvier</option><option value="2">février</option><option value="3">mars</option>
+        <option value="4">avril</option><option value="5">mai</option><option value="6">juin</option>
+        <option value="7">juillet</option><option value="8">août</option><option value="9">septembre</option>
+        <option value="10">octobre</option><option value="11">novembre</option><option value="12">décembre</option>
+      </select>
+      <button class="btn primary" type="submit">Ajouter</button>
+    </form>
+
+    <h2 class="sub">En vacances 🏖️</h2>
+    <p class="help">La slide « Bonnes vacances » s'affiche du premier jour jusqu'à la veille du retour, puis disparaît toute seule.</p>
+    <div id="vac-list"></div>
+    <p class="empty" id="vac-empty" hidden>Personne en vacances pour l'instant.</p>
+    <form id="vac-form">
+      <div class="two">
+        <div class="field"><label for="vac-name">Prénom</label><input id="vac-name" maxlength="40" placeholder="Ex. Sarah" required></div>
+        <div class="field"><label for="vac-note">Petit mot <span class="hint">(facultatif)</span></label><input id="vac-note" maxlength="140" placeholder="Ex. Ramène-nous du soleil !"></div>
+        <div class="field"><label for="vac-from">Premier jour de vacances</label><input id="vac-from" type="date" required></div>
+        <div class="field"><label for="vac-to">De retour le <span class="hint">(facultatif)</span></label><input id="vac-to" type="date"></div>
+      </div>
+      <div class="actions"><button class="btn primary" type="submit">Ajouter</button></div>
+    </form>
+  </section>
 
   <!-- Accès -->
   <section class="panel" id="tab-access" role="tabpanel" hidden>
@@ -398,7 +433,7 @@
   }
 
   /* ---------- Onglets ---------- */
-  const TABS = ["slides", "pauses", "happiness", "photos", "lunch", "access"];
+  const TABS = ["slides", "pauses", "happiness", "photos", "lunch", "team", "access"];
   function openTab(name) {
     TABS.forEach(t => {
       $("tab-" + t).hidden = t !== name;
@@ -813,6 +848,94 @@
     attempt(async () => { await store.propose(store.today(), name); $("lunch-name").value = ""; await loadLunch(); }, "Resto proposé pour aujourd'hui.");
   });
 
+  /* ---------- Équipe : anniversaires et vacances ---------- */
+  const MONTHS = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
+  const newId = () => Math.random().toString(36).slice(2, 10);
+  const longDate = d => new Date(d + "T12:00:00").toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
+
+  function renderTeam() {
+    const todayKey = store.today();
+    const now = new Date();
+    // Anniversaires, du plus proche au plus lointain
+    const bl = $("bday-list");
+    bl.innerHTML = "";
+    const bdays = settings.birthdays.slice().sort((a, b) => {
+      const next = x => { let d = new Date(now.getFullYear(), x.month - 1, x.day); if (d < new Date(now.getFullYear(), now.getMonth(), now.getDate())) d = new Date(now.getFullYear() + 1, x.month - 1, x.day); return d; };
+      return next(a) - next(b);
+    });
+    $("bday-empty").hidden = bdays.length > 0;
+    bdays.forEach(b => {
+      const row = document.createElement("div");
+      row.className = "row";
+      const name = document.createElement("span");
+      name.className = "grow";
+      const isToday = b.day === now.getDate() && b.month === now.getMonth() + 1;
+      name.textContent = `${b.name} · ${b.day} ${MONTHS[b.month - 1]}${isToday ? " · 🎂 aujourd'hui !" : ""}`;
+      row.appendChild(name);
+      row.appendChild(confirmButton("Retirer", () => attempt(async () => {
+        const list = settings.birthdays.filter(x => x.id !== b.id);
+        await store.saveSetting("birthdays", list);
+        settings.birthdays = list;
+        renderTeam();
+      }, `${b.name} retiré des anniversaires.`)));
+      bl.appendChild(row);
+    });
+    // Vacances
+    const vl = $("vac-list");
+    vl.innerHTML = "";
+    const vacs = settings.vacations.slice().sort((a, b) => (a.from || "").localeCompare(b.from || ""));
+    $("vac-empty").hidden = vacs.length > 0;
+    vacs.forEach(v => {
+      const state = v.to && todayKey >= v.to ? "terminé" : v.from && todayKey < v.from ? "à venir" : "en vacances en ce moment";
+      const row = document.createElement("div");
+      row.className = "row";
+      const name = document.createElement("span");
+      name.className = "grow";
+      name.textContent = `${v.name} · du ${longDate(v.from)}${v.to ? ` · retour le ${longDate(v.to)}` : ""}`;
+      const small = document.createElement("small");
+      small.textContent = (state === "en vacances en ce moment" ? "🏖️ " : "") + state + (v.note ? ` · « ${v.note} »` : "");
+      name.appendChild(small);
+      row.appendChild(name);
+      row.appendChild(confirmButton("Retirer", () => attempt(async () => {
+        const list = settings.vacations.filter(x => x.id !== v.id);
+        await store.saveSetting("vacations", list);
+        settings.vacations = list;
+        renderTeam();
+      }, `${v.name} retiré des vacances.`)));
+      vl.appendChild(row);
+    });
+  }
+
+  $("bday-form").addEventListener("submit", e => {
+    e.preventDefault();
+    const name = $("bday-name").value.trim(), day = Number($("bday-day").value), month = Number($("bday-month").value);
+    const valid = name && month >= 1 && month <= 12 && day >= 1 && day <= new Date(2024, month, 0).getDate();
+    if (!valid) { toast("Vérifie le prénom, le jour et le mois.", true); return; }
+    attempt(async () => {
+      const list = settings.birthdays.concat([{ id: newId(), name, day, month }]);
+      await store.saveSetting("birthdays", list);
+      settings.birthdays = list;
+      $("bday-form").reset();
+      renderTeam();
+    }, `Anniversaire de ${name} ajouté (${day} ${MONTHS[month - 1]}).`);
+  });
+
+  $("vac-from").value = store.today();
+  $("vac-form").addEventListener("submit", e => {
+    e.preventDefault();
+    const name = $("vac-name").value.trim(), from = $("vac-from").value, to = $("vac-to").value, note = $("vac-note").value.trim();
+    if (!name || !from) { toast("Indique le prénom et le premier jour.", true); return; }
+    if (to && to <= from) { toast("La date de retour doit être après le premier jour.", true); return; }
+    attempt(async () => {
+      const list = settings.vacations.concat([{ id: newId(), name, from, to: to || null, note }]);
+      await store.saveSetting("vacations", list);
+      settings.vacations = list;
+      $("vac-form").reset();
+      $("vac-from").value = store.today();
+      renderTeam();
+    }, `Bonnes vacances à ${name} ! Ajouté.`);
+  });
+
   /* ---------- Accès : code du site ---------- */
   async function loadAccess() {
     const active = await store.siteCodeActive();
@@ -873,7 +996,7 @@
     $("who").hidden = false;
     $("who-name").textContent = who.username;
     const ok = await attempt(async () => { settings = await store.getSettings(); });
-    renderSlides(); renderPauses(); renderHappiness();
+    renderSlides(); renderPauses(); renderHappiness(); renderTeam();
     if (ok) await Promise.all([attempt(loadPhotos), attempt(loadLunch), attempt(loadAccess)]);
     if (!timerStarted) {
       timerStarted = true;
