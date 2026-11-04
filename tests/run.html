@@ -1112,6 +1112,17 @@
     ad.getElementById("login-pass").value = "admin";
     ad.getElementById("login-form").dispatchEvent(new aw.Event("submit", { cancelable: true }));
     await aw.ready;
+    // Menu : tous les onglets visibles, sans barre de défilement, sur ordinateur comme sur téléphone
+    for (const width of [1280, 375]) {
+      adm.width = width;
+      await sleep(150);
+      const tabs = ad.getElementById("tabs");
+      const box = tabs.getBoundingClientRect();
+      const allVisible = [...tabs.querySelectorAll("button")].every(b => { const r = b.getBoundingClientRect(); return r.left >= box.left - 1 && r.right <= box.right + 1; });
+      check(g, `dashboard ${width} px : menu sans barre de défilement, tous les onglets visibles`, tabs.scrollWidth <= tabs.clientWidth + 1 && aw.getComputedStyle(tabs).overflowX !== "auto" && allVisible, `${tabs.scrollWidth} > ${tabs.clientWidth}`);
+    }
+    adm.width = 1280;
+    await sleep(100);
     check(g, "dashboard : bon mot de passe → dashboard", !ad.getElementById("app").hidden && ad.getElementById("login").hidden && ad.getElementById("who-name").textContent === "admin");
     adm.remove();
     adm = await load("../admin.html#mock,access", 1280, 900);

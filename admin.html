@@ -51,7 +51,8 @@
   .links { margin: 6px 0 0; color: var(--muted); font-size: .9rem; }
   .links a { color: var(--accent); font-weight: 700; }
 
-  .tabs { display: flex; gap: 6px; overflow-x: auto; margin: 20px 0 16px; padding-bottom: 4px; }
+  /* Menu sur plusieurs lignes si besoin : tous les onglets visibles, sans barre de défilement */
+  .tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 20px 0 16px; }
   .tabs button {
     flex: none;
     font: inherit;
@@ -178,7 +179,12 @@
   .restos input.rename:focus { border-color: var(--accent); background: var(--bg); outline: none; }
   .restos tr.off input.rename { text-decoration: line-through; color: var(--muted); }
   .two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 12px; }
-  @media (max-width: 560px) { .two { grid-template-columns: minmax(0, 1fr); } }
+  @media (max-width: 560px) {
+    .two { grid-template-columns: minmax(0, 1fr); }
+    /* Liste des slides sur téléphone : le nom sur sa propre ligne, les réglages en dessous */
+    #slides-list .row { flex-wrap: wrap; }
+    #slides-list .row .grow { flex: 1 1 calc(100% - 40px); overflow-wrap: normal; }
+  }
   .toast { position: sticky; bottom: max(12px, env(safe-area-inset-bottom, 0px)); margin-top: 16px; padding: 10px 14px; border-radius: 12px; font-weight: 800; background: var(--fg); color: var(--bg); }
   .toast.error { background: var(--danger); color: #ffffff; }
   .empty { color: var(--muted); margin: 8px 0 0; }
