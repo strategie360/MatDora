@@ -21,7 +21,8 @@
     { id: "photos", label: "Photos d'events" },
     { id: "lunch", label: "Repas du midi" },
     { id: "birthday", label: "Anniversaires" },
-    { id: "vacation", label: "Congés et absences" }
+    { id: "vacation", label: "Congés et absences" },
+    { id: "news", label: "Arrivées et départs" }
   ];
   // Pauses : une liste d'horaires par jour (0 = dimanche … 6 = samedi)
   const WEEKDAY_PAUSES = ["10:00", "12:00", "16:00"];
@@ -57,6 +58,8 @@
     // Équipe : anniversaires (prénom, jour, mois) et vacances (prénom, du, retour le, petit mot)
     out.birthdays = Array.isArray(out.birthdays) ? out.birthdays : [];
     out.vacations = Array.isArray(out.vacations) ? out.vacations : [];
+    // Arrivées et départs : bienvenue (stagiaire, alternant…), départ, passage en CDI
+    out.teamNews = Array.isArray(out.teamNews) ? out.teamNews : [];
     return out;
   }
 
@@ -325,6 +328,10 @@
           ],
           vacations: [
             { id: "v1", kind: "vacances", name: "Exemple : Sarah", destination: "Japon", theme: "", from: today(new Date(d.getTime() - 2 * 86400000)), to: today(new Date(d.getTime() + 6 * 86400000)), note: "" }
+          ],
+          teamNews: [
+            { id: "n1", type: "bienvenue", name: "Exemple : Léo", role: "Stagiaire marketing", date: today(new Date(d.getTime() - 1 * 86400000)), until: "", note: "" },
+            { id: "n2", type: "cdi", name: "Exemple : Inès", role: "Alternante → CDI développeuse", date: today(new Date(d.getTime() + 3 * 86400000)), until: "", note: "" }
           ]
         },
         photos: [
@@ -571,6 +578,20 @@
     return VACATION_THEMES.filter(t => t.id === id)[0] || VACATION_THEMES[0];
   }
 
+  // Annonces de la slide "Du nouveau dans l'équipe"
+  const NEWS_TYPES = [
+    { id: "bienvenue", label: "Bienvenue (stagiaire, alternant, recrue)", short: "Bienvenue", emoji: "👋🎉", title: "Bienvenue",
+      role: "Ex. Stagiaire marketing", before: "Arrive le", after: "Arrivée le", note: "Bienvenue dans l'équipe, on est ravis de t'accueillir !" },
+    { id: "depart", label: "Départ (ils nous ont quittés)", short: "Départ", emoji: "💐👋", title: "Merci et bonne route",
+      role: "Ex. Développeur", before: "Dernier jour le", after: "Départ le", note: "Merci pour tout, et bonne continuation !" },
+    { id: "cdi", label: "Alternant → CDI", short: "Alternant → CDI", emoji: "🎓➡️💼", title: "Félicitations",
+      role: "Ex. Alternant → CDI développeur", before: "Passe en CDI le", after: "En CDI depuis le", note: "Bravo, l'aventure continue avec nous !" }
+  ];
+  const NEWS_BEFORE_DAYS = 7, NEWS_AFTER_DAYS = 14;  // affichée 7 jours avant la date et 14 jours après
+  function newsType(n) { return NEWS_TYPES.filter(t => t.id === (n && n.type))[0] || NEWS_TYPES[0]; }
+  function addDays(day, n) { const d = new Date(day + "T12:00:00"); d.setDate(d.getDate() + n); return today(d); }
+  function newsWindow(n) { return { from: addDays(n.date, -NEWS_BEFORE_DAYS), until: n.until || addDays(n.date, NEWS_AFTER_DAYS) }; }
+
   const FOOD_EMOJI = [
     [/pizz|ital|pasta|pâtes|trattoria/i, "🍕"], [/sushi|japon|ramen|izakaya/i, "🍣"], [/burger/i, "🍔"],
     [/thai|thaï|wok|nouille|pho|vietnam/i, "🍜"], [/poke|poké|salad|bowl/i, "🥗"], [/crêp|crep|galette/i, "🥞"],
@@ -586,7 +607,7 @@
 
   const lunchApi = impl ? { lunch, ensureDraw, reroll, lunchRaw: impl.lunch } : {};
   window.MatDoraStore = Object.assign(
-    { mode, SLIDES, DEFAULTS, HM_REMINDER: "Va sur le channel HM pour voter pour la date et annoncer ta présence !", today, withDefaults, storedCode, rememberCode, usernameToEmail, resizeImage, foodEmoji, VACATION_THEMES, ABSENCE_KINDS, absenceKind, guessTheme, vacationTheme, openOn, drawTime, weekday, DRAW_HOUR, DRAW_MINUTE },
+    { mode, SLIDES, DEFAULTS, HM_REMINDER: "Va sur le channel HM pour voter pour la date et annoncer ta présence !", today, withDefaults, storedCode, rememberCode, usernameToEmail, resizeImage, foodEmoji, VACATION_THEMES, ABSENCE_KINDS, absenceKind, NEWS_TYPES, newsType, newsWindow, addDays, guessTheme, vacationTheme, openOn, drawTime, weekday, DRAW_HOUR, DRAW_MINUTE },
     impl || { getSettings: () => Promise.resolve(withDefaults(null)) },
     lunchApi
   );

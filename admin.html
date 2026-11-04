@@ -235,6 +235,7 @@
     <button role="tab" data-tab="lunch">Repas</button>
     <button role="tab" data-tab="team">Anniversaires</button>
     <button role="tab" data-tab="absences">Congés</button>
+    <button role="tab" data-tab="news">Arrivées / départs</button>
     <button role="tab" data-tab="access">Accès</button>
   </nav>
 
@@ -296,6 +297,34 @@
     <h3 class="list-title">Absences enregistrées</h3>
     <div id="vac-list"></div>
     <p class="empty" id="vac-empty" hidden>Personne d'absent pour l'instant.</p>
+  </section>
+
+  <!-- Arrivées / départs -->
+  <section class="panel" id="tab-news" role="tabpanel" hidden>
+    <h2>👋 Arrivées, départs et CDI</h2>
+    <p class="help">Chaque annonce s'affiche sur l'écran 7 jours avant sa date et jusqu'à 14 jours après (ou jusqu'à la date que tu choisis). S'il y en a plusieurs, chacune a sa carte.</p>
+    <form class="team-form" id="news-form">
+      <h3 id="news-form-title">Ajouter une annonce</h3>
+      <div class="team-fields">
+        <div class="field"><label for="news-type">Type d'annonce</label>
+          <select id="news-type"></select></div>
+        <div class="field"><label for="news-name">Prénom (et nom)</label><input id="news-name" maxlength="60" placeholder="Ex. Léa Martin" required></div>
+        <div class="field grow-field"><label for="news-role">Poste <span class="hint">(facultatif)</span></label><input id="news-role" maxlength="80" placeholder="Ex. Stagiaire marketing"></div>
+      </div>
+      <div class="team-fields">
+        <div class="field"><label for="news-date" id="news-date-label">Date d'arrivée</label><input id="news-date" type="date" required></div>
+        <div class="field"><label for="news-until">Afficher jusqu'au <span class="hint">(facultatif)</span></label><input id="news-until" type="date"></div>
+        <div class="field grow-field"><label for="news-note">Petit mot <span class="hint">(facultatif)</span></label><input id="news-note" maxlength="160"></div>
+      </div>
+      <p class="preview" id="news-preview" aria-live="polite"></p>
+      <div class="actions">
+        <button class="btn primary" type="submit" id="news-submit">Ajouter</button>
+        <button class="btn" type="button" id="news-cancel" hidden>Annuler la modification</button>
+      </div>
+    </form>
+    <h3 class="list-title">Annonces enregistrées</h3>
+    <div id="news-list"></div>
+    <p class="empty" id="news-empty" hidden>Aucune annonce pour l'instant.</p>
   </section>
 
   <!-- Accès -->
@@ -484,7 +513,7 @@
   }
 
   /* ---------- Onglets ---------- */
-  const TABS = ["slides", "pauses", "happiness", "photos", "lunch", "team", "absences", "access"];
+  const TABS = ["slides", "pauses", "happiness", "photos", "lunch", "team", "absences", "news", "access"];
   function openTab(name) {
     TABS.forEach(t => {
       $("tab-" + t).hidden = t !== name;
@@ -1087,7 +1116,107 @@
       renderAbsences();
     }, wasEditing ? `Absence de ${v.name} modifiée.` : sick ? `Bon rétablissement à ${v.name} ! Ajouté.` : `Bonnes vacances à ${v.name} ! Ajouté.`);
   });
-  function renderTeam() { renderBirthdays(); renderAbsences(); }
+  /* ----- Arrivées, départs, CDI ----- */
+  let editingNews = null;
+  store.NEWS_TYPES.forEach(t => {
+    const o = document.createElement("option");
+    o.value = t.id;
+    o.textContent = `${t.emoji} ${t.label}`;
+    $("news-type").appendChild(o);
+  });
+  const DATE_LABELS = { bienvenue: "Date d'arrivée", depart: "Dernier jour", cdi: "Date du passage en CDI" };
+  function formNews() {
+    return { type: $("news-type").value, name: $("news-name").value.trim(), role: $("news-role").value.trim(),
+      date: $("news-date").value, until: $("news-until").value, note: $("news-note").value.trim() };
+  }
+  function newsPreview() {
+    const n = formNews(), type = store.newsType(n);
+    $("news-date-label").textContent = DATE_LABELS[type.id];
+    $("news-role").placeholder = type.role;
+    $("news-note").placeholder = type.note;
+    if (!n.date) { $("news-preview").textContent = `Sur l'écran : ${type.emoji} ${type.title}, ${n.name || "…"} !`; return; }
+    const w = store.newsWindow(n);
+    const fmt = d => new Date(d + "T12:00:00").toLocaleDateString("fr-FR", { day: "numeric", month: "long" });
+    $("news-preview").textContent = `Sur l'écran : ${type.emoji} ${type.title}, ${n.name || "…"} !${n.role ? ` · ${n.role}` : ""} · affiché du ${fmt(w.from)} au ${fmt(w.until)}`;
+  }
+  ["news-type", "news-name", "news-role", "news-date", "news-until"].forEach(id => {
+    $(id).addEventListener("input", newsPreview);
+    $(id).addEventListener("change", newsPreview);
+  });
+  function renderNewsList() {
+    const t = store.today();
+    const list = $("news-list");
+    list.innerHTML = "";
+    const items = settings.teamNews.slice().sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+    $("news-empty").hidden = items.length > 0;
+    items.forEach(n => {
+      const type = store.newsType(n), w = store.newsWindow(n);
+      const state = t < w.from ? "soon" : t > w.until ? "done" : "now";
+      const row = document.createElement("div");
+      row.className = "row";
+      const name = document.createElement("span");
+      name.className = "grow";
+      name.textContent = `${type.emoji} ${n.name}${n.role ? ` · ${n.role}` : ""}`;
+      name.appendChild(badge(state, state === "now" ? "affiché en ce moment" : state === "soon" ? "à venir" : "terminé"));
+      const small = document.createElement("small");
+      small.textContent = `${type.short} · ${DATE_LABELS[type.id].toLowerCase()} : ${longDate(n.date)}` + (n.note ? ` · « ${n.note} »` : "");
+      name.appendChild(small);
+      row.appendChild(name);
+      row.appendChild(rowButtons(() => editNews(n), () => attempt(async () => {
+        const next = settings.teamNews.filter(x => x.id !== n.id);
+        await store.saveSetting("teamNews", next);
+        settings.teamNews = next;
+        if (editingNews === n.id) stopEditNews();
+        renderNewsList();
+      }, `Annonce de ${n.name} retirée.`)));
+      list.appendChild(row);
+    });
+  }
+  function editNews(n) {
+    editingNews = n.id;
+    $("news-type").value = n.type || "bienvenue";
+    $("news-name").value = n.name;
+    $("news-role").value = n.role || "";
+    $("news-date").value = n.date || "";
+    $("news-until").value = n.until || "";
+    $("news-note").value = n.note || "";
+    $("news-form-title").textContent = `Modifier l'annonce de ${n.name}`;
+    $("news-submit").textContent = "Enregistrer les modifications";
+    $("news-cancel").hidden = false;
+    $("news-form").classList.add("is-editing");
+    newsPreview();
+    $("news-form").scrollIntoView({ block: "start" });
+  }
+  function stopEditNews() {
+    editingNews = null;
+    $("news-form").reset();
+    $("news-date").value = store.today();
+    $("news-form-title").textContent = "Ajouter une annonce";
+    $("news-submit").textContent = "Ajouter";
+    $("news-cancel").hidden = true;
+    $("news-form").classList.remove("is-editing");
+    newsPreview();
+  }
+  $("news-cancel").addEventListener("click", stopEditNews);
+  $("news-date").value = store.today();
+  $("news-form").addEventListener("submit", e => {
+    e.preventDefault();
+    const n = formNews();
+    if (!n.name || !n.date) { toast("Indique le prénom et la date.", true); return; }
+    if (n.until && n.until < n.date) { toast("« Afficher jusqu'au » doit être après la date.", true); return; }
+    const wasEditing = editingNews;
+    attempt(async () => {
+      const entry = Object.assign({ id: wasEditing || newId() }, n);
+      const next = wasEditing ? settings.teamNews.map(x => x.id === wasEditing ? entry : x) : settings.teamNews.concat([entry]);
+      await store.saveSetting("teamNews", next);
+      settings.teamNews = next;
+      stopEditNews();
+      renderNewsList();
+    }, wasEditing ? `Annonce de ${n.name} modifiée.` : `Annonce ajoutée : ${store.newsType(n).title}, ${n.name} !`);
+  });
+
+  function renderTeam() { renderBirthdays(); renderAbsences(); renderNewsList(); }
+  newsPreview();
   vacPreview();
 
   /* ---------- Accès : code du site ---------- */

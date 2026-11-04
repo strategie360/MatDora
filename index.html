@@ -909,6 +909,59 @@
       linear-gradient(#a5d8ff, #e7f5ff 60%, #8ce99a 60%);
   }
 
+  /* ---------- Slide Du nouveau dans l'équipe : arrivées, départs, CDI ---------- */
+  body[data-tone="news"] .seg { background: rgba(43, 48, 90, .2); }
+  body[data-tone="news"] .seg i { background: #5c7cfa; }
+  .s-news {
+    background-color: #eef1ff;
+    background-image:
+      radial-gradient(circle, #ffd43b 0 5px, transparent 6px),
+      radial-gradient(circle, #5c7cfa 0 4px, transparent 5px),
+      radial-gradient(circle, #20c997 0 3px, transparent 4px);
+    background-size: 190px 170px, 240px 210px, 150px 180px;
+    background-position: 40px 30px, 120px 100px, 80px 150px;
+    color: #232a55;
+  }
+  .s-news .inner { max-width: 1200px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .news-wrap { width: 100%; display: flex; flex-direction: column; align-items: center; }
+  .news-head { text-align: center; }
+  .news-head .eyebrow { color: #4c6ef5; }
+  .news-head h2 { color: #232a55; font-size: calc(clamp(1.8rem, min(5vw, 8vh), 3.6rem) * var(--scale, 1)); }
+  .news-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(calc(260px * var(--scale, 1)), 1fr));
+    gap: calc(18px * var(--scale, 1));
+    width: 100%;
+    margin-top: calc(18px * var(--scale, 1));
+  }
+  .news-cards.solo { grid-template-columns: minmax(0, 720px); justify-content: center; }
+  .news-card {
+    --c: #2f9e44;
+    box-sizing: border-box;
+    min-width: 0;
+    background: #ffffff;
+    border-radius: 24px;
+    border-left: 10px solid var(--c);
+    padding: calc(16px * var(--scale, 1)) calc(20px * var(--scale, 1));
+    box-shadow: 0 20px 40px -24px rgba(35, 42, 85, .6);
+    text-align: center;
+  }
+  .slide.active .news-card { animation: cardIn .7s ease both; }
+  .slide.active .news-card:nth-child(2) { animation-delay: .5s; }
+  .slide.active .news-card:nth-child(3) { animation-delay: 1s; }
+  .slide.active .news-card:nth-child(n+4) { animation-delay: 1.5s; }
+  .simple .slide.active .news-card { animation: none; }
+  .news-card.t-bienvenue { --c: #2f9e44; background: #f4fdf5; }
+  .news-card.t-depart { --c: #7950f2; background: #f8f5ff; }
+  .news-card.t-cdi { --c: #f59f00; background: #fffbea; }
+  .news-card .e { font-size: calc(clamp(2rem, min(5vw, 8vh), 3.6rem) * var(--scale, 1)); line-height: 1.1; }
+  .news-card .k { font-weight: 800; text-transform: uppercase; letter-spacing: .1em; font-size: calc(.8rem * var(--scale, 1)); color: var(--c); margin-top: 4px; }
+  .news-card .n { font-family: var(--display); font-size: calc(clamp(1.7rem, min(4.4vw, 6.6vh), 3.2rem) * var(--scale, 1)); line-height: 1.05; overflow-wrap: anywhere; }
+  .news-cards.solo .news-card .n { font-size: calc(clamp(2.4rem, min(7vw, 11vh), 5.4rem) * var(--scale, 1)); }
+  .news-card .r { font-weight: 800; color: var(--c); font-size: calc(clamp(.95rem, 2.4vh, 1.25rem) * var(--scale, 1)); margin-top: 2px; overflow-wrap: anywhere; }
+  .news-card .w { font-weight: 700; color: #4a5080; font-size: calc(clamp(.85rem, 2.1vh, 1.1rem) * var(--scale, 1)); margin-top: 6px; }
+  .news-card .m { margin-top: 8px; font-size: calc(clamp(.9rem, 2.2vh, 1.15rem) * var(--scale, 1)); color: #343a66; white-space: pre-line; overflow-wrap: anywhere; }
+
   /* ---------- Écran de code d'accès ---------- */
   .lock {
     position: fixed;
@@ -1132,6 +1185,19 @@
           <p class="vac-title">On pense à eux&nbsp;!</p>
         </div>
         <div class="absent-cards" id="absent-cards" hidden></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Du nouveau dans l'équipe (onglet Arrivées / départs du dashboard) -->
+  <section class="slide s-news" data-id="news" data-tone="news" aria-label="Du nouveau dans l'équipe">
+    <div class="inner" id="news-inner">
+      <div class="news-wrap" id="news-wrap">
+        <div class="news-head">
+          <div class="eyebrow" id="news-eyebrow">L'équipe bouge</div>
+          <h2 id="news-title">Du nouveau dans l'équipe&nbsp;!</h2>
+        </div>
+        <div class="news-cards" id="news-cards"></div>
       </div>
     </div>
   </section>
@@ -1721,11 +1787,58 @@
       inner.style.setProperty("--scale", s);
     }
   }
+  /* ---------- Slide Du nouveau dans l'équipe ---------- */
+  let teamNews = [];
+  // Annonce visible de 7 jours avant sa date à 14 jours après (ou jusqu'à la date choisie)
+  function activeNews(now) {
+    const t = store.today(now);
+    return teamNews.filter(n => n.name && n.date)
+      .filter(n => { const w = store.newsWindow(n); return w.from <= t && t <= w.until; })
+      .sort((a, b) => a.date.localeCompare(b.date));
+  }
+  let newsKey = "";
+  function renderNews(now = new Date()) {
+    const key = store.today(now) + JSON.stringify(teamNews) + innerWidth + "x" + innerHeight;
+    if (key === newsKey) return;
+    newsKey = key;
+    const list = activeNews(now);
+    if (!list.length) return;
+    const t = store.today(now);
+    const long = d => new Date(d + "T12:00:00").toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
+    const types = list.map(n => store.newsType(n).id).filter((x, i, a) => a.indexOf(x) === i);
+    const head = types.length > 1 ? ["L'équipe bouge", "Du nouveau dans l'équipe !"]
+      : types[0] === "bienvenue" ? ["Nouveaux visages", list.length > 1 ? "Bienvenue dans l'équipe !" : "Bienvenue dans l'équipe !"]
+      : types[0] === "depart" ? ["Au revoir", list.length > 1 ? "Ils nous ont quittés" : "Merci pour tout !"]
+      : ["Bonne nouvelle", "Félicitations !"];
+    $("news-eyebrow").textContent = head[0];
+    $("news-title").textContent = head[1];
+    const cards = $("news-cards");
+    cards.className = "news-cards" + (list.length === 1 ? " solo" : "");
+    cards.innerHTML = "";
+    list.forEach(n => {
+      const type = store.newsType(n);
+      const when = n.date > t ? `${type.before} ${long(n.date)}` : n.date === t ? (type.id === "depart" ? "C'est son dernier jour aujourd'hui" : type.id === "cdi" ? "En CDI à partir d'aujourd'hui" : "Arrive aujourd'hui") : `${type.after} ${long(n.date)}`;
+      const card = document.createElement("div");
+      card.className = "news-card t-" + type.id;
+      card.innerHTML =
+        `<div class="e" aria-hidden="true">${type.emoji}</div>` +
+        `<div class="k">${escapeHtml(type.title)}</div>` +
+        `<div class="n">${escapeHtml(n.name)}</div>` +
+        (n.role ? `<div class="r">${escapeHtml(n.role)}</div>` : "") +
+        `<div class="w">${escapeHtml(when)}</div>` +
+        `<div class="m">${escapeHtml(n.note || type.note)}</div>`;
+      cards.appendChild(card);
+    });
+    fitBox("news-inner", "news-wrap");
+  }
+  window.renderNews = renderNews;
+  window.activeNews = activeNews;
+
   window.renderBirthday = renderBirthday;
   window.renderVacation = renderVacation;
   window.onVacation = onVacation;
   window.upcomingBirthdays = upcomingBirthdays;
-  window.addEventListener("resize", () => { bdayKey = vacKey = ""; renderBirthday(); renderVacation(); });
+  window.addEventListener("resize", () => { bdayKey = vacKey = newsKey = ""; renderBirthday(); renderVacation(); renderNews(); });
 
   /* ---------- Horloge commune ---------- */
   let doraRunning = render();
@@ -1739,6 +1852,7 @@
     renderHappiness();
     renderBirthday();
     renderVacation();
+    renderNews();
     if (lunchData) renderDraw(lunchData);
   }, 1000);
 
@@ -1767,7 +1881,8 @@
   // Les slides à données ne s'affichent que si les données sont là (Anniversaires : au moins une
   // date ; Bonnes vacances : seulement quand quelqu'un est en vacances aujourd'hui)
   function available(id) {
-    if (["happiness", "photos", "lunch", "birthday", "vacation"].indexOf(id) !== -1 && store.mode === "off") return false;
+    if (["happiness", "photos", "lunch", "birthday", "vacation", "news"].indexOf(id) !== -1 && store.mode === "off") return false;
+    if (id === "news" && !activeNews(new Date()).length) return false;
     if (id === "photos" && !eventPhotos.length) return false;
     if (id === "birthday" && !upcomingBirthdays(new Date()).length) return false;
     if (id === "vacation" && !onVacation(new Date()).length) return false;
@@ -1907,6 +2022,8 @@
       happiness = settings.happiness;
       birthdays = settings.birthdays;
       vacations = settings.vacations;
+      teamNews = settings.teamNews;
+      renderNews();
       renderBirthday();
       renderVacation();
       setPauses(settings.pauses);

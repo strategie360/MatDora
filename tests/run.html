@@ -87,7 +87,7 @@
     const win = f.contentWindow, doc = f.contentDocument;
     await win.document.fonts?.ready;
     await win.refresh();
-    check(g, "les 9 slides sont dans la rotation", win.deck.count === 9, win.deck.ids.join(", "));
+    check(g, "les 10 slides sont dans la rotation", win.deck.count === 10, win.deck.ids.join(", "));
     const imgs = await imagesReady(doc);
     check(g, "script chargé (diaporama prêt)", typeof win.deck === "object");
     if (typeof win.deck !== "object") return;
@@ -294,7 +294,7 @@
     const tw = tv.contentWindow, td = tv.contentDocument;
     tw.deck.pause(true);
     await tw.refresh();
-    check(g, "écran : 9 slides avec les données", tw.deck.ids.join() === "dora,pause,jira,rdv,happiness,photos,lunch,birthday,vacation", tw.deck.ids.join());
+    check(g, "écran : 10 slides avec les données", tw.deck.ids.join() === "dora,pause,jira,rdv,happiness,photos,lunch,birthday,vacation,news", tw.deck.ids.join());
     check(g, "happiness : titre de l'event affiché", td.getElementById("happy-title").textContent.indexOf("apéro") !== -1, td.getElementById("happy-title").textContent);
     check(g, "happiness : compte à rebours affiché", /^dans \d/.test(td.getElementById("happy-in").textContent), td.getElementById("happy-in").textContent);
     const lunchRows = () => [...td.querySelectorAll("#lunch-list .lunch-name")].map(n => n.textContent.trim());
@@ -360,12 +360,12 @@
     const aw = adm.contentWindow, ad = adm.contentDocument;
     await adminLogin(aw, ad);
     check(g, "dashboard : mode démo indiqué", ad.getElementById("mode").textContent === "Mode démo (#mock)");
-    check(g, "dashboard : 9 slides listées", ad.querySelectorAll("#slides-list .row").length === 9);
+    check(g, "dashboard : 10 slides listées", ad.querySelectorAll("#slides-list .row").length === 10);
     ad.getElementById("slide-jira").click();
     ad.getElementById("slides-save").click();
     await sleep(400);
     await tw.refresh();
-    check(g, "dashboard → écran : slide décochée retirée", tw.deck.ids.indexOf("jira") === -1 && tw.deck.count === 8, tw.deck.ids.join());
+    check(g, "dashboard → écran : slide décochée retirée", tw.deck.ids.indexOf("jira") === -1 && tw.deck.count === 9, tw.deck.ids.join());
 
     ad.querySelector('[data-tab="pauses"]').click();
     check(g, "dashboard : onglet Pauses s'ouvre", !ad.getElementById("tab-pauses").hidden && ad.getElementById("tab-slides").hidden);
@@ -926,6 +926,102 @@
     localStorage.removeItem("matdora-demo");
   }
 
+  // Arrivées, départs et passages en CDI
+  async function testNews() {
+    const g = "arrivées / départs (démo)";
+    localStorage.removeItem("matdora-demo");
+    const tv = await load("../index.html#mock", 1280, 720);
+    const tw = tv.contentWindow, td = tv.contentDocument;
+    tw.deck.pause(true);
+    await tw.refresh();
+    const at = x => new tw.Date(x);
+    const txt = id => td.getElementById(id).textContent;
+    const cards = () => [...td.querySelectorAll("#news-cards .news-card")];
+
+    // Fenêtre d'affichage : 7 jours avant la date, 14 jours après (ou « afficher jusqu'au »)
+    tw.eval('teamNews = [{ id: "a", type: "bienvenue", name: "Léa", role: "Stagiaire marketing", date: "2026-11-10", until: "", note: "" }]; newsKey = ""');
+    const shown = d => tw.activeNews(at(d)).map(n => n.name).join(",");
+    check(g, "annonce : pas affichée 8 jours avant", shown("2026-11-02T10:00:00") === "");
+    check(g, "annonce : affichée 7 jours avant", shown("2026-11-03T10:00:00") === "Léa");
+    check(g, "annonce : affichée 14 jours après", shown("2026-11-24T10:00:00") === "Léa");
+    check(g, "annonce : plus affichée 15 jours après", shown("2026-11-25T10:00:00") === "");
+    tw.eval('teamNews[0].until = "2026-11-12"');
+    check(g, "annonce : « afficher jusqu'au » respecté", shown("2026-11-12T10:00:00") === "Léa" && shown("2026-11-13T10:00:00") === "");
+    tw.eval('teamNews[0].until = ""');
+
+    // Une annonce : grande carte
+    tw.renderNews(at("2026-11-05T10:00:00"));
+    check(g, "bienvenue : « Bienvenue dans l'équipe ! », Léa, son poste", txt("news-title") === "Bienvenue dans l'équipe !" && cards().length === 1 && td.getElementById("news-cards").classList.contains("solo") && cards()[0].textContent.indexOf("Léa") !== -1 && cards()[0].textContent.indexOf("Stagiaire marketing") !== -1);
+    check(g, "bienvenue avant la date : « Arrive le mardi 10 novembre »", cards()[0].textContent.indexOf("Arrive le mardi 10 novembre") !== -1, cards()[0].textContent);
+    tw.eval('newsKey = ""'); tw.renderNews(at("2026-11-10T10:00:00"));
+    check(g, "bienvenue le jour J : « Arrive aujourd'hui »", cards()[0].textContent.indexOf("Arrive aujourd'hui") !== -1);
+    tw.eval('newsKey = ""'); tw.renderNews(at("2026-11-12T10:00:00"));
+    check(g, "bienvenue après : « Arrivée le mardi 10 novembre »", cards()[0].textContent.indexOf("Arrivée le mardi 10 novembre") !== -1);
+    check(g, "bienvenue : petit mot par défaut", cards()[0].textContent.indexOf("ravis de t'accueillir") !== -1);
+
+    // Départ et passage en CDI
+    tw.eval('teamNews = [{ id: "d", type: "depart", name: "Hugo", role: "Développeur", date: "2026-11-14", until: "", note: "" }]; newsKey = ""');
+    tw.renderNews(at("2026-11-10T10:00:00"));
+    check(g, "départ : « Merci et bonne route », dernier jour", cards()[0].classList.contains("t-depart") && cards()[0].textContent.indexOf("Merci et bonne route") !== -1 && cards()[0].textContent.indexOf("Dernier jour le samedi 14 novembre") !== -1, cards()[0].textContent);
+    tw.eval('teamNews = [{ id: "d", type: "depart", name: "Hugo", date: "2026-11-14", until: "", note: "" }, { id: "e", type: "depart", name: "Zoé", date: "2026-11-15", until: "", note: "" }]; newsKey = ""');
+    tw.renderNews(at("2026-11-17T10:00:00"));
+    check(g, "plusieurs départs : « Ils nous ont quittés », une carte chacun", txt("news-title") === "Ils nous ont quittés" && cards().length === 2 && cards()[0].textContent.indexOf("Départ le") !== -1);
+    tw.eval('teamNews = [{ id: "c", type: "cdi", name: "Inès", role: "Alternante → CDI développeuse", date: "2026-12-01", until: "", note: "" }, { id: "a", type: "bienvenue", name: "Léa", date: "2026-11-28", until: "", note: "" }]; newsKey = ""');
+    tw.renderNews(at("2026-11-27T10:00:00"));
+    check(g, "CDI : « Félicitations », passe en CDI le …", cards().some(c => c.classList.contains("t-cdi") && c.textContent.indexOf("Félicitations") !== -1 && c.textContent.indexOf("Passe en CDI le mardi 1 décembre") !== -1), cards().map(c => c.textContent).join(" | "));
+    check(g, "mélange : titre « Du nouveau dans l'équipe ! », triées par date", txt("news-title") === "Du nouveau dans l'équipe !" && cards()[0].textContent.indexOf("Léa") !== -1);
+    for (const [w, h] of [[1920, 1080], [1280, 720], [375, 667]]) {
+      tw.eval('teamNews = ' + JSON.stringify(["Léa", "Hugo", "Inès", "Paul", "Zoé"].map((n, i) => ({ id: n, type: ["bienvenue", "depart", "cdi"][i % 3], name: n, role: "Un poste au nom assez long pour tester", date: "2026-11-10", until: "", note: "" }))) + '; newsKey = ""');
+      tv.width = w; tv.height = h;
+      await sleep(250);
+      tw.renderNews(at("2026-11-10T10:00:00"));
+      check(g, `5 annonces tiennent à l'écran (${w}×${h})`, cards().length === 5 && fitsBox(td.getElementById("news-inner")));
+    }
+    tv.width = 1280; tv.height = 720;
+    await sleep(200);
+
+    // Dashboard : onglet Arrivées / départs
+    await tw.refresh();
+    const adm = await load("../admin.html#mock,news", 1280, 900);
+    const aw = adm.contentWindow, ad = adm.contentDocument;
+    await adminLogin(aw, ad);
+    const submit = id => ad.getElementById(id).dispatchEvent(new aw.Event("submit", { cancelable: true }));
+    check(g, "dashboard : onglet Arrivées / départs, 3 types", !ad.getElementById("tab-news").hidden && ad.querySelectorAll("#news-type option").length === 3 && ad.querySelectorAll("#news-list .row").length === 2);
+    ad.getElementById("news-type").value = "depart";
+    ad.getElementById("news-type").dispatchEvent(new aw.Event("change"));
+    check(g, "dashboard : libellé de date adapté (« Dernier jour »)", ad.getElementById("news-date-label").textContent === "Dernier jour");
+    ad.getElementById("news-name").value = "Hugo";
+    ad.getElementById("news-role").value = "Développeur";
+    ad.getElementById("news-name").dispatchEvent(new aw.Event("input"));
+    check(g, "dashboard : aperçu avec la période d'affichage", /Merci et bonne route, Hugo !.*affiché du .* au /.test(ad.getElementById("news-preview").textContent), ad.getElementById("news-preview").textContent);
+    submit("news-form");
+    await waitFor(() => ad.querySelectorAll("#news-list .row").length === 3);
+    check(g, "dashboard : annonce ajoutée, affichée en ce moment", [...ad.querySelectorAll("#news-list .row")].some(r => r.textContent.indexOf("Hugo") !== -1 && r.querySelector(".badge.now")));
+    await tw.refresh();
+    check(g, "écran : la slide montre Hugo", tw.deck.ids.indexOf("news") !== -1 && cards().some(c => c.textContent.indexOf("Hugo") !== -1));
+    const hugoRow = [...ad.querySelectorAll("#news-list .row")].filter(r => r.textContent.indexOf("Hugo") !== -1)[0];
+    [...hugoRow.querySelectorAll("button")].filter(b => b.textContent === "Modifier")[0].click();
+    check(g, "dashboard : modifier remplit le formulaire", ad.getElementById("news-name").value === "Hugo" && ad.getElementById("news-type").value === "depart" && !ad.getElementById("news-cancel").hidden);
+    ad.getElementById("news-type").value = "cdi";
+    ad.getElementById("news-role").value = "Alternant → CDI";
+    submit("news-form");
+    await waitFor(() => ad.getElementById("toast").textContent === "Annonce de Hugo modifiée.");
+    const saved = (await tw.MatDoraStore.getSettings()).teamNews;
+    check(g, "dashboard : annonce modifiée, pas dupliquée", saved.length === 3 && saved.filter(n => n.name === "Hugo").length === 1 && saved.filter(n => n.name === "Hugo")[0].type === "cdi");
+    // On retire tout : la slide disparaît
+    while (ad.querySelector("#news-list .btn.danger")) {
+      const b = ad.querySelector("#news-list .btn.danger");
+      const before = ad.querySelectorAll("#news-list .row").length;
+      b.click(); b.click();
+      await waitFor(() => ad.querySelectorAll("#news-list .row").length === before - 1);
+    }
+    await tw.refresh();
+    check(g, "plus d'annonce : plus de slide", tw.deck.ids.indexOf("news") === -1, tw.deck.ids.join());
+    adm.remove();
+    tv.remove();
+    localStorage.removeItem("matdora-demo");
+  }
+
   // Sécurité en mode démo : connexion au dashboard et code d'accès du site
   async function testAccess() {
     const g = "accès (démo)";
@@ -1128,6 +1224,7 @@
       await testLunch();
       await testHappy();
       await testTeam();
+      await testNews();
       await testAccess();
       localStorage.removeItem("matdora-demo");
       for (const [w, h] of VIEWPORTS) await testViewport(w, h);
