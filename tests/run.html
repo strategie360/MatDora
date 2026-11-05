@@ -1037,7 +1037,7 @@
 
     // Une annonce : grande carte
     tw.renderNews(at("2026-11-05T10:00:00"));
-    check(g, "bienvenue : « Bienvenue dans l'équipe ! », Léa, son poste", txt("news-title") === "Bienvenue dans l'équipe !" && cards().length === 1 && td.getElementById("news-cards").classList.contains("solo") && cards()[0].textContent.indexOf("Léa") !== -1 && cards()[0].textContent.indexOf("Stagiaire marketing") !== -1);
+    check(g, "bienvenue : « Bienvenue dans l'équipe ! », Léa, sans poste (même ancien)", txt("news-title") === "Bienvenue dans l'équipe !" && cards().length === 1 && td.getElementById("news-cards").classList.contains("solo") && cards()[0].textContent.indexOf("Léa") !== -1 && cards()[0].textContent.indexOf("Stagiaire marketing") === -1 && !cards()[0].querySelector(".r"));
     check(g, "bienvenue avant la date : « Arrive le mardi 10 novembre »", cards()[0].textContent.indexOf("Arrive le mardi 10 novembre") !== -1, cards()[0].textContent);
     tw.eval('newsKey = ""'); tw.renderNews(at("2026-11-10T10:00:00"));
     check(g, "bienvenue le jour J : « Arrive aujourd'hui »", cards()[0].textContent.indexOf("Arrive aujourd'hui") !== -1);
@@ -1108,7 +1108,6 @@
     ad.getElementById("news-type").value = "bienvenue";
     ad.getElementById("news-type").dispatchEvent(new aw.Event("change"));
     ad.getElementById("news-name").value = "Hugo";
-    ad.getElementById("news-role").value = "Développeur";
     ad.getElementById("news-name").dispatchEvent(new aw.Event("input"));
     check(g, "dashboard : aperçu avec la période d'affichage", /Hugo.*affiché du .* au /.test(ad.getElementById("news-preview").textContent), ad.getElementById("news-preview").textContent);
     submit("news-form");
@@ -1120,7 +1119,7 @@
     [...hugoRow.querySelectorAll("button")].filter(b => b.textContent === "Modifier")[0].click();
     check(g, "dashboard : modifier remplit le formulaire", ad.getElementById("news-name").value === "Hugo" && ad.getElementById("news-type").value === "bienvenue" && !ad.getElementById("news-cancel").hidden);
     ad.getElementById("news-type").value = "cdi";
-    ad.getElementById("news-role").value = "Alternant → CDI";
+    check(g, "dashboard : plus de champ « Poste »", !ad.getElementById("news-role"));
     submit("news-form");
     await waitFor(() => ad.getElementById("toast").textContent === "Annonce de Hugo modifiée.");
     const saved = (await tw.MatDoraStore.getSettings()).teamNews;

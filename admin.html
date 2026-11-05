@@ -324,8 +324,7 @@
       <div class="team-fields">
         <div class="field"><label for="news-type">Type d'annonce</label>
           <select id="news-type"></select></div>
-        <div class="field"><label for="news-name">Prénom (et nom)</label><input id="news-name" maxlength="60" placeholder="Ex. Léa Martin" required></div>
-        <div class="field grow-field"><label for="news-role">Poste <span class="hint">(facultatif)</span></label><input id="news-role" maxlength="80" placeholder="Ex. Stagiaire marketing"></div>
+        <div class="field grow-field"><label for="news-name">Prénom (et nom)</label><input id="news-name" maxlength="60" placeholder="Ex. Léa Martin" required></div>
       </div>
       <div class="team-fields">
         <div class="field"><label for="news-date" id="news-date-label">Date d'arrivée</label><input id="news-date" type="date" required></div>
@@ -1177,20 +1176,19 @@
   const isDeparture = n => store.newsType(n).id === "depart";
   const DATE_LABELS = { bienvenue: "Date d'arrivée", depart: "Dernier jour", cdi: "Date du passage en CDI" };
   function formNews() {
-    return { type: $("news-type").value, name: $("news-name").value.trim(), role: $("news-role").value.trim(),
+    return { type: $("news-type").value, name: $("news-name").value.trim(),
       date: $("news-date").value, until: $("news-until").value, note: $("news-note").value.trim() };
   }
   function newsPreview() {
     const n = formNews(), type = store.newsType(n);
     $("news-date-label").textContent = DATE_LABELS[type.id];
-    $("news-role").placeholder = type.role;
     $("news-note").placeholder = type.note;
     if (!n.date) { $("news-preview").textContent = `Sur l'écran : ${type.emoji} ${type.title}, ${n.name || "…"} !`; return; }
     const w = store.newsWindow(n);
     const fmt = d => new Date(d + "T12:00:00").toLocaleDateString("fr-FR", { day: "numeric", month: "long" });
-    $("news-preview").textContent = `Sur l'écran : ${type.emoji} ${type.title}, ${n.name || "…"} !${n.role ? ` · ${n.role}` : ""} · affiché du ${fmt(w.from)} au ${fmt(w.until)}`;
+    $("news-preview").textContent = `Sur l'écran : ${type.emoji} ${type.title}, ${n.name || "…"} ! · affiché du ${fmt(w.from)} au ${fmt(w.until)}`;
   }
-  ["news-type", "news-name", "news-role", "news-date", "news-until"].forEach(id => {
+  ["news-type", "news-name", "news-date", "news-until"].forEach(id => {
     $(id).addEventListener("input", newsPreview);
     $(id).addEventListener("change", newsPreview);
   });
@@ -1207,7 +1205,7 @@
       row.className = "row";
       const name = document.createElement("span");
       name.className = "grow";
-      name.textContent = `${type.emoji} ${n.name}${n.role ? ` · ${n.role}` : ""}`;
+      name.textContent = `${type.emoji} ${n.name}`;
       name.appendChild(badge(state, state === "now" ? "affiché en ce moment" : state === "soon" ? "à venir" : "terminé"));
       const small = document.createElement("small");
       small.textContent = `${type.short} · ${DATE_LABELS[type.id].toLowerCase()} : ${longDate(n.date)}` + (n.note ? ` · « ${n.note} »` : "");
@@ -1228,7 +1226,6 @@
     editingNews = n.id;
     $("news-type").value = n.type || "bienvenue";
     $("news-name").value = n.name;
-    $("news-role").value = n.role || "";
     $("news-date").value = n.date || "";
     $("news-until").value = n.until || "";
     $("news-note").value = n.note || "";

@@ -332,8 +332,8 @@
             { id: "v1", kind: "vacances", name: "Exemple : Sarah", destination: "Japon", theme: "", from: today(new Date(d.getTime() - 2 * 86400000)), to: today(new Date(d.getTime() + 6 * 86400000)), note: "" }
           ],
           teamNews: [
-            { id: "n1", type: "bienvenue", name: "Exemple : Léo", role: "Stagiaire marketing", date: today(new Date(d.getTime() - 1 * 86400000)), until: "", note: "" },
-            { id: "n2", type: "cdi", name: "Exemple : Inès", role: "Alternante → CDI développeuse", date: today(new Date(d.getTime() + 3 * 86400000)), until: "", note: "" },
+            { id: "n1", type: "bienvenue", name: "Exemple : Léo", date: today(new Date(d.getTime() - 1 * 86400000)), until: "", note: "" },
+            { id: "n2", type: "cdi", name: "Exemple : Inès", date: today(new Date(d.getTime() + 3 * 86400000)), until: "", note: "" },
             { id: "n3", type: "depart", name: "Exemple : Marc", month: today(new Date(d.getTime() - 40 * 86400000)).slice(0, 7) },
             { id: "n4", type: "depart", name: "Exemple : Julie", month: today(new Date(d.getTime() - 400 * 86400000)).slice(0, 7) }
           ]
@@ -585,11 +585,11 @@
   // Annonces de la slide "Du nouveau dans l'équipe"
   const NEWS_TYPES = [
     { id: "bienvenue", label: "Bienvenue (stagiaire, alternant, recrue)", short: "Bienvenue", emoji: "👋🎉", title: "Bienvenue",
-      role: "Ex. Stagiaire marketing", before: "Arrive le", after: "Arrivée le", note: "Bienvenue dans l'équipe, on est ravis de t'accueillir !" },
+      before: "Arrive le", after: "Arrivée le", note: "Bienvenue dans l'équipe, on est ravis de t'accueillir !" },
     { id: "depart", label: "Départ (ils nous ont quittés)", short: "Départ", emoji: "💐👋", title: "Merci et bonne route",
-      role: "Ex. Développeur", before: "Dernier jour le", after: "Départ le", note: "Merci pour tout, et bonne continuation !" },
+      before: "Dernier jour le", after: "Départ le", note: "Merci pour tout, et bonne continuation !" },
     { id: "cdi", label: "Alternant → CDI", short: "Alternant → CDI", emoji: "🎓➡️💼", title: "Félicitations",
-      role: "Ex. Alternant → CDI développeur", before: "Passe en CDI le", after: "En CDI depuis le", note: "Bravo, l'aventure continue avec nous !" }
+      before: "Passe en CDI le", after: "En CDI depuis le", note: "Bravo, l'aventure continue avec nous !" }
   ];
   const NEWS_BEFORE_DAYS = 7, NEWS_AFTER_DAYS = 14;  // affichée 7 jours avant la date et 14 jours après
   function newsType(n) { return NEWS_TYPES.filter(t => t.id === (n && n.type))[0] || NEWS_TYPES[0]; }
