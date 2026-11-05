@@ -1045,32 +1045,33 @@
     check(g, "bienvenue après : « Arrivée le mardi 10 novembre »", cards()[0].textContent.indexOf("Arrivée le mardi 10 novembre") !== -1);
     check(g, "bienvenue : petit mot par défaut", cards()[0].textContent.indexOf("ravis de t'accueillir") !== -1);
 
-    // Départ et passage en CDI
-    tw.eval('teamNews = [{ id: "d", type: "depart", name: "Hugo", role: "Développeur", date: "2026-11-14", until: "", note: "" }]; newsKey = ""');
-    tw.renderNews(at("2026-11-10T10:00:00"));
-    check(g, "départ : « Merci et bonne route », dernier jour", cards()[0].classList.contains("t-depart") && cards()[0].textContent.indexOf("Merci et bonne route") !== -1 && cards()[0].textContent.indexOf("Dernier jour le samedi 14 novembre") !== -1, cards()[0].textContent);
-    tw.eval('teamNews = [{ id: "d", type: "depart", name: "Hugo", date: "2026-11-14", until: "", note: "" }, { id: "e", type: "depart", name: "Zoé", date: "2026-11-15", until: "", note: "" }]; newsKey = ""');
-    tw.renderNews(at("2026-11-12T10:00:00"));
-    check(g, "départs à venir : « Ils nous quittent bientôt », une carte chacun", txt("news-title") === "Ils nous quittent bientôt" && cards().length === 2 && cards()[0].textContent.indexOf("Dernier jour le") !== -1);
-    check(g, "départ passé : plus dans « Du nouveau », mais au cimetière", tw.activeNews(at("2026-11-17T10:00:00")).length === 0 && tw.departed(at("2026-11-17T10:00:00")).map(n => n.name).join() === "Zoé,Hugo");
-    check(g, "le jour du départ : encore dans « Du nouveau », pas au cimetière", tw.activeNews(at("2026-11-14T10:00:00")).some(n => n.name === "Hugo") && !tw.departed(at("2026-11-14T10:00:00")).some(n => n.name === "Hugo"));
+    // Les départs ne sont plus des annonces : uniquement au cimetière, à partir du mois suivant
+    tw.eval('teamNews = [{ id: "d", type: "depart", name: "Hugo", month: "2026-11" }, { id: "e", type: "depart", name: "Zoé", month: "2026-10" }]; newsKey = ""');
+    check(g, "départs : jamais dans « Du nouveau »", tw.activeNews(at("2026-11-10T10:00:00")).length === 0 && tw.activeNews(at("2027-01-10T10:00:00")).length === 0);
+    check(g, "départ : pas au cimetière pendant son dernier mois", tw.departed(at("2026-11-30T10:00:00")).map(n => n.name).join() === "Zoé");
+    check(g, "départ : au cimetière dès le mois suivant", tw.departed(at("2026-12-01T10:00:00")).map(n => n.name).join() === "Hugo,Zoé");
+    check(g, "ancienne fiche avec une date : prise au mois", tw.MatDoraStore.departMonth({ date: "2025-03-20" }) === "2025-03" && tw.MatDoraStore.nextMonth("2025-12") === "2026-01" && tw.MatDoraStore.nextMonth("2026-03") === "2026-04");
 
     // Cimetière : TOUS les départs passés, même très anciens, du plus récent au plus ancien
     const tombs = () => [...td.querySelectorAll("#tombs .tomb")];
+    const wax = t => t.querySelector(".candle .wax").getBoundingClientRect().height;
     tw.eval('teamNews = [' +
-      '{ id: "a", type: "depart", name: "Hugo Martin", role: "Développeur", date: "2026-10-01", photo: "../img/1.jpg" },' +
-      '{ id: "b", type: "depart", name: "Zoé", role: "Stagiaire", date: "2024-03-15" },' +
-      '{ id: "c", type: "depart", name: "Paul Durand", date: "2026-11-02" },' +
-      '{ id: "d", type: "depart", name: "Léo", date: "2026-12-20" },' +
+      '{ id: "a", type: "depart", name: "Hugo Martin", month: "2026-09", photo: "../img/1.jpg" },' +
+      '{ id: "b", type: "depart", name: "Zoé", month: "2024-03" },' +
+      '{ id: "c", type: "depart", name: "Paul Durand", date: "2026-10-02" },' +
+      '{ id: "d", type: "depart", name: "Léo", month: "2026-11" },' +
       '{ id: "e", type: "bienvenue", name: "Léa", date: "2026-11-05" }]; ripKey = ""; newsKey = ""');
     tw.renderRip(at("2026-11-10T10:00:00"));
     check(g, "cimetière : tous les départs passés, du plus récent au plus ancien", tombs().length === 3 && tombs().map(t => t.querySelector(".n").textContent).join() === "Paul Durand,Hugo Martin,Zoé", tombs().map(t => t.querySelector(".n").textContent).join());
-    check(g, "cimetière : même un départ de 2024 est toujours là", tombs().some(t => t.textContent.indexOf("Zoé") !== -1 && t.textContent.indexOf("mars 2024") !== -1));
-    check(g, "cimetière : un départ à venir n'y est pas", !tombs().some(t => t.textContent.indexOf("Léo") !== -1));
-    check(g, "cimetière : bougie et R.I.P. sur chaque tombe", tombs().every(t => t.querySelector(".candle") && t.querySelector(".rip").textContent === "R.I.P."));
+    check(g, "cimetière : même un départ de 2024 est toujours là", tombs().some(t => t.textContent.indexOf("Zoé") !== -1 && t.textContent.indexOf("parti en mars 2024") !== -1));
+    check(g, "cimetière : le départ du mois en cours n'y est pas encore", !tombs().some(t => t.textContent.indexOf("Léo") !== -1));
+    check(g, "cimetière : pas de poste sur les tombes", tombs().every(t => !t.querySelector(".r")));
+    check(g, "cimetière : bougie et R.I.P. sur chaque tombe", tombs().every(t => t.querySelector(".candle .flame") && t.querySelector(".candle .wax") && t.querySelector(".rip").textContent === "R.I.P."));
+    check(g, "bougie : plus le départ est ancien, plus elle est petite", wax(tombs()[0]) > wax(tombs()[1]) && wax(tombs()[1]) > wax(tombs()[2]), tombs().map(wax).join(" > "));
+    check(g, "bougie : neuve le mois suivant, jamais complètement fondue", tw.candleSize(1) === 1 && tw.candleSize(12) < 1 && tw.candleSize(500) === 0.2);
     check(g, "cimetière : photo en petit quand il y en a une", !!tombs()[1].querySelector("img.face") && tombs()[1].querySelector("img.face").getAttribute("src") === "../img/1.jpg");
     check(g, "cimetière : initiales sinon", tombs()[0].querySelector(".face").textContent === "PD" && tombs()[2].querySelector(".face").textContent === "Z");
-    tw.eval('teamNews = ' + JSON.stringify(Array.from({ length: 30 }, (_, k) => ({ id: "x" + k, type: "depart", name: "Collègue au nom long n°" + k, role: "Un poste", date: "2025-0" + (1 + k % 9) + "-10" }))) + '; ripKey = ""');
+    tw.eval('teamNews = ' + JSON.stringify(Array.from({ length: 30 }, (_, k) => ({ id: "x" + k, type: "depart", name: "Collègue au nom long n°" + k, month: "2025-0" + (1 + k % 9) }))) + '; ripKey = ""');
     for (const [w, h] of [[1920, 1080], [1280, 720], [375, 667]]) {
       tv.width = w; tv.height = h;
       await sleep(250);
@@ -1085,7 +1086,7 @@
     check(g, "CDI : « Félicitations », passe en CDI le …", cards().some(c => c.classList.contains("t-cdi") && c.textContent.indexOf("Félicitations") !== -1 && c.textContent.indexOf("Passe en CDI le mardi 1 décembre") !== -1), cards().map(c => c.textContent).join(" | "));
     check(g, "mélange : titre « Du nouveau dans l'équipe ! », triées par date", txt("news-title") === "Du nouveau dans l'équipe !" && cards()[0].textContent.indexOf("Léa") !== -1);
     for (const [w, h] of [[1920, 1080], [1280, 720], [375, 667]]) {
-      tw.eval('teamNews = ' + JSON.stringify(["Léa", "Hugo", "Inès", "Paul", "Zoé"].map((n, i) => ({ id: n, type: ["bienvenue", "depart", "cdi"][i % 3], name: n, role: "Un poste au nom assez long pour tester", date: "2026-11-10", until: "", note: "" }))) + '; newsKey = ""');
+      tw.eval('teamNews = ' + JSON.stringify(["Léa", "Hugo", "Inès", "Paul", "Zoé"].map((n, i) => ({ id: n, type: ["bienvenue", "cdi"][i % 2], name: n, role: "Un poste au nom assez long pour tester", date: "2026-11-10", until: "", note: "" }))) + '; newsKey = ""');
       tv.width = w; tv.height = h;
       await sleep(250);
       tw.renderNews(at("2026-11-10T10:00:00"));
@@ -1100,28 +1101,49 @@
     const aw = adm.contentWindow, ad = adm.contentDocument;
     await adminLogin(aw, ad);
     const submit = id => ad.getElementById(id).dispatchEvent(new aw.Event("submit", { cancelable: true }));
-    check(g, "dashboard : onglet Arrivées / départs, 3 types", !ad.getElementById("tab-news").hidden && ad.querySelectorAll("#news-type option").length === 3 && ad.querySelectorAll("#news-list .row").length === 4);
-    ad.getElementById("news-type").value = "depart";
+    check(g, "dashboard : onglet Arrivées / CDI, 2 types, sans les départs", !ad.getElementById("tab-news").hidden && ad.querySelectorAll("#news-type option").length === 2 && ad.querySelectorAll("#news-list .row").length === 2 && !ad.querySelector("#news-type option[value=depart]") && !ad.getElementById("news-photo"));
+    ad.getElementById("news-type").value = "cdi";
     ad.getElementById("news-type").dispatchEvent(new aw.Event("change"));
-    check(g, "dashboard : libellé de date adapté (« Dernier jour »)", ad.getElementById("news-date-label").textContent === "Dernier jour");
+    check(g, "dashboard : libellé de date adapté (CDI)", ad.getElementById("news-date-label").textContent === "Date du passage en CDI");
+    ad.getElementById("news-type").value = "bienvenue";
+    ad.getElementById("news-type").dispatchEvent(new aw.Event("change"));
     ad.getElementById("news-name").value = "Hugo";
     ad.getElementById("news-role").value = "Développeur";
     ad.getElementById("news-name").dispatchEvent(new aw.Event("input"));
-    check(g, "dashboard : aperçu avec la période d'affichage", /Merci et bonne route, Hugo !.*affiché du .* au /.test(ad.getElementById("news-preview").textContent), ad.getElementById("news-preview").textContent);
+    check(g, "dashboard : aperçu avec la période d'affichage", /Hugo.*affiché du .* au /.test(ad.getElementById("news-preview").textContent), ad.getElementById("news-preview").textContent);
     submit("news-form");
-    await waitFor(() => ad.querySelectorAll("#news-list .row").length === 5);
+    await waitFor(() => ad.querySelectorAll("#news-list .row").length === 3);
     check(g, "dashboard : annonce ajoutée, affichée en ce moment", [...ad.querySelectorAll("#news-list .row")].some(r => r.textContent.indexOf("Hugo") !== -1 && r.querySelector(".badge.now")));
     await tw.refresh();
     check(g, "écran : la slide montre Hugo", tw.deck.ids.indexOf("news") !== -1 && cards().some(c => c.textContent.indexOf("Hugo") !== -1));
     const hugoRow = [...ad.querySelectorAll("#news-list .row")].filter(r => r.textContent.indexOf("Hugo") !== -1)[0];
     [...hugoRow.querySelectorAll("button")].filter(b => b.textContent === "Modifier")[0].click();
-    check(g, "dashboard : modifier remplit le formulaire", ad.getElementById("news-name").value === "Hugo" && ad.getElementById("news-type").value === "depart" && !ad.getElementById("news-cancel").hidden);
+    check(g, "dashboard : modifier remplit le formulaire", ad.getElementById("news-name").value === "Hugo" && ad.getElementById("news-type").value === "bienvenue" && !ad.getElementById("news-cancel").hidden);
     ad.getElementById("news-type").value = "cdi";
     ad.getElementById("news-role").value = "Alternant → CDI";
     submit("news-form");
     await waitFor(() => ad.getElementById("toast").textContent === "Annonce de Hugo modifiée.");
     const saved = (await tw.MatDoraStore.getSettings()).teamNews;
     check(g, "dashboard : annonce modifiée, pas dupliquée", saved.length === 5 && saved.filter(n => n.name === "Hugo").length === 1 && saved.filter(n => n.name === "Hugo")[0].type === "cdi");
+
+    // Onglet Départs
+    [...ad.querySelectorAll("#tabs [data-tab], [role=tab]")].filter(b => b.dataset.tab === "departures")[0].click();
+    const depRows = () => [...ad.querySelectorAll("#dep-list .row")];
+    check(g, "dashboard : onglet Départs, avec les 2 exemples", !ad.getElementById("tab-departures").hidden && depRows().length === 2 && depRows().every(r => r.querySelector(".badge.done")));
+    check(g, "dashboard : départs au mois, sans poste", ad.getElementById("dep-month").type === "month" && !ad.getElementById("dep-role") && !ad.querySelector("#tab-departures [id*=role]"));
+    const thisMonth = tw.MatDoraStore.today().slice(0, 7);
+    ad.getElementById("dep-name").value = "Nina";
+    ad.getElementById("dep-month").value = thisMonth;
+    ad.getElementById("dep-month").dispatchEvent(new aw.Event("input"));
+    check(g, "dashboard : aperçu « à partir de <mois suivant> »", ad.getElementById("dep-preview").textContent.indexOf("Nina rejoint « Ils nous ont quittés » à partir de") !== -1, ad.getElementById("dep-preview").textContent);
+    submit("dep-form");
+    await waitFor(() => depRows().length === 3);
+    const nina = (await tw.MatDoraStore.getSettings()).teamNews.filter(n => n.name === "Nina")[0];
+    check(g, "dashboard : départ enregistré au mois, sans date ni poste", nina && nina.type === "depart" && nina.month === thisMonth && !nina.date && !nina.role);
+    check(g, "dashboard : départ du mois en cours marqué « à partir de … »", depRows().some(r => r.textContent.indexOf("Nina") !== -1 && r.querySelector(".badge.soon")));
+    await tw.refresh();
+    check(g, "écran : Nina n'est pas encore au cimetière ni dans « Du nouveau »", !tombs().some(t => t.textContent.indexOf("Nina") !== -1) && !cards().some(c => c.textContent.indexOf("Nina") !== -1));
+
     // Photo pour un départ : envoyée depuis le dashboard, affichée en petit sur la tombe
     const pc = document.createElement("canvas");
     pc.width = 300; pc.height = 300;
@@ -1129,32 +1151,37 @@
     const pblob = await new Promise(r => pc.toBlob(r, "image/png"));
     const pdt = new aw.DataTransfer();
     pdt.items.add(new aw.File([pblob], "marc.png", { type: "image/png" }));
-    const marcRow = [...ad.querySelectorAll("#news-list .row")].filter(r => r.textContent.indexOf("Marc") !== -1)[0];
+    const marcRow = depRows().filter(r => r.textContent.indexOf("Marc") !== -1)[0];
     [...marcRow.querySelectorAll("button")].filter(b => b.textContent === "Modifier")[0].click();
-    ad.getElementById("news-photo").files = pdt.files;
-    ad.getElementById("news-photo").dispatchEvent(new aw.Event("change"));
-    check(g, "dashboard : zone de dépôt pour la photo", ad.getElementById("news-drop-text").textContent === "✅ marc.png");
-    submit("news-form");
-    await waitFor(() => ad.getElementById("toast").textContent === "Annonce de Exemple : Marc modifiée.");
+    check(g, "dashboard : modifier un départ remplit nom et mois", ad.getElementById("dep-name").value === "Exemple : Marc" && /^\d{4}-\d{2}$/.test(ad.getElementById("dep-month").value) && !ad.getElementById("dep-cancel").hidden);
+    ad.getElementById("dep-photo").files = pdt.files;
+    ad.getElementById("dep-photo").dispatchEvent(new aw.Event("change"));
+    check(g, "dashboard : zone de dépôt pour la photo", ad.getElementById("dep-drop-text").textContent === "✅ marc.png");
+    submit("dep-form");
+    await waitFor(() => ad.getElementById("toast").textContent === "Départ de Exemple : Marc modifié.");
     const marc = (await tw.MatDoraStore.getSettings()).teamNews.filter(n => n.name === "Exemple : Marc")[0];
     check(g, "dashboard : photo enregistrée (réduite en JPEG)", marc && (marc.photo || "").indexOf("data:image/jpeg") === 0);
+    check(g, "dashboard : miniature dans la liste des départs", !!depRows().filter(r => r.textContent.indexOf("Marc") !== -1)[0].querySelector("img.thumb"));
     await tw.refresh();
     tw.eval('ripKey = ""'); tw.renderRip();
     check(g, "écran : la photo de Marc sur sa tombe", tombs().some(t => t.textContent.indexOf("Marc") !== -1 && t.querySelector("img.face")));
-    const marcRow2 = [...ad.querySelectorAll("#news-list .row")].filter(r => r.textContent.indexOf("Marc") !== -1)[0];
+    check(g, "écran : la bougie de Marc (récent) plus grande que celle de Julie", wax(tombs().filter(t => t.textContent.indexOf("Marc") !== -1)[0]) > wax(tombs().filter(t => t.textContent.indexOf("Julie") !== -1)[0]));
+    const marcRow2 = depRows().filter(r => r.textContent.indexOf("Marc") !== -1)[0];
     [...marcRow2.querySelectorAll("button")].filter(b => b.textContent === "Modifier")[0].click();
-    check(g, "dashboard : modifier montre la photo actuelle", !ad.getElementById("news-photo-preview").hidden && !ad.getElementById("news-photo-remove").hidden);
-    ad.getElementById("news-photo-remove").click();
-    submit("news-form");
-    await waitFor(() => ad.getElementById("toast").textContent === "Annonce de Exemple : Marc modifiée.");
+    check(g, "dashboard : modifier montre la photo actuelle", !ad.getElementById("dep-photo-preview").hidden && !ad.getElementById("dep-photo-remove").hidden);
+    ad.getElementById("dep-photo-remove").click();
+    submit("dep-form");
+    await waitFor(() => ad.getElementById("toast").textContent === "Départ de Exemple : Marc modifié.");
     check(g, "dashboard : photo retirée", !(await tw.MatDoraStore.getSettings()).teamNews.filter(n => n.name === "Exemple : Marc")[0].photo);
 
-    // On retire tout : la slide disparaît
-    while (ad.querySelector("#news-list .btn.danger")) {
-      const b = ad.querySelector("#news-list .btn.danger");
-      const before = ad.querySelectorAll("#news-list .row").length;
-      b.click(); b.click();
-      await waitFor(() => ad.querySelectorAll("#news-list .row").length === before - 1);
+    // On retire tout : les deux slides disparaissent
+    for (const id of ["dep-list", "news-list"]) {
+      while (ad.querySelector(`#${id} .btn.danger`)) {
+        const b = ad.querySelector(`#${id} .btn.danger`);
+        const before = ad.querySelectorAll(`#${id} .row`).length;
+        b.click(); b.click();
+        await waitFor(() => ad.querySelectorAll(`#${id} .row`).length === before - 1);
+      }
     }
     await tw.refresh();
     check(g, "plus d'annonce : plus de slide « Du nouveau » ni de cimetière", tw.deck.ids.indexOf("news") === -1 && tw.deck.ids.indexOf("cemetery") === -1, tw.deck.ids.join());

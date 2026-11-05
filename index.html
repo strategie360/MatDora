@@ -1049,22 +1049,47 @@
   .tomb .n { font-family: var(--display); font-size: calc(clamp(1.1rem, min(2.4vw, 3.6vh), 1.7rem) * var(--scale, 1)); line-height: 1.05; overflow-wrap: anywhere; }
   .tomb .r { font-weight: 800; font-size: calc(.8rem * var(--scale, 1)); color: #3d434b; overflow-wrap: anywhere; }
   .tomb .w { margin-top: 4px; font-weight: 700; font-size: calc(.75rem * var(--scale, 1)); color: #3d434b; }
-  /* Bougie qui vacille (opacité seulement) */
-  .candle { position: absolute; right: calc(-8px * var(--scale, 1)); bottom: calc(-6px * var(--scale, 1)); font-size: calc(1.6rem * var(--scale, 1)); line-height: 1; }
-  .candle::before {
+  /* Bougie dessinée : la cire rapetisse avec le temps (--candle de 1 à 0,2), la flamme vacille */
+  .candle {
+    position: absolute;
+    right: calc(-6px * var(--scale, 1));
+    bottom: calc(-4px * var(--scale, 1));
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: calc(16px * var(--scale, 1));
+  }
+  .candle .wax {
+    display: block;
+    width: calc(12px * var(--scale, 1));
+    height: calc(52px * var(--candle, 1) * var(--scale, 1));
+    background: linear-gradient(90deg, #f1e3c0, #fff8e6 45%, #e6d3a3);
+    border-radius: 3px 3px 2px 2px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, .4);
+  }
+  .candle .flame {
+    position: relative;
+    display: block;
+    width: calc(8px * var(--scale, 1));
+    height: calc(14px * var(--scale, 1));
+    margin-bottom: 1px;
+    border-radius: 50% 50% 50% 50% / 65% 65% 35% 35%;
+    background: radial-gradient(circle at 50% 70%, #fffbe6 0 25%, #ffd43b 45%, #ff922b 75%);
+  }
+  .candle .flame::before {
     content: "";
     position: absolute;
-    left: 50%; top: -10%;
-    width: 1.6em; height: 1.6em;
-    margin-left: -.8em;
+    left: 50%; top: 50%;
+    width: calc(40px * var(--scale, 1)); height: calc(40px * var(--scale, 1));
+    margin: calc(-20px * var(--scale, 1)) 0 0 calc(-20px * var(--scale, 1));
     border-radius: 50%;
     background: radial-gradient(circle, rgba(255, 214, 102, .55), transparent 65%);
     animation: flicker 1.8s ease-in-out infinite alternate;
   }
-  .tomb:nth-child(2n) .candle::before { animation-duration: 1.3s; }
-  .tomb:nth-child(3n) .candle::before { animation-duration: 2.2s; }
+  .tomb:nth-child(2n) .candle .flame::before { animation-duration: 1.3s; }
+  .tomb:nth-child(3n) .candle .flame::before { animation-duration: 2.2s; }
   @keyframes flicker { 0% { opacity: .35; } 40% { opacity: 1; } 60% { opacity: .6; } 100% { opacity: .95; } }
-  .simple .slide.active .tomb, .simple .candle::before { animation: none; }
+  .simple .slide.active .tomb, .simple .candle .flame::before { animation: none; }
 
   /* ---------- Écran de code d'accès ---------- */
   .lock {
@@ -2047,8 +2072,8 @@
   function activeNews(now) {
     const t = store.today(now);
     return teamNews.filter(n => n.name && n.date)
-      // un départ passé n'est plus une annonce : il rejoint « Ils nous ont quittés »
-      .filter(n => !(store.newsType(n).id === "depart" && n.date < t))
+      // les départs ne sont pas des annonces : ils vont sur « Ils nous ont quittés »
+      .filter(n => store.newsType(n).id !== "depart")
       .filter(n => { const w = store.newsWindow(n); return w.from <= t && t <= w.until; })
       .sort((a, b) => a.date.localeCompare(b.date));
   }
@@ -2092,11 +2117,17 @@
 
   /* ---------- Slide Ils nous ont quittés ---------- */
   // Tous les départs passés, du plus récent au plus ancien, sans limite de temps
+  // Un départ y figure à partir du mois qui suit son dernier mois
   function departed(now) {
-    const t = store.today(now);
-    return teamNews.filter(n => n.name && n.date && store.newsType(n).id === "depart" && n.date < t)
-      .sort((a, b) => b.date.localeCompare(a.date));
+    const thisMonth = store.today(now).slice(0, 7);
+    return teamNews.filter(n => n.name && store.newsType(n).id === "depart" && store.departMonth(n) && store.departMonth(n) < thisMonth)
+      .sort((a, b) => store.departMonth(b).localeCompare(store.departMonth(a)));
   }
+  // Mois écoulés depuis le dernier mois du départ
+  function monthsSince(month, now) { return (now.getFullYear() * 12 + now.getMonth()) - (Number(month.slice(0, 4)) * 12 + Number(month.slice(5, 7)) - 1); }
+  // Hauteur de la bougie : neuve juste après le départ, presque fondue au bout de 2 ans
+  function candleSize(months) { return Math.max(0.2, Math.min(1, 1 - (months - 1) / 30)); }
+  window.candleSize = candleSize;
   const initials = name => name.replace(/^Exemple : /, "").split(/\s+/).filter(Boolean).slice(0, 2).map(w => w.charAt(0).toUpperCase()).join("");
   let ripKey = "";
   function renderRip(now = new Date()) {
@@ -2108,17 +2139,18 @@
     $("rip-sub").textContent = list.length > 1 ? `${list.length} collègues partis, mais toujours dans nos cœurs 🕯️` : "Parti, mais toujours dans nos cœurs 🕯️";
     const tombs = $("tombs");
     tombs.innerHTML = "";
-    const month = d => new Date(d + "T12:00:00").toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
+    const monthLabel = m => new Date(m + "-15T12:00:00").toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
     list.forEach(n => {
+      const m = store.departMonth(n), months = monthsSince(m, now);
       const tomb = document.createElement("div");
       tomb.className = "tomb";
       tomb.innerHTML =
         `<div class="rip">R.I.P.</div>` +
         (n.photo ? `<img class="face" src="${escapeHtml(n.photo)}" alt="">` : `<span class="face" aria-hidden="true">${escapeHtml(initials(n.name))}</span>`) +
         `<div class="n">${escapeHtml(n.name)}</div>` +
-        (n.role ? `<div class="r">${escapeHtml(n.role)}</div>` : "") +
-        `<div class="w">parti en ${escapeHtml(month(n.date))}</div>` +
-        `<span class="candle" aria-hidden="true">🕯️</span>`;
+        `<div class="w">parti en ${escapeHtml(monthLabel(m))}</div>` +
+        // La bougie se consume avec le temps écoulé depuis le départ
+        `<span class="candle" aria-hidden="true" data-months="${months}" style="--candle:${candleSize(months).toFixed(2)}"><i class="flame"></i><i class="wax"></i></span>`;
       tombs.appendChild(tomb);
     });
     // Tout le monde doit être affiché : on peut rapetisser beaucoup s'il y a foule

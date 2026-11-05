@@ -108,6 +108,7 @@
   .badge.soon { background: #fff3bf; color: #946200; }
   .badge.done { background: var(--line); color: var(--muted); }
   .badge.today { background: #ffdeeb; color: #c2255c; }
+  .thumb { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; vertical-align: middle; margin-right: 8px; border: 2px solid var(--line); }
   .badge.sick { background: #c3fae8; color: #087f5b; }
   .editing { margin: 0 0 8px; padding: 8px 12px; border-radius: 10px; background: #fff3bf; color: #5c4400; font-weight: 700; display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
   .team-form.is-editing { border-color: var(--accent); }
@@ -241,7 +242,8 @@
     <button role="tab" data-tab="lunch">Repas</button>
     <button role="tab" data-tab="team">Anniversaires</button>
     <button role="tab" data-tab="absences">Congés</button>
-    <button role="tab" data-tab="news">Arrivées / départs</button>
+    <button role="tab" data-tab="news">Arrivées / CDI</button>
+    <button role="tab" data-tab="departures">Départs</button>
     <button role="tab" data-tab="access">Accès</button>
   </nav>
 
@@ -313,10 +315,10 @@
     <p class="empty" id="vac-empty" hidden>Personne d'absent pour l'instant.</p>
   </section>
 
-  <!-- Arrivées / départs -->
+  <!-- Arrivées / CDI -->
   <section class="panel" id="tab-news" role="tabpanel" hidden>
-    <h2>👋 Arrivées, départs et CDI</h2>
-    <p class="help">Arrivées et CDI : affichés sur la slide « Du nouveau dans l'équipe » 7 jours avant la date et jusqu'à 14 jours après (ou jusqu'à la date que tu choisis). Départs : annoncés jusqu'au dernier jour, puis ils rejoignent pour toujours la slide « Ils nous ont quittés » 🕯️, avec leur photo.</p>
+    <h2>👋 Arrivées et passages en CDI</h2>
+    <p class="help">Affichés sur la slide « Du nouveau dans l'équipe » 7 jours avant la date et jusqu'à 14 jours après (ou jusqu'à la date que tu choisis). Les départs ont leur propre onglet.</p>
     <form class="team-form" id="news-form">
       <h3 id="news-form-title">Ajouter une annonce</h3>
       <div class="team-fields">
@@ -330,18 +332,6 @@
         <div class="field"><label for="news-until">Afficher jusqu'au <span class="hint">(facultatif)</span></label><input id="news-until" type="date"></div>
         <div class="field grow-field"><label for="news-note">Petit mot <span class="hint">(facultatif)</span></label><input id="news-note" maxlength="160"></div>
       </div>
-      <div class="field">
-        <span class="label-like"><strong>Photo</strong> <span class="hint">(facultatif, affichée en petit, surtout pour « Ils nous ont quittés »)</span></span>
-        <div class="image-pick">
-          <img id="news-photo-preview" alt="Photo actuelle" hidden>
-          <label class="dropzone small" id="news-drop">
-            <input id="news-photo" type="file" accept="image/*">
-            <span class="dz-icon" aria-hidden="true">🙂</span>
-            <span class="dz-main" id="news-drop-text">Choisis une photo ou glisse-la ici</span>
-          </label>
-          <button class="btn danger" type="button" id="news-photo-remove" hidden>Retirer la photo</button>
-        </div>
-      </div>
       <p class="preview" id="news-preview" aria-live="polite"></p>
       <div class="actions">
         <button class="btn primary" type="submit" id="news-submit">Ajouter</button>
@@ -351,6 +341,39 @@
     <h3 class="list-title">Annonces enregistrées</h3>
     <div id="news-list"></div>
     <p class="empty" id="news-empty" hidden>Aucune annonce pour l'instant.</p>
+  </section>
+
+  <!-- Départs : le cimetière « Ils nous ont quittés » -->
+  <section class="panel" id="tab-departures" role="tabpanel" hidden>
+    <h2>🕯️ Départs</h2>
+    <p class="help">Chaque départ rejoint pour toujours la slide « Ils nous ont quittés », à partir du mois qui suit son dernier mois. Sa bougie se consume avec le temps.</p>
+    <form class="team-form" id="dep-form">
+      <h3 id="dep-form-title">Ajouter un départ</h3>
+      <div class="team-fields">
+        <div class="field grow-field"><label for="dep-name">Prénom (et nom)</label><input id="dep-name" maxlength="60" placeholder="Ex. Hugo Martin" required></div>
+        <div class="field"><label for="dep-month">Dernier mois</label><input id="dep-month" type="month" placeholder="AAAA-MM" pattern="\d{4}-\d{2}" required></div>
+      </div>
+      <div class="field">
+        <span class="label-like"><strong>Photo</strong> <span class="hint">(facultatif, affichée en petit sur sa tombe)</span></span>
+        <div class="image-pick">
+          <img id="dep-photo-preview" alt="Photo actuelle" hidden>
+          <label class="dropzone small" id="dep-drop">
+            <input id="dep-photo" type="file" accept="image/*">
+            <span class="dz-icon" aria-hidden="true">🙂</span>
+            <span class="dz-main" id="dep-drop-text">Choisis une photo ou glisse-la ici</span>
+          </label>
+          <button class="btn danger" type="button" id="dep-photo-remove" hidden>Retirer la photo</button>
+        </div>
+      </div>
+      <p class="preview" id="dep-preview" aria-live="polite"></p>
+      <div class="actions">
+        <button class="btn primary" type="submit" id="dep-submit">Ajouter</button>
+        <button class="btn" type="button" id="dep-cancel" hidden>Annuler la modification</button>
+      </div>
+    </form>
+    <h3 class="list-title">Départs enregistrés</h3>
+    <div id="dep-list"></div>
+    <p class="empty" id="dep-empty" hidden>Aucun départ pour l'instant.</p>
   </section>
 
   <!-- Accès -->
@@ -539,7 +562,7 @@
   }
 
   /* ---------- Onglets ---------- */
-  const TABS = ["slides", "pauses", "happiness", "photos", "lunch", "team", "absences", "news", "access"];
+  const TABS = ["slides", "pauses", "happiness", "photos", "lunch", "team", "absences", "news", "departures", "access"];
   function openTab(name) {
     TABS.forEach(t => {
       $("tab-" + t).hidden = t !== name;
@@ -734,7 +757,7 @@
   const DROPS = {
     photo: { zone: "photo-drop", input: "photo-files", text: "photo-drop-text", empty: "Choisis des photos ou glisse-les ici" },
     happy: { zone: "happy-drop", input: "happy-image", text: "happy-drop-text", empty: "Choisis une image ou glisse-la ici" },
-    news: { zone: "news-drop", input: "news-photo", text: "news-drop-text", empty: "Choisis une photo ou glisse-la ici" }
+    dep: { zone: "dep-drop", input: "dep-photo", text: "dep-drop-text", empty: "Choisis une photo ou glisse-la ici" }
   };
   function updateDrop(key) {
     const d = DROPS[key], files = [...$(d.input).files];
@@ -1145,12 +1168,13 @@
   });
   /* ----- Arrivées, départs, CDI ----- */
   let editingNews = null;
-  store.NEWS_TYPES.forEach(t => {
+  store.NEWS_TYPES.filter(t => t.id !== "depart").forEach(t => {
     const o = document.createElement("option");
     o.value = t.id;
     o.textContent = `${t.emoji} ${t.label}`;
     $("news-type").appendChild(o);
   });
+  const isDeparture = n => store.newsType(n).id === "depart";
   const DATE_LABELS = { bienvenue: "Date d'arrivée", depart: "Dernier jour", cdi: "Date du passage en CDI" };
   function formNews() {
     return { type: $("news-type").value, name: $("news-name").value.trim(), role: $("news-role").value.trim(),
@@ -1174,7 +1198,7 @@
     const t = store.today();
     const list = $("news-list");
     list.innerHTML = "";
-    const items = settings.teamNews.slice().sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+    const items = settings.teamNews.filter(n => !isDeparture(n)).sort((a, b) => (b.date || "").localeCompare(a.date || ""));
     $("news-empty").hidden = items.length > 0;
     items.forEach(n => {
       const type = store.newsType(n), w = store.newsWindow(n);
@@ -1208,8 +1232,6 @@
     $("news-date").value = n.date || "";
     $("news-until").value = n.until || "";
     $("news-note").value = n.note || "";
-    newsPhoto = n.photo ? { url: n.photo, path: n.photoPath || "" } : null;
-    renderNewsPhoto();
     $("news-form-title").textContent = `Modifier l'annonce de ${n.name}`;
     $("news-submit").textContent = "Enregistrer les modifications";
     $("news-cancel").hidden = false;
@@ -1220,9 +1242,6 @@
   function stopEditNews() {
     editingNews = null;
     $("news-form").reset();
-    newsPhoto = null;
-    renderNewsPhoto();
-    updateDrop("news");
     $("news-date").value = store.today();
     $("news-form-title").textContent = "Ajouter une annonce";
     $("news-submit").textContent = "Ajouter";
@@ -1231,19 +1250,6 @@
     newsPreview();
   }
   $("news-cancel").addEventListener("click", stopEditNews);
-  let newsPhoto = null;  // { url, path } de la photo de l'annonce en cours
-  function renderNewsPhoto() {
-    $("news-photo-preview").hidden = !newsPhoto;
-    if (newsPhoto) $("news-photo-preview").src = newsPhoto.url;
-    $("news-photo-remove").hidden = !newsPhoto;
-  }
-  $("news-photo-remove").addEventListener("click", () => {
-    newsPhoto = null;
-    $("news-photo").value = "";
-    updateDrop("news");
-    renderNewsPhoto();
-    toast("Photo retirée. Pense à enregistrer.");
-  });
   $("news-date").value = store.today();
   $("news-form").addEventListener("submit", e => {
     e.preventDefault();
@@ -1252,12 +1258,7 @@
     if (n.until && n.until < n.date) { toast("« Afficher jusqu'au » doit être après la date.", true); return; }
     const wasEditing = editingNews;
     attempt(async () => {
-      const before = wasEditing ? settings.teamNews.filter(x => x.id === wasEditing)[0] : null;
-      const file = $("news-photo").files[0];
-      if (file) newsPhoto = await store.uploadImage(await store.resizeImage(file, 600), "team");
-      const entry = Object.assign({ id: wasEditing || newId() }, n, { photo: newsPhoto ? newsPhoto.url : null, photoPath: newsPhoto ? newsPhoto.path : null });
-      // Ancienne photo remplacée ou retirée : supprimée du stockage
-      if (before && before.photoPath && before.photoPath !== entry.photoPath) await store.deleteImage(before.photoPath);
+      const entry = Object.assign({ id: wasEditing || newId() }, n);
       const next = wasEditing ? settings.teamNews.map(x => x.id === wasEditing ? entry : x) : settings.teamNews.concat([entry]);
       await store.saveSetting("teamNews", next);
       settings.teamNews = next;
@@ -1274,7 +1275,106 @@
       msg ? "Message de la slide enregistré." : "Message de la slide retiré.");
   });
 
-  function renderTeam() { $("absmsg").value = settings.absenceMessage || ""; renderBirthdays(); renderAbsences(); renderNewsList(); }
+  /* ----- Départs : dernier mois et photo, pour « Ils nous ont quittés » ----- */
+  let editingDep = null, depPhoto = null;  // depPhoto = { url, path } de la photo du départ en cours
+  const monthLabel = m => new Date(m + "-15T12:00:00").toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
+  function renderDepPhoto() {
+    $("dep-photo-preview").hidden = !depPhoto;
+    if (depPhoto) $("dep-photo-preview").src = depPhoto.url;
+    $("dep-photo-remove").hidden = !depPhoto;
+  }
+  function depPreview() {
+    const name = $("dep-name").value.trim() || "…", m = $("dep-month").value;
+    $("dep-preview").textContent = /^\d{4}-\d{2}$/.test(m)
+      ? `Sur l'écran : 🕯️ ${name} rejoint « Ils nous ont quittés » à partir de ${monthLabel(store.nextMonth(m))}`
+      : `Sur l'écran : 🕯️ ${name} rejoindra « Ils nous ont quittés »`;
+  }
+  ["dep-name", "dep-month"].forEach(id => { $(id).addEventListener("input", depPreview); $(id).addEventListener("change", depPreview); });
+  function renderDepartures() {
+    const thisMonth = store.today().slice(0, 7);
+    const list = $("dep-list");
+    list.innerHTML = "";
+    const items = settings.teamNews.filter(isDeparture).sort((a, b) => store.departMonth(b).localeCompare(store.departMonth(a)));
+    $("dep-empty").hidden = items.length > 0;
+    items.forEach(n => {
+      const m = store.departMonth(n);
+      const row = document.createElement("div");
+      row.className = "row";
+      const name = document.createElement("span");
+      name.className = "grow";
+      if (n.photo) { const img = document.createElement("img"); img.className = "thumb"; img.src = n.photo; img.alt = ""; name.appendChild(img); }
+      name.appendChild(document.createTextNode(n.name));
+      name.appendChild(m < thisMonth ? badge("done", "au cimetière 🕯️") : badge("soon", `à partir de ${monthLabel(store.nextMonth(m))}`));
+      const small = document.createElement("small");
+      small.textContent = `dernier mois : ${monthLabel(m)}`;
+      name.appendChild(small);
+      row.appendChild(name);
+      row.appendChild(rowButtons(() => editDeparture(n), () => attempt(async () => {
+        const next = settings.teamNews.filter(x => x.id !== n.id);
+        await store.saveSetting("teamNews", next);
+        settings.teamNews = next;
+        if (n.photoPath) await store.deleteImage(n.photoPath);
+        if (editingDep === n.id) stopEditDeparture();
+        renderDepartures();
+      }, `${n.name} retiré des départs.`)));
+      list.appendChild(row);
+    });
+  }
+  function editDeparture(n) {
+    editingDep = n.id;
+    $("dep-name").value = n.name;
+    $("dep-month").value = store.departMonth(n);
+    depPhoto = n.photo ? { url: n.photo, path: n.photoPath || "" } : null;
+    renderDepPhoto();
+    $("dep-form-title").textContent = `Modifier le départ de ${n.name}`;
+    $("dep-submit").textContent = "Enregistrer les modifications";
+    $("dep-cancel").hidden = false;
+    $("dep-form").classList.add("is-editing");
+    depPreview();
+    $("dep-form").scrollIntoView({ block: "start" });
+  }
+  function stopEditDeparture() {
+    editingDep = null;
+    depPhoto = null;
+    $("dep-form").reset();
+    renderDepPhoto();
+    updateDrop("dep");
+    $("dep-form-title").textContent = "Ajouter un départ";
+    $("dep-submit").textContent = "Ajouter";
+    $("dep-cancel").hidden = true;
+    $("dep-form").classList.remove("is-editing");
+    depPreview();
+  }
+  $("dep-cancel").addEventListener("click", stopEditDeparture);
+  $("dep-photo-remove").addEventListener("click", () => {
+    depPhoto = null;
+    $("dep-photo").value = "";
+    updateDrop("dep");
+    renderDepPhoto();
+    toast("Photo retirée. Pense à enregistrer.");
+  });
+  $("dep-form").addEventListener("submit", e => {
+    e.preventDefault();
+    const name = $("dep-name").value.trim(), month = $("dep-month").value.trim();
+    if (!name || !/^\d{4}-\d{2}$/.test(month)) { toast("Indique le prénom et le dernier mois.", true); return; }
+    const wasEditing = editingDep;
+    attempt(async () => {
+      const before = wasEditing ? settings.teamNews.filter(x => x.id === wasEditing)[0] : null;
+      const file = $("dep-photo").files[0];
+      if (file) depPhoto = await store.uploadImage(await store.resizeImage(file, 600), "team");
+      const entry = { id: wasEditing || newId(), type: "depart", name, month, photo: depPhoto ? depPhoto.url : null, photoPath: depPhoto ? depPhoto.path : null };
+      // Ancienne photo remplacée ou retirée : supprimée du stockage
+      if (before && before.photoPath && before.photoPath !== entry.photoPath) await store.deleteImage(before.photoPath);
+      const next = wasEditing ? settings.teamNews.map(x => x.id === wasEditing ? entry : x) : settings.teamNews.concat([entry]);
+      await store.saveSetting("teamNews", next);
+      settings.teamNews = next;
+      stopEditDeparture();
+      renderDepartures();
+    }, wasEditing ? `Départ de ${name} modifié.` : `Départ de ${name} ajouté.`);
+  });
+  depPreview();
+
+  function renderTeam() { $("absmsg").value = settings.absenceMessage || ""; renderBirthdays(); renderAbsences(); renderNewsList(); renderDepartures(); }
   newsPreview();
   vacPreview();
 

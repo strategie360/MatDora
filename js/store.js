@@ -334,8 +334,8 @@
           teamNews: [
             { id: "n1", type: "bienvenue", name: "Exemple : Léo", role: "Stagiaire marketing", date: today(new Date(d.getTime() - 1 * 86400000)), until: "", note: "" },
             { id: "n2", type: "cdi", name: "Exemple : Inès", role: "Alternante → CDI développeuse", date: today(new Date(d.getTime() + 3 * 86400000)), until: "", note: "" },
-            { id: "n3", type: "depart", name: "Exemple : Marc", role: "Chef de projet", date: today(new Date(d.getTime() - 40 * 86400000)), until: "", note: "" },
-            { id: "n4", type: "depart", name: "Exemple : Julie", role: "Stagiaire RH", date: today(new Date(d.getTime() - 120 * 86400000)), until: "", note: "" }
+            { id: "n3", type: "depart", name: "Exemple : Marc", month: today(new Date(d.getTime() - 40 * 86400000)).slice(0, 7) },
+            { id: "n4", type: "depart", name: "Exemple : Julie", month: today(new Date(d.getTime() - 400 * 86400000)).slice(0, 7) }
           ]
         },
         photos: [
@@ -594,6 +594,9 @@
   const NEWS_BEFORE_DAYS = 7, NEWS_AFTER_DAYS = 14;  // affichée 7 jours avant la date et 14 jours après
   function newsType(n) { return NEWS_TYPES.filter(t => t.id === (n && n.type))[0] || NEWS_TYPES[0]; }
   function addDays(day, n) { const d = new Date(day + "T12:00:00"); d.setDate(d.getDate() + n); return today(d); }
+  // Départ : on ne garde que le dernier mois ("AAAA-MM") ; les anciennes fiches avaient une date
+  function departMonth(n) { return n.month || (n.date || "").slice(0, 7); }
+  function nextMonth(month) { const y = Number(month.slice(0, 4)), m = Number(month.slice(5, 7)); return m === 12 ? `${y + 1}-01` : `${y}-${pad(m + 1)}`; }
   function newsWindow(n) { return { from: addDays(n.date, -NEWS_BEFORE_DAYS), until: n.until || addDays(n.date, NEWS_AFTER_DAYS) }; }
 
   const FOOD_EMOJI = [
@@ -611,7 +614,7 @@
 
   const lunchApi = impl ? { lunch, ensureDraw, reroll, lunchRaw: impl.lunch } : {};
   window.MatDoraStore = Object.assign(
-    { mode, SLIDES, DEFAULTS, HM_REMINDER: "Va sur le channel HM pour voter pour la date et annoncer ta présence !", today, withDefaults, storedCode, rememberCode, usernameToEmail, resizeImage, foodEmoji, VACATION_THEMES, ABSENCE_KINDS, absenceKind, NEWS_TYPES, newsType, newsWindow, addDays, guessTheme, vacationTheme, openOn, drawTime, weekday, DRAW_HOUR, DRAW_MINUTE },
+    { mode, SLIDES, DEFAULTS, HM_REMINDER: "Va sur le channel HM pour voter pour la date et annoncer ta présence !", today, withDefaults, storedCode, rememberCode, usernameToEmail, resizeImage, foodEmoji, VACATION_THEMES, ABSENCE_KINDS, absenceKind, NEWS_TYPES, newsType, newsWindow, addDays, departMonth, nextMonth, guessTheme, vacationTheme, openOn, drawTime, weekday, DRAW_HOUR, DRAW_MINUTE },
     impl || { getSettings: () => Promise.resolve(withDefaults(null)) },
     lunchApi
   );
