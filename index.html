@@ -988,6 +988,33 @@
   .news-card .m { margin-top: 8px; font-size: calc(clamp(.9rem, 2.2vh, 1.15rem) * var(--scale, 1)); color: #343a66; white-space: pre-line; overflow-wrap: anywhere; }
 
   /* ---------- Slide Ils nous ont quittés : un petit cimetière (avec humour), bougies et photos ---------- */
+  /* ---------- Prochain resto d'équipe : ardoise de bistrot et menu en papier ---------- */
+  body[data-tone="bistro"] .seg { background: rgba(255, 255, 255, .18); }
+  body[data-tone="bistro"] .seg i { background: #f2c14e; }
+  .s-outing {
+    background-color: #1f3a2e;
+    background-image: radial-gradient(ellipse at 30% 20%, rgba(255, 255, 255, .10), transparent 60%);
+    color: #f4efe1;
+  }
+  .s-outing .inner { max-width: 1400px; display: flex; flex-direction: column; justify-content: center; }
+  .out-wrap { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); grid-gap: calc(40px * var(--scale, 1)); align-items: center; }
+  .out-wrap.no-menu { grid-template-columns: minmax(0, 1fr); text-align: center; }
+  .out-info { min-width: 0; }
+  .out-info .eyebrow { color: #f2c14e; }
+  .out-info h2 { color: #fff; margin: 8px 0; line-height: 1.05; overflow-wrap: anywhere; font-size: calc(clamp(2rem, min(6vw, 10vh), 4.6rem) * var(--scale, 1)); }
+  .out-when { margin: 6px 0; font-weight: 800; font-size: calc(clamp(1.1rem, 3vh, 1.7rem) * var(--scale, 1)); }
+  .out-in { display: inline-block; margin: 6px 0; padding: .2em .8em; border-radius: 999px; background: #f2c14e; color: #1b3127; font-weight: 900; font-size: calc(clamp(1rem, 2.6vh, 1.4rem) * var(--scale, 1)); }
+  .out-place, .out-then { margin: 10px 0 0; color: #cfe3d6; font-weight: 700; font-size: calc(clamp(.9rem, 2.2vh, 1.2rem) * var(--scale, 1)); overflow-wrap: anywhere; }
+  .out-menu { min-width: 0; padding: calc(18px * var(--scale, 1)); border-radius: 10px; background: #fffaf0; color: #3a2a1a; box-shadow: 0 18px 40px rgba(0, 0, 0, .4); transform: rotate(1deg); text-align: center; }
+  .out-menu-title { margin-bottom: calc(10px * var(--scale, 1)); color: #b3261e; font-family: var(--display); font-size: calc(clamp(1.1rem, 3vh, 1.6rem) * var(--scale, 1)); }
+  .out-menu img { display: block; max-width: 100%; max-height: calc(64vh * var(--scale, 1)); margin: 0 auto; border-radius: 4px; object-fit: contain; }
+  .out-text { margin: calc(10px * var(--scale, 1)) 0 0; white-space: pre-line; text-align: left; overflow-wrap: anywhere; line-height: 1.4; font-size: calc(clamp(.9rem, 2.4vh, 1.3rem) * var(--scale, 1)); }
+  .out-menu img + .out-text { border-top: 1px dashed #d9c7a6; padding-top: calc(10px * var(--scale, 1)); }
+  @media (max-aspect-ratio: 1/1) {
+    .out-wrap { grid-template-columns: minmax(0, 1fr); text-align: center; }
+    .out-menu img { max-height: calc(36vh * var(--scale, 1)); }
+  }
+
   body[data-tone="rip"] .seg { background: rgba(255, 255, 255, .18); }
   body[data-tone="rip"] .seg i { background: #ffd27a; }
   .s-rip {
@@ -1278,6 +1305,27 @@
             <ul class="lunch-list" id="lunch-list"></ul>
             <p class="lunch-empty" id="lunch-empty">Aucun resto ouvert aujourd'hui. Ajoute-en dans le dashboard.</p>
           </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Prochain resto d'équipe (onglet Resto d'équipe du dashboard), avec le menu -->
+  <section class="slide s-outing" data-id="outing" data-tone="bistro" aria-label="Prochain resto d'équipe">
+    <div class="inner" id="out-inner">
+      <div class="out-wrap" id="out-wrap">
+        <div class="out-info">
+          <div class="eyebrow">Prochain resto d'équipe</div>
+          <h2 id="out-name">–</h2>
+          <p class="out-when" id="out-when"></p>
+          <p class="out-in" id="out-in"></p>
+          <p class="out-place" id="out-place" hidden></p>
+          <p class="out-then" id="out-then" hidden></p>
+        </div>
+        <div class="out-menu" id="out-menu">
+          <div class="out-menu-title">🍽️ Au menu</div>
+          <img id="out-img" alt="Menu du resto" hidden>
+          <p class="out-text" id="out-text" hidden></p>
         </div>
       </div>
     </div>
@@ -2159,11 +2207,50 @@
   window.renderRip = renderRip;
   window.departed = departed;
 
+  /* ---------- Prochain resto d'équipe ---------- */
+  let outings = [];
+  const OUTING_END_HOUR = 14;  // le jour J, la slide reste jusqu'à 14 h
+  function upcomingOutings(now) {
+    const t = store.today(now);
+    return outings.filter(o => o.name && o.date && (o.date > t || (o.date === t && now.getHours() < OUTING_END_HOUR)))
+      .sort((a, b) => a.date.localeCompare(b.date));
+  }
+  let outKey = "";
+  function renderOuting(now = new Date()) {
+    const list = upcomingOutings(now), o = list[0];
+    const t = store.today(now);
+    const key = t + JSON.stringify(list.slice(0, 2)) + innerWidth + "x" + innerHeight;
+    if (key === outKey) return;
+    outKey = key;
+    if (!o) return;
+    const long = d => { const w = new Date(d + "T12:00:00").toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" }); return w.charAt(0).toUpperCase() + w.slice(1); };
+    const days = Math.round((new Date(o.date + "T12:00:00") - new Date(t + "T12:00:00")) / 86400000);
+    $("out-name").textContent = `${store.foodEmoji(o.name)} ${o.name}`;
+    $("out-when").textContent = `${long(o.date)} · à midi`;
+    $("out-in").textContent = days === 0 ? "C'est ce midi ! 🎉" : days === 1 ? "C'est demain midi !" : `dans ${days} jours`;
+    $("out-place").hidden = !o.place;
+    $("out-place").textContent = o.place ? `📍 ${o.place}` : "";
+    const then = list[1];
+    $("out-then").hidden = !then;
+    $("out-then").textContent = then ? `Et ensuite : ${then.name}, ${long(then.date).toLowerCase()}` : "";
+    const img = $("out-img"), url = o.menuImage || "";
+    if (img.getAttribute("src") !== url) { if (url) img.src = url; else img.removeAttribute("src"); }
+    img.hidden = !url;
+    $("out-text").hidden = !o.menuText;
+    $("out-text").textContent = o.menuText || "";
+    $("out-menu").hidden = !url && !o.menuText;
+    $("out-wrap").classList.toggle("no-menu", !url && !o.menuText);
+    fitBox("out-inner", "out-wrap", 0.3);
+  }
+  $("out-img").addEventListener("load", () => fitBox("out-inner", "out-wrap", 0.3));
+  window.renderOuting = renderOuting;
+  window.upcomingOutings = upcomingOutings;
+
   window.renderBirthday = renderBirthday;
   window.renderVacation = renderVacation;
   window.onVacation = onVacation;
   window.upcomingBirthdays = upcomingBirthdays;
-  window.addEventListener("resize", () => { bdayKey = vacKey = newsKey = ripKey = ""; renderBirthday(); renderVacation(); renderNews(); renderRip(); });
+  window.addEventListener("resize", () => { bdayKey = vacKey = newsKey = ripKey = outKey = ""; renderBirthday(); renderVacation(); renderNews(); renderRip(); renderOuting(); });
 
   /* ---------- Horloge commune ---------- */
   let doraRunning = render();
@@ -2179,6 +2266,7 @@
     renderVacation();
     renderNews();
     renderRip();
+    renderOuting();
     if (lunchData) renderDraw(lunchData);
   }, 1000);
 
@@ -2207,7 +2295,8 @@
   // Les slides à données ne s'affichent que si les données sont là (Anniversaires : au moins une
   // date ; Bonnes vacances : seulement quand quelqu'un est en vacances aujourd'hui)
   function available(id) {
-    if (["happiness", "photos", "lunch", "birthday", "vacation", "news", "cemetery"].indexOf(id) !== -1 && store.mode === "off") return false;
+    if (["happiness", "photos", "lunch", "outing", "birthday", "vacation", "news", "cemetery"].indexOf(id) !== -1 && store.mode === "off") return false;
+    if (id === "outing" && !upcomingOutings(new Date()).length) return false;
     if (id === "cemetery" && !departed(new Date()).length) return false;
     if (id === "news" && !activeNews(new Date()).length) return false;
     if (id === "photos" && !eventPhotos.length) return false;
@@ -2351,6 +2440,8 @@
       vacations = settings.vacations;
       absenceMessage = settings.absenceMessage;
       teamNews = settings.teamNews;
+      outings = settings.restoOutings;
+      renderOuting();
       renderNews();
       renderRip();
       renderBirthday();

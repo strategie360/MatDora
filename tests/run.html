@@ -87,7 +87,7 @@
     const win = f.contentWindow, doc = f.contentDocument;
     await win.document.fonts?.ready;
     await win.refresh();
-    check(g, "les 11 slides sont dans la rotation", win.deck.count === 11, win.deck.ids.join(", "));
+    check(g, "les 12 slides sont dans la rotation", win.deck.count === 12, win.deck.ids.join(", "));
     const imgs = await imagesReady(doc);
     check(g, "script chargé (diaporama prêt)", typeof win.deck === "object");
     if (typeof win.deck !== "object") return;
@@ -316,7 +316,7 @@
     const tw = tv.contentWindow, td = tv.contentDocument;
     tw.deck.pause(true);
     await tw.refresh();
-    check(g, "écran : 11 slides avec les données", tw.deck.ids.join() === "dora,pause,jira,rdv,happiness,photos,lunch,birthday,vacation,news,cemetery", tw.deck.ids.join());
+    check(g, "écran : 12 slides avec les données", tw.deck.ids.join() === "dora,pause,jira,rdv,happiness,photos,lunch,outing,birthday,vacation,news,cemetery", tw.deck.ids.join());
     check(g, "happiness : titre de l'event affiché", td.getElementById("happy-title").textContent.indexOf("apéro") !== -1, td.getElementById("happy-title").textContent);
     check(g, "happiness : compte à rebours affiché", /^dans \d/.test(td.getElementById("happy-in").textContent), td.getElementById("happy-in").textContent);
     const lunchRows = () => [...td.querySelectorAll("#lunch-list .lunch-name")].map(n => n.textContent.trim());
@@ -433,12 +433,12 @@
     const aw = adm.contentWindow, ad = adm.contentDocument;
     await adminLogin(aw, ad);
     check(g, "dashboard : mode démo indiqué", ad.getElementById("mode").textContent === "Mode démo (#mock)");
-    check(g, "dashboard : 11 slides listées", ad.querySelectorAll("#slides-list .row").length === 11);
+    check(g, "dashboard : 12 slides listées", ad.querySelectorAll("#slides-list .row").length === 12);
     ad.getElementById("slide-jira").click();
     ad.getElementById("slides-save").click();
     await sleep(400);
     await tw.refresh();
-    check(g, "dashboard → écran : slide décochée retirée", tw.deck.ids.indexOf("jira") === -1 && tw.deck.count === 10, tw.deck.ids.join());
+    check(g, "dashboard → écran : slide décochée retirée", tw.deck.ids.indexOf("jira") === -1 && tw.deck.count === 11, tw.deck.ids.join());
 
     ad.querySelector('[data-tab="pauses"]').click();
     check(g, "dashboard : onglet Pauses s'ouvre", !ad.getElementById("tab-pauses").hidden && ad.getElementById("tab-slides").hidden);
@@ -668,13 +668,16 @@
     }
     tv.width = 1920; tv.height = 1080;
     await sleep(250);
-    tw.renderLunch(await s.lunch(today));
-    check(g, "écran 16:9 : 15 choix en étiquettes avec emoji", td.querySelectorAll("#lunch-list li.chip").length === 15 && [...td.querySelectorAll("#lunch-list .chip .e")].every(e => e.textContent.trim() !== ""));
+    const before30 = await s.lunch(today);
+    tw.renderLunch(before30);
+    // Le nombre de restos ouverts dépend du jour (le food truck n'ouvre que mardi et jeudi)
+    check(g, `écran 16:9 : ${before30.options.length} choix en étiquettes avec emoji`, before30.options.length >= 12 && td.querySelectorAll("#lunch-list li.chip").length === before30.options.length && [...td.querySelectorAll("#lunch-list .chip .e")].every(e => e.textContent.trim() !== ""));
     check(g, "écran : emoji deviné d'après le nom", tw.MatDoraStore.foodEmoji("Pizzeria Mario") === "🍕" && tw.MatDoraStore.foodEmoji("Sushi Bar") === "🍣" && tw.MatDoraStore.foodEmoji("Chez Paulette") === "🍽️" && tw.MatDoraStore.foodEmoji("Zzz") === "🍴");
     check(g, "écran : resto du jour en grand avec son emoji", weekend || (td.getElementById("draw-emoji").textContent === tw.MatDoraStore.foodEmoji(td.getElementById("draw-name").textContent)));
     for (let i = 13; i <= 30; i++) await s.propose(today, `Restaurant au nom vraiment très long numéro ${i}`);
-    tw.renderLunch(await s.lunch(today));
-    check(g, "écran 16:9 : 33 choix, tous affichés et dans l'écran", td.querySelectorAll("#lunch-list li").length === 33 && fitsBox(li));
+    const after30 = await s.lunch(today);
+    tw.renderLunch(after30);
+    check(g, `écran 16:9 : ${after30.options.length} choix, tous affichés et dans l'écran`, after30.options.length >= 30 && td.querySelectorAll("#lunch-list li").length === after30.options.length && fitsBox(li));
 
     // Un resto ajouté à la liste apparaît d'office dans les choix de l'écran
     await s.addRestaurant("Exemple : Crêperie");
@@ -1189,6 +1192,115 @@
     localStorage.removeItem("matdora-demo");
   }
 
+  // Prochain resto d'équipe : le midi où on y va ensemble, avec le menu
+  async function testOuting() {
+    const g = "resto d'équipe";
+    localStorage.removeItem("matdora-demo");
+    const tv = await load("../index.html#mock", 1280, 720);
+    const tw = tv.contentWindow, td = tv.contentDocument;
+    tw.deck.pause(true);
+    await tw.refresh();
+    const at = x => new tw.Date(x);
+    const txt = id => td.getElementById(id).textContent;
+    check(g, "démo : la slide est dans la rotation, juste après le repas", tw.deck.ids.indexOf("outing") === tw.deck.ids.indexOf("lunch") + 1);
+    check(g, "démo : le resto et son menu en texte", txt("out-name").indexOf("Bistrot du coin") !== -1 && txt("out-text").indexOf("tarte tatin") !== -1 && !td.getElementById("out-text").hidden);
+    check(g, "le menu garde ses retours à la ligne", tw.getComputedStyle(td.getElementById("out-text")).whiteSpace === "pre-line");
+
+    // Quel resto, et jusqu'à quand
+    tw.eval('outings = [' +
+      '{ id: "a", name: "Pizzeria Luigi", date: "2026-11-13", place: "3 rue Verte", menuText: "Pizza du jour", menuImage: null },' +
+      '{ id: "b", name: "Le Japonais", date: "2026-11-20", menuText: "", menuImage: "../img/1.jpg" },' +
+      '{ id: "c", name: "Ancien resto", date: "2026-11-02", menuText: "x" }]; outKey = ""');
+    const next = d => tw.upcomingOutings(at(d)).map(o => o.name).join();
+    check(g, "le prochain d'abord, les passés ignorés", next("2026-11-06T10:00:00") === "Pizzeria Luigi,Le Japonais");
+    check(g, "le jour J : encore affiché à 13:59", next("2026-11-13T13:59:00").indexOf("Pizzeria Luigi") === 0);
+    check(g, "le jour J : plus affiché à 14:00, on passe au suivant", next("2026-11-13T14:00:00") === "Le Japonais");
+    check(g, "plus rien de prévu : pas de slide", next("2026-11-21T10:00:00") === "");
+    tw.renderOuting(at("2026-11-10T10:00:00"));
+    check(g, "nom, date « à midi » et compte à rebours", txt("out-name").indexOf("Pizzeria Luigi") !== -1 && txt("out-name").indexOf("🍕") !== -1 && txt("out-when") === "Vendredi 13 novembre · à midi" && txt("out-in") === "dans 3 jours", txt("out-when") + " | " + txt("out-in"));
+    check(g, "adresse et resto suivant", txt("out-place") === "📍 3 rue Verte" && txt("out-then") === "Et ensuite : Le Japonais, vendredi 20 novembre");
+    check(g, "menu en texte seul : pas d'image", td.getElementById("out-img").hidden && !td.getElementById("out-text").hidden);
+    tw.renderOuting(at("2026-11-12T10:00:00"));
+    check(g, "la veille : « C'est demain midi ! »", txt("out-in") === "C'est demain midi !");
+    tw.renderOuting(at("2026-11-13T11:00:00"));
+    check(g, "le jour J : « C'est ce midi ! »", txt("out-in") === "C'est ce midi ! 🎉");
+    tw.renderOuting(at("2026-11-15T11:00:00"));
+    await sleep(300);
+    check(g, "menu en photo seule : l'image, sans texte", !td.getElementById("out-img").hidden && td.getElementById("out-img").getAttribute("src") === "../img/1.jpg" && td.getElementById("out-text").hidden && td.getElementById("out-then").hidden);
+    tw.eval('outings = [{ id: "d", name: "Crêperie", date: "2026-11-13", menuText: "", menuImage: null }]; outKey = ""');
+    tw.renderOuting(at("2026-11-10T10:00:00"));
+    check(g, "sans menu : pas de carte vide", td.getElementById("out-menu").hidden && td.getElementById("out-wrap").classList.contains("no-menu"));
+
+    // Menu très long, ou photo et texte ensemble : tout tient à l'écran
+    const longMenu = Array.from({ length: 30 }, (_, k) => `Plat n°${k + 1} : un nom de plat assez long avec sa garniture`).join("\n");
+    tw.deck.show(tw.deck.ids.indexOf("outing"));
+    for (const [w, h] of [[1920, 1080], [1280, 720], [375, 667]]) {
+      tv.width = w; tv.height = h;
+      await sleep(250);
+      tw.eval('outings = [{ id: "e", name: "La Grande Brasserie du centre-ville", date: "2026-11-13", place: "Place de la Mairie", menuText: ' + JSON.stringify(longMenu) + ', menuImage: "../img/2.jpg" }]; outKey = ""');
+      tw.renderOuting(at("2026-11-10T10:00:00"));
+      await sleep(300);
+      tw.eval('outKey = ""'); tw.renderOuting(at("2026-11-10T10:00:00"));
+      check(g, `photo + menu de 30 lignes : tout tient à l'écran (${w}×${h})`, fitsBox(td.getElementById("out-inner")) && td.getElementById("out-text").textContent.indexOf("Plat n°30") !== -1);
+    }
+    tv.width = 1280; tv.height = 720;
+    await sleep(200);
+
+    // Dashboard : onglet Resto d'équipe
+    await tw.refresh();
+    const adm = await load("../admin.html#mock,outings", 1280, 900);
+    const aw = adm.contentWindow, ad = adm.contentDocument;
+    await adminLogin(aw, ad);
+    const submit = id => ad.getElementById(id).dispatchEvent(new aw.Event("submit", { cancelable: true }));
+    const rows = () => [...ad.querySelectorAll("#outing-list .row")];
+    check(g, "dashboard : onglet Resto d'équipe, avec l'exemple à l'écran", !ad.getElementById("tab-outings").hidden && rows().length === 1 && !!rows()[0].querySelector(".badge.now"));
+    check(g, "dashboard : suggestions tirées de la liste des restos", ad.querySelectorAll("#outing-restos option").length >= 3);
+    const day = tw.MatDoraStore.addDays(tw.MatDoraStore.today(), 1);
+    ad.getElementById("outing-name").value = "Pizzeria Luigi";
+    ad.getElementById("outing-date").value = day;
+    ad.getElementById("outing-text").value = "Pizza du jour\nTiramisu";
+    ad.getElementById("outing-text").dispatchEvent(new aw.Event("input"));
+    check(g, "dashboard : aperçu avec la date et le menu", /Pizzeria Luigi, .* à midi, avec le menu/.test(ad.getElementById("outing-preview").textContent), ad.getElementById("outing-preview").textContent);
+    // Photo du menu
+    const pc = document.createElement("canvas");
+    pc.width = 900; pc.height = 1200;
+    pc.getContext("2d").fillRect(0, 0, 900, 1200);
+    const pblob = await new Promise(r => pc.toBlob(r, "image/png"));
+    const pdt = new aw.DataTransfer();
+    pdt.items.add(new aw.File([pblob], "menu.png", { type: "image/png" }));
+    ad.getElementById("outing-photo").files = pdt.files;
+    ad.getElementById("outing-photo").dispatchEvent(new aw.Event("change"));
+    check(g, "dashboard : zone de dépôt pour la photo du menu", ad.getElementById("outing-drop-text").textContent === "✅ menu.png");
+    submit("outing-form");
+    await waitFor(() => rows().length === 2);
+    let saved = (await tw.MatDoraStore.getSettings()).restoOutings.filter(o => o.name === "Pizzeria Luigi")[0];
+    check(g, "dashboard : enregistré avec le menu en photo (JPEG) et en texte", saved && saved.date === day && saved.menuText === "Pizza du jour\nTiramisu" && (saved.menuImage || "").indexOf("data:image/jpeg") === 0);
+    check(g, "dashboard : le plus proche passe à l'écran", rows().some(r => r.textContent.indexOf("Pizzeria Luigi") !== -1 && r.querySelector(".badge.now") && r.querySelector("img.thumb")));
+    await tw.refresh();
+    check(g, "écran : la slide montre la pizzeria, son menu en photo et en texte", txt("out-name").indexOf("Pizzeria Luigi") !== -1 && !td.getElementById("out-img").hidden && txt("out-text").indexOf("Tiramisu") !== -1 && txt("out-in") === "C'est demain midi !");
+    // Modifier : retirer la photo
+    const row = rows().filter(r => r.textContent.indexOf("Pizzeria Luigi") !== -1)[0];
+    [...row.querySelectorAll("button")].filter(b => b.textContent === "Modifier")[0].click();
+    check(g, "dashboard : modifier remplit le formulaire et montre la photo", ad.getElementById("outing-name").value === "Pizzeria Luigi" && ad.getElementById("outing-date").value === day && !ad.getElementById("outing-photo-preview").hidden);
+    ad.getElementById("outing-photo-remove").click();
+    submit("outing-form");
+    await waitFor(() => ad.getElementById("toast").textContent === "Pizzeria Luigi modifié.");
+    saved = (await tw.MatDoraStore.getSettings()).restoOutings;
+    check(g, "dashboard : modifié sans doublon, photo retirée", saved.filter(o => o.name === "Pizzeria Luigi").length === 1 && !saved.filter(o => o.name === "Pizzeria Luigi")[0].menuImage);
+    // On retire tout : la slide disparaît
+    while (ad.querySelector("#outing-list .btn.danger")) {
+      const b = ad.querySelector("#outing-list .btn.danger");
+      const before = rows().length;
+      b.click(); b.click();
+      await waitFor(() => rows().length === before - 1);
+    }
+    await tw.refresh();
+    check(g, "plus rien de prévu : plus de slide", tw.deck.ids.indexOf("outing") === -1 && tw.deck.ids.indexOf("lunch") !== -1, tw.deck.ids.join());
+    adm.remove();
+    tv.remove();
+    localStorage.removeItem("matdora-demo");
+  }
+
   // Sécurité en mode démo : connexion au dashboard et code d'accès du site
   async function testAccess() {
     const g = "accès (démo)";
@@ -1403,6 +1515,7 @@
       await testHappy();
       await testTeam();
       await testNews();
+      await testOuting();
       await testAccess();
       localStorage.removeItem("matdora-demo");
       for (const [w, h] of VIEWPORTS) await testViewport(w, h);

@@ -20,6 +20,7 @@
     { id: "happiness", label: "Happiness event" },
     { id: "photos", label: "Photos d'events" },
     { id: "lunch", label: "Repas du midi" },
+    { id: "outing", label: "Prochain resto d'équipe" },
     { id: "birthday", label: "Anniversaires" },
     { id: "vacation", label: "Congés et absences" },
     { id: "news", label: "Arrivées et CDI" },
@@ -62,6 +63,8 @@
     out.absenceMessage = typeof out.absenceMessage === "string" ? out.absenceMessage : "";
     // Arrivées et départs : bienvenue (stagiaire, alternant…), départ, passage en CDI
     out.teamNews = Array.isArray(out.teamNews) ? out.teamNews : [];
+    // Restos d'équipe : le midi où on y va ensemble, avec le menu (photo et/ou texte)
+    out.restoOutings = Array.isArray(out.restoOutings) ? out.restoOutings : [];
     return out;
   }
 
@@ -330,6 +333,10 @@
           ],
           vacations: [
             { id: "v1", kind: "vacances", name: "Exemple : Sarah", destination: "Japon", theme: "", from: today(new Date(d.getTime() - 2 * 86400000)), to: today(new Date(d.getTime() + 6 * 86400000)), note: "" }
+          ],
+          restoOutings: [
+            { id: "ro1", name: "Exemple : Le Bistrot du coin", date: today(new Date(d.getTime() + 2 * 86400000)), place: "Exemple : 12 rue de la Paix",
+              menuText: "Entrée : velouté de potimarron\nPlat : burger maison ou risotto aux champignons\nDessert : tarte tatin\n\nFormule entrée, plat, dessert : 18 €", menuImage: null, menuPath: null }
           ],
           teamNews: [
             { id: "n1", type: "bienvenue", name: "Exemple : Léo", date: today(new Date(d.getTime() - 1 * 86400000)), until: "", note: "" },

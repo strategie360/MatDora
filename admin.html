@@ -240,6 +240,7 @@
     <button role="tab" data-tab="happiness">Happiness event</button>
     <button role="tab" data-tab="photos">Photos</button>
     <button role="tab" data-tab="lunch">Repas</button>
+    <button role="tab" data-tab="outings">Resto d'équipe</button>
     <button role="tab" data-tab="team">Anniversaires</button>
     <button role="tab" data-tab="absences">Congés</button>
     <button role="tab" data-tab="news">Arrivées / CDI</button>
@@ -501,6 +502,43 @@
     </form>
   </section>
 
+  <!-- Resto d'équipe : le midi où on y va ensemble, avec le menu -->
+  <section class="panel" id="tab-outings" role="tabpanel" hidden>
+    <h2>🍽️ Resto d'équipe</h2>
+    <p class="help">Pour les midis où on va au resto tous ensemble. La slide « Prochain resto d'équipe » montre le prochain, avec son menu, jusqu'à 14 h le jour J. Ce n'est pas la slide « On mange où à midi ? », qui tire au sort le resto du jour.</p>
+    <form class="team-form" id="outing-form">
+      <h3 id="outing-form-title">Ajouter un resto d'équipe</h3>
+      <div class="team-fields">
+        <div class="field grow-field"><label for="outing-name">Resto</label><input id="outing-name" maxlength="80" list="outing-restos" placeholder="Ex. Le Bistrot du coin" required></div>
+        <div class="field"><label for="outing-date">Le midi du</label><input id="outing-date" type="date" required></div>
+      </div>
+      <div class="field"><label for="outing-place">Adresse <span class="hint">(facultatif)</span></label><input id="outing-place" maxlength="160" placeholder="Ex. 12 rue de la Paix"></div>
+      <div class="field">
+        <span class="label-like"><strong>Menu en photo</strong> <span class="hint">(facultatif : photo de la carte, de l'ardoise…)</span></span>
+        <div class="image-pick">
+          <img id="outing-photo-preview" alt="Photo actuelle du menu" hidden>
+          <label class="dropzone small" id="outing-drop">
+            <input id="outing-photo" type="file" accept="image/*">
+            <span class="dz-icon" aria-hidden="true">📜</span>
+            <span class="dz-main" id="outing-drop-text">Choisis une photo du menu ou glisse-la ici</span>
+          </label>
+          <button class="btn danger" type="button" id="outing-photo-remove" hidden>Retirer la photo</button>
+        </div>
+      </div>
+      <div class="field"><label for="outing-text">Menu en texte <span class="hint">(facultatif, à la place de la photo ou en plus)</span></label>
+        <textarea id="outing-text" rows="6" placeholder="Entrée : …&#10;Plat : …&#10;Dessert : …"></textarea></div>
+      <p class="preview" id="outing-preview" aria-live="polite"></p>
+      <div class="actions">
+        <button class="btn primary" type="submit" id="outing-submit">Ajouter</button>
+        <button class="btn" type="button" id="outing-cancel" hidden>Annuler la modification</button>
+      </div>
+    </form>
+    <datalist id="outing-restos"></datalist>
+    <h3 class="list-title">Restos d'équipe prévus</h3>
+    <div id="outing-list"></div>
+    <p class="empty" id="outing-empty" hidden>Aucun resto d'équipe prévu : la slide ne s'affiche pas.</p>
+  </section>
+
   </div>
 
   <div class="toast" id="toast" role="status" hidden></div>
@@ -561,7 +599,7 @@
   }
 
   /* ---------- Onglets ---------- */
-  const TABS = ["slides", "pauses", "happiness", "photos", "lunch", "team", "absences", "news", "departures", "access"];
+  const TABS = ["slides", "pauses", "happiness", "photos", "lunch", "outings", "team", "absences", "news", "departures", "access"];
   function openTab(name) {
     TABS.forEach(t => {
       $("tab-" + t).hidden = t !== name;
@@ -756,6 +794,7 @@
   const DROPS = {
     photo: { zone: "photo-drop", input: "photo-files", text: "photo-drop-text", empty: "Choisis des photos ou glisse-les ici" },
     happy: { zone: "happy-drop", input: "happy-image", text: "happy-drop-text", empty: "Choisis une image ou glisse-la ici" },
+    outing: { zone: "outing-drop", input: "outing-photo", text: "outing-drop-text", empty: "Choisis une photo du menu ou glisse-la ici" },
     dep: { zone: "dep-drop", input: "dep-photo", text: "dep-drop-text", empty: "Choisis une photo ou glisse-la ici" }
   };
   function updateDrop(key) {
@@ -942,6 +981,9 @@
     $("draw-reroll").textContent = data.draw ? "🎲 Relancer" : "🎲 Tirer au sort maintenant";
     $("draw-reroll").disabled = !data.candidates.length;
     renderRestos(data.restaurants);
+    // Suggestions pour le resto d'équipe : les restos de la liste
+    $("outing-restos").innerHTML = "";
+    data.restaurants.forEach(r => { const o = document.createElement("option"); o.value = r.name; $("outing-restos").appendChild(o); });
 
     // Propositions du jour : les choix ajoutés pour aujourd'hui seulement
     const list = $("lunch-list");
@@ -1371,6 +1413,108 @@
   });
   depPreview();
 
+  /* ----- Resto d'équipe : date, resto, menu en photo et/ou en texte ----- */
+  let editingOuting = null, outingPhoto = null;  // outingPhoto = { url, path } de la photo du menu en cours
+  function renderOutingPhoto() {
+    $("outing-photo-preview").hidden = !outingPhoto;
+    if (outingPhoto) $("outing-photo-preview").src = outingPhoto.url;
+    $("outing-photo-remove").hidden = !outingPhoto;
+  }
+  function outingPreview() {
+    const name = $("outing-name").value.trim() || "…", d = $("outing-date").value;
+    const hasMenu = outingPhoto || $("outing-photo").files.length || $("outing-text").value.trim();
+    $("outing-preview").textContent = `Sur l'écran : ${store.foodEmoji(name)} ${name}${d ? `, ${longDate(d)} à midi` : ""}${hasMenu ? ", avec le menu" : " (sans menu)"} · affiché jusqu'à 14 h le jour J`;
+  }
+  ["outing-name", "outing-date", "outing-text", "outing-photo"].forEach(id => { $(id).addEventListener("input", outingPreview); $(id).addEventListener("change", outingPreview); });
+  function renderOutings() {
+    const t = store.today(), now = new Date();
+    const list = $("outing-list");
+    list.innerHTML = "";
+    const items = settings.restoOutings.slice().sort((a, b) => b.date.localeCompare(a.date));
+    const next = items.filter(o => o.date > t || (o.date === t && now.getHours() < 14)).sort((a, b) => a.date.localeCompare(b.date))[0];
+    $("outing-empty").hidden = items.length > 0;
+    items.forEach(o => {
+      const row = document.createElement("div");
+      row.className = "row";
+      const name = document.createElement("span");
+      name.className = "grow";
+      if (o.menuImage) { const img = document.createElement("img"); img.className = "thumb"; img.src = o.menuImage; img.alt = ""; name.appendChild(img); }
+      name.appendChild(document.createTextNode(`${store.foodEmoji(o.name)} ${o.name}`));
+      name.appendChild(o === next ? badge("now", "à l'écran") : o.date >= t ? badge("soon", "prévu") : badge("done", "passé"));
+      const small = document.createElement("small");
+      small.textContent = `${longDate(o.date)} · ${o.menuImage && o.menuText ? "menu en photo et en texte" : o.menuImage ? "menu en photo" : o.menuText ? "menu en texte" : "pas de menu"}`;
+      name.appendChild(small);
+      row.appendChild(name);
+      row.appendChild(rowButtons(() => editOuting(o), () => attempt(async () => {
+        const nextList = settings.restoOutings.filter(x => x.id !== o.id);
+        await store.saveSetting("restoOutings", nextList);
+        settings.restoOutings = nextList;
+        if (o.menuPath) await store.deleteImage(o.menuPath);
+        if (editingOuting === o.id) stopEditOuting();
+        renderOutings();
+      }, `${o.name} retiré.`)));
+      list.appendChild(row);
+    });
+  }
+  function editOuting(o) {
+    editingOuting = o.id;
+    $("outing-name").value = o.name;
+    $("outing-date").value = o.date;
+    $("outing-place").value = o.place || "";
+    $("outing-text").value = o.menuText || "";
+    outingPhoto = o.menuImage ? { url: o.menuImage, path: o.menuPath || "" } : null;
+    renderOutingPhoto();
+    $("outing-form-title").textContent = `Modifier : ${o.name}`;
+    $("outing-submit").textContent = "Enregistrer les modifications";
+    $("outing-cancel").hidden = false;
+    $("outing-form").classList.add("is-editing");
+    outingPreview();
+    $("outing-form").scrollIntoView({ block: "start" });
+  }
+  function stopEditOuting() {
+    editingOuting = null;
+    outingPhoto = null;
+    $("outing-form").reset();
+    renderOutingPhoto();
+    updateDrop("outing");
+    $("outing-form-title").textContent = "Ajouter un resto d'équipe";
+    $("outing-submit").textContent = "Ajouter";
+    $("outing-cancel").hidden = true;
+    $("outing-form").classList.remove("is-editing");
+    outingPreview();
+  }
+  $("outing-cancel").addEventListener("click", stopEditOuting);
+  $("outing-photo-remove").addEventListener("click", () => {
+    outingPhoto = null;
+    $("outing-photo").value = "";
+    updateDrop("outing");
+    renderOutingPhoto();
+    outingPreview();
+    toast("Photo du menu retirée. Pense à enregistrer.");
+  });
+  $("outing-form").addEventListener("submit", e => {
+    e.preventDefault();
+    const name = $("outing-name").value.trim().replace(/\s+/g, " "), date = $("outing-date").value;
+    if (!name || !date) { toast("Indique le resto et la date.", true); return; }
+    const wasEditing = editingOuting;
+    attempt(async () => {
+      const before = wasEditing ? settings.restoOutings.filter(x => x.id === wasEditing)[0] : null;
+      const file = $("outing-photo").files[0];
+      // Menu : on garde assez de détails pour qu'il reste lisible sur la TV
+      if (file) outingPhoto = await store.uploadImage(await store.resizeImage(file, 1600), "menu");
+      const entry = { id: wasEditing || newId(), name, date, place: $("outing-place").value.trim(), menuText: $("outing-text").value.trim(),
+        menuImage: outingPhoto ? outingPhoto.url : null, menuPath: outingPhoto ? outingPhoto.path : null };
+      // Ancienne photo remplacée ou retirée : supprimée du stockage
+      if (before && before.menuPath && before.menuPath !== entry.menuPath) await store.deleteImage(before.menuPath);
+      const nextList = wasEditing ? settings.restoOutings.map(x => x.id === wasEditing ? entry : x) : settings.restoOutings.concat([entry]);
+      await store.saveSetting("restoOutings", nextList);
+      settings.restoOutings = nextList;
+      stopEditOuting();
+      renderOutings();
+    }, wasEditing ? `${name} modifié.` : `${name} ajouté.`);
+  });
+  outingPreview();
+
   function renderTeam() { $("absmsg").value = settings.absenceMessage || ""; renderBirthdays(); renderAbsences(); renderNewsList(); renderDepartures(); }
   newsPreview();
   vacPreview();
@@ -1435,7 +1579,7 @@
     $("who").hidden = false;
     $("who-name").textContent = who.username;
     const ok = await attempt(async () => { settings = await store.getSettings(); });
-    renderSlides(); renderPauses(); renderHappiness(); renderTeam();
+    renderSlides(); renderPauses(); renderHappiness(); renderTeam(); renderOutings();
     if (ok) await Promise.all([attempt(loadPhotos), attempt(loadLunch), attempt(loadAccess)]);
     if (!timerStarted) {
       timerStarted = true;
