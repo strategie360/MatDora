@@ -1689,8 +1689,9 @@
   // Les photos sont tirées au hasard comme dans un paquet de cartes mélangé : chacune sort une fois
   // avant que le paquet soit remélangé, et jamais une photo déjà sur la table.
   // Au départ, jusqu'à 7 photos posées en vrac (5 sur un écran en hauteur), décalées et tournées
-  // au hasard. Toutes les 3 s, une nouvelle photo se pose à un endroit au hasard, pas sur la
-  // dernière ajoutée. Seules les photos recouvertes à 100 % (plus du tout visibles) sont retirées.
+  // au hasard. Toutes les 3 s (seulement quand la slide est à l'écran), une nouvelle photo se pose
+  // à un endroit au hasard, pas sur la dernière ajoutée. Les photos recouvertes à 100 % sont retirées,
+  // et la table n'en garde jamais plus de 12 (10 en hauteur) : au-delà, on retire les plus cachées.
   // Seule l'opacité est animée (léger pour Silk).
   const HIDDEN_RATIO = 1;
   let eventPhotos = [], pCards = [], bag = [], zTop = 1, placeSeq = 0, lastNew = null;
@@ -1863,11 +1864,26 @@
     card.leaving = true;
     pCards = pCards.filter(c => c !== card);
     card.el.classList.remove("on");
-    setTimeout(() => { if (card.el.parentNode) card.el.parentNode.removeChild(card.el); }, 700);
+    setTimeout(() => {
+      if (card.el.parentNode) card.el.parentNode.removeChild(card.el);
+      // Libère l'image en mémoire (important sur la Fire TV)
+      card.img.onload = card.img.onerror = null;
+      card.img.removeAttribute("src");
+    }, 700);
   }
-  // Retire seulement les photos qui ne se voient plus du tout
+  // Nombre maximum de photos sur la table : au-delà, la TV ralentit
+  function maxPile() { return galleryLayout().max + 5; }
+  // Retire les photos qui ne se voient plus du tout, puis, s'il y en a encore trop,
+  // les plus recouvertes (les plus anciennes à égalité), jamais la dernière posée
   function cleanPile() {
     pCards.slice().forEach(c => { if (c.el.classList.contains("on") && coverage(c) >= HIDDEN_RATIO) removeCard(c); });
+    const extra = pCards.length - maxPile();
+    if (extra <= 0) return;
+    pCards.filter(c => c !== lastNew && c.el.classList.contains("on"))
+      .map(c => ({ c, cov: coverage(c) }))
+      .sort((a, b) => b.cov - a.cov || a.c.placedAt - b.c.placedAt)
+      .slice(0, extra)
+      .forEach(x => removeCard(x.c));
   }
 
   function swapTile() {
@@ -1879,7 +1895,11 @@
     makeCard(i, Math.floor(Math.random() * L.cols * L.rows), true);
     return true;
   }
+  // Les photos ne bougent que quand la slide est à l'écran (et l'onglet visible)
+  function galleryShown() { return !document.hidden && $("gallery").parentNode.classList.contains("active"); }
   window.photoCoverage = coverage;
+  window.maxPile = maxPile;
+  window.galleryShown = galleryShown;
   window.cleanPile = cleanPile;
   window.addEventListener("resize", () => {
     const L = galleryLayout();
@@ -1889,7 +1909,7 @@
   window.drawPhoto = drawPhoto;
   window.swapTile = swapTile;
   window.autoPhotos = true;  // les tests le coupent pour piloter les photos eux-mêmes
-  setInterval(() => { if (window.autoPhotos) swapTile(); }, 3000);
+  setInterval(() => { if (window.autoPhotos && galleryShown()) swapTile(); }, 3000);
 
   /* ---------- Slide Repas ---------- */
   let lunchData = null;
