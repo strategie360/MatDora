@@ -402,7 +402,7 @@
     check(g, "photos : chaque légende va avec sa photo", pairs.every(([cap, name]) => cap.endsWith(name)), pairs.map(p => p.join("=")).join(" | "));
     const zs = onCards().map(el => Number(el.style.zIndex));
     check(g, "photos : chaque photo a sa hauteur dans la pile", new Set(zs).size === zs.length);
-    // Beaucoup de photos en base : la table n'en garde jamais plus de 12 (sinon la TV ralentit)
+    // Beaucoup de photos en base : garde-fou à 30 si la slide reste très longtemps à l'écran
     const lots = Array.from({ length: 40 }, (_, i) => ({ id: "l" + i, url: `../img/${(i % 3) + 1}.jpg?l${i}`, caption: "Photo " + i, event: "Test" }));
     tw.setEventPhotos(lots);
     let biggest = 0;
@@ -413,14 +413,26 @@
     }
     await sleep(1000);
     const left = td.querySelectorAll("#gallery .polaroid");
-    check(g, "photos : 40 photos en base, jamais plus de 12 sur la table", tw.maxPile() === 12 && biggest <= 13 && left.length <= 12, `max ${biggest}, reste ${left.length}`);
+    check(g, "photos : 45 photos posées d'affilée, jamais plus de 30 sur la table", tw.maxPile() === 30 && biggest <= 31 && left.length <= 30, `max ${biggest}, reste ${left.length}`);
     check(g, "photos : la dernière posée reste sur le dessus", tw.eval("lastNew") && tw.eval("lastNew").el.classList.contains("on"));
     check(g, "photos : les photos sur la table gardent leur image", tw.eval("pCards").every(c => c.img.getAttribute("src")));
     // Les photos ne bougent pas quand la slide n'est pas à l'écran
     tw.deck.show(tw.deck.ids.indexOf("dora"));
     check(g, "photos : rien ne bouge hors de la slide Photos", !tw.galleryShown());
+    // (le rafraîchissement auto toutes les 20 s a pu remettre les 3 photos de démo : on remet les 40)
+    tw.setEventPhotos(lots.slice(1));
+    for (let k = 0; k < 5; k++) { tw.swapTile(); await sleep(150); }
+    await sleep(200);
+    const before = tw.eval("pCards").length;
     tw.deck.show(tw.deck.ids.indexOf("photos"));
     check(g, "photos : ça repart quand la slide revient", tw.galleryShown() || td.hidden);
+    await sleep(300);
+    check(g, "photos : la slide revient, la table repart de zéro (7 photos)", before > 7 && td.querySelectorAll("#gallery .polaroid").length === 7 && tw.eval("pCards").length === 7, `${before} → ${td.querySelectorAll("#gallery .polaroid").length}`);
+    tw.deck.show(tw.deck.ids.indexOf("photos"));
+    tw.swapTile();
+    await sleep(300);
+    tw.deck.show(tw.deck.ids.indexOf("photos"));
+    check(g, "photos : rester sur la slide ne remet pas la table à zéro", tw.eval("pCards").length === 8);
 
     // Tirage au hasard : paquet mélangé, aucune limite sur le nombre de photos en base
     const many = (n, tag) => Array.from({ length: n }, (_, i) => ({ id: tag + i, url: `../img/${(i % 3) + 1}.jpg?${tag}${i}`, caption: "Photo " + i, event: "Test" }));

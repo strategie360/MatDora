@@ -1690,8 +1690,9 @@
   // avant que le paquet soit remélangé, et jamais une photo déjà sur la table.
   // Au départ, jusqu'à 7 photos posées en vrac (5 sur un écran en hauteur), décalées et tournées
   // au hasard. Toutes les 3 s (seulement quand la slide est à l'écran), une nouvelle photo se pose
-  // à un endroit au hasard, pas sur la dernière ajoutée. Les photos recouvertes à 100 % sont retirées,
-  // et la table n'en garde jamais plus de 12 (10 en hauteur) : au-delà, on retire les plus cachées.
+  // à un endroit au hasard, pas sur la dernière ajoutée. Seules les photos recouvertes à 100 % sont
+  // retirées. Chaque fois que la slide revient, la table repart de zéro avec de nouvelles photos
+  // (la suite du paquet) : la pile ne grossit donc jamais beaucoup et la TV ne ralentit pas.
   // Seule l'opacité est animée (léger pour Silk).
   const HIDDEN_RATIO = 1;
   let eventPhotos = [], pCards = [], bag = [], zTop = 1, placeSeq = 0, lastNew = null;
@@ -1833,15 +1834,25 @@
     const key = l => l.map(p => [p.id, p.event, p.caption].join("~")).join("|");
     if (key(list) === key(eventPhotos)) return;
     eventPhotos = list;
+    bag = [];
+    dealTable();
+  }
+  // Table vide, puis les photos de départ posées en vrac
+  function dealTable() {
+    // Libère les images de la table précédente (mémoire de la Fire TV)
+    pCards.forEach(c => { c.img.onload = c.img.onerror = null; c.img.removeAttribute("src"); });
+    pCards = [];
+    lastNew = null;
     $("gallery").innerHTML = "";
     const L = galleryLayout();
-    const count = Math.min(list.length, L.max);
+    const count = Math.min(eventPhotos.length, L.max);
     // Zones mélangées : les photos ne sont jamais rangées dans le même ordre
     const slots = Array.from({ length: L.cols * L.rows }, (_, k) => k).sort(() => Math.random() - 0.5);
-    pCards = [];
-    bag = [];
     for (let k = 0; k < count; k++) makeCard(drawPhoto(), slots[k]);
   }
+  // La slide Photos revient à l'écran : on repart de zéro (le paquet continue, donc d'autres photos)
+  function resetGallery() { if (eventPhotos.length) dealTable(); }
+  window.resetGallery = resetGallery;
 
   // Part d'un polaroïd recouverte par ceux posés au-dessus (échantillonnage de 9 × 9 points, bords compris)
   function coverage(card) {
@@ -1871,9 +1882,10 @@
       card.img.removeAttribute("src");
     }, 700);
   }
-  // Nombre maximum de photos sur la table : au-delà, la TV ralentit
-  function maxPile() { return galleryLayout().max + 5; }
-  // Retire les photos qui ne se voient plus du tout, puis, s'il y en a encore trop,
+  // Garde-fou si la slide reste très longtemps à l'écran (en temps normal, la table repart
+  // de zéro bien avant d'y arriver)
+  function maxPile() { return 30; }
+  // Retire les photos qui ne se voient plus du tout, puis, s'il y en a vraiment trop,
   // les plus recouvertes (les plus anciennes à égalité), jamais la dernière posée
   function cleanPile() {
     pCards.slice().forEach(c => { if (c.el.classList.contains("on") && coverage(c) >= HIDDEN_RATIO) removeCard(c); });
@@ -2386,6 +2398,7 @@
   }
 
   function show(i) {
+    const wasPhotos = $("gallery").parentNode.classList.contains("active");
     index = (i + slides.length) % slides.length;
     slides.forEach((s, k) => {
       s.classList.toggle("active", k === index);
@@ -2401,6 +2414,8 @@
     segs[index].classList.add("active");
     document.body.dataset.slide = index;
     document.body.dataset.tone = slides[index].dataset.tone || "light";
+    // Retour sur la slide Photos : la table repart de zéro
+    if (!wasPhotos && slides[index].dataset.id === "photos") resetGallery();
     clearTimeout(timer);
     if (!paused && !locked) timer = setTimeout(deck.next, ms);
   }
