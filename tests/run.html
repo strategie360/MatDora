@@ -152,8 +152,13 @@
     const shown = ["d", "h", "m", "s"].map(id => Number(doc.getElementById(id).textContent));
     const shownSec = shown[0] * 86400 + shown[1] * 3600 + shown[2] * 60 + shown[3];
     const expected = Math.max(0, Math.floor((TARGET - Date.now()) / 1000));
-    check(g, "compte à rebours juste (±2 s)", Math.abs(shownSec - expected) <= 2, `affiché ${shownSec} s, attendu ${expected} s`);
-    check(g, "heures/minutes/secondes dans les bornes", shown[1] < 24 && shown[2] < 60 && shown[3] < 60, shown.join(":"));
+    if (expected > 0) {
+      check(g, "compte à rebours juste (±2 s)", Math.abs(shownSec - expected) <= 2, `affiché ${shownSec} s, attendu ${expected} s`);
+      check(g, "heures/minutes/secondes dans les bornes", shown[1] < 24 && shown[2] < 60 && shown[3] < 60, shown.join(":"));
+    } else {
+      // Dora est arrivée : le compte à rebours laisse place au message d'arrivée
+      check(g, "Dora arrivée : compte à rebours remplacé par le message", doc.getElementById("clock").hidden && !doc.getElementById("done").hidden);
+    }
 
     // Textes clés
     const text = doc.body.textContent;
@@ -905,6 +910,28 @@
     check(g, "sans message : rien d'affiché", td.getElementById("vac-msg").hidden);
     check(g, "vacances et maladie ensemble : une carte chacun, à ses couleurs", cards().length === 2 && cards()[0].classList.contains("t-sante") && cards()[0].textContent.indexOf("Bon rétablissement") !== -1 && cards()[1].classList.contains("t-japon") && cards()[1].textContent.indexOf("Japon") !== -1,
       cards().map(c => c.className + ":" + c.textContent).join(" | "));
+    // Le jour du retour : message de bon retour
+    tw.eval('vacations = [{ id: "v", name: "Sarah", destination: "Japon", from: "2026-11-02", to: "2026-11-09", note: "Ramène des mochis" }]; vacKey = ""');
+    const back = d => tw.backToday(at(d)).map(v => v.name).join(",");
+    check(g, "retour : seulement le jour du retour", back("2026-11-08T10:00:00") === "" && back("2026-11-09T08:00:00") === "Sarah" && back("2026-11-10T08:00:00") === "");
+    tw.renderVacation(at("2026-11-09T10:00:00"));
+    check(g, "retour : « Bon retour, Sarah ! », message par défaut", txt("vac-kind") === "De retour aujourd'hui" && txt("vac-title").replace(/\s+/g, " ") === "Bon retour, Sarah !" && txt("vac-note").indexOf("Bon retour parmi nous") === 0 && td.getElementById("vac-count").hidden && txt("vac-icons") === "🎉😎👋",
+      `${txt("vac-kind")} / ${txt("vac-title")} / ${txt("vac-note")}`);
+    check(g, "retour : la destination reste, sans compte à rebours", txt("vac-dest") === "📍 Japon");
+    tw.eval('vacations[0].backNote = "Content de te revoir, raconte-nous tout !"; vacKey = ""');
+    tw.renderVacation(at("2026-11-09T10:00:00"));
+    check(g, "retour : message personnalisé", txt("vac-note") === "Content de te revoir, raconte-nous tout !");
+    tw.eval('vacations = [{ id: "m", kind: "maladie", name: "Paul", from: "2026-11-02", to: "2026-11-09" }]; vacKey = ""');
+    tw.renderVacation(at("2026-11-09T10:00:00"));
+    check(g, "retour d'arrêt maladie : « Content de te revoir, Paul ! »", txt("vac-title").replace(/\s+/g, " ") === "Content de te revoir, Paul !" && txt("vac-note").indexOf("Ravis de te revoir en forme") === 0, txt("vac-title"));
+    tw.eval('vacations = [{ id: "m", kind: "maladie", name: "Paul", from: "2026-11-02", to: "2026-11-09" }, { id: "v", name: "Sarah", destination: "Japon", from: "2026-11-01", to: "2026-11-12" }]; vacKey = ""');
+    tw.renderVacation(at("2026-11-09T10:00:00"));
+    check(g, "retour + absent : le retour d'abord, chacun sa carte", cards().length === 2 && cards()[0].classList.contains("back") && /Content de te revoir.*Paul.*de retour aujourd'hui/.test(cards()[0].textContent) && /Sarah.*encore 3 jours/.test(cards()[1].textContent) && txt("absent-eyebrow") === "Absents et retours",
+      cards().map(c => c.textContent).join(" | "));
+    tw.eval('vacations = [{ id: "m", name: "Paul", from: "2026-11-02", to: "2026-11-09" }, { id: "v", name: "Sarah", from: "2026-11-01", to: "2026-11-09" }]; vacKey = ""');
+    tw.renderVacation(at("2026-11-09T10:00:00"));
+    check(g, "deux retours : « Bon retour parmi nous ! »", cards().length === 2 && cards().every(c => c.classList.contains("back")) && txt("absent-eyebrow") === "De retour aujourd'hui" && txt("absent-title").replace(/\s+/g, " ") === "Bon retour parmi nous !");
+
     tw.eval('vacations = [{ id: "v", name: "Sarah", from: "2026-11-02", to: "2026-11-09", note: "" }, { id: "w", name: "Paul", from: "2026-11-20", to: null, note: "" }]; vacKey = ""');
     await tw.refresh();
 
@@ -954,9 +981,10 @@
     ad.getElementById("vac-note").value = "Ramène-nous du soleil !";
     ad.getElementById("vac-dest").value = "Japon";
     ad.getElementById("vac-dest").dispatchEvent(new aw.Event("input"));
+    check(g, "dashboard : aperçu du jour du retour, message par défaut proposé", ad.getElementById("vac-preview").textContent.indexOf("le jour du retour : 🎉 Bon retour, Sarah !") !== -1 && ad.getElementById("vac-back-note").placeholder.indexOf("Bon retour parmi nous") !== -1, ad.getElementById("vac-preview").textContent);
     check(g, "dashboard : aperçu de la slide avec le thème deviné", ad.getElementById("vac-preview").textContent.indexOf("Bonnes vacances, Sarah") !== -1 && ad.getElementById("vac-preview").textContent.indexOf("thème Japon") !== -1 && /plus que 7 jours/.test(ad.getElementById("vac-preview").textContent), ad.getElementById("vac-preview").textContent);
     check(g, "dashboard : 8 thèmes au choix + automatique", ad.querySelectorAll("#vac-theme option").length === 9);
-    check(g, "dashboard : champs avec de vrais libellés", ["bday-name", "bday-day", "bday-month", "vac-name", "vac-kind", "vac-dest", "vac-theme", "vac-from", "vac-to", "vac-note"].every(id => ad.querySelector(`label[for="${id}"]`)));
+    check(g, "dashboard : champs avec de vrais libellés", ["bday-name", "bday-day", "bday-month", "vac-name", "vac-kind", "vac-dest", "vac-theme", "vac-from", "vac-to", "vac-note", "vac-back-note"].every(id => ad.querySelector(`label[for="${id}"]`)));
     submit("vac-form");
     await waitFor(() => ad.querySelectorAll("#vac-list .row").length === 1);
     check(g, "dashboard : Sarah absente en ce moment, thème Japon", ad.querySelector("#vac-list .row").textContent.indexOf("absent en ce moment") !== -1 && ad.querySelector("#vac-list .row").textContent.indexOf("thème Japon") !== -1 && ad.querySelector("#vac-list .badge.now"));
@@ -972,7 +1000,14 @@
     ad.getElementById("vac-dest").value = "Rome";
     submit("vac-form");
     await waitFor(() => ad.getElementById("toast").textContent === "Absence de Sarah modifiée.");
+    ad.getElementById("vac-back-note").value = "Raconte-nous Rome !";
+    [...ad.querySelector("#vac-list .row").querySelectorAll("button")].filter(b => b.textContent === "Modifier")[0].click();
+    check(g, "dashboard : modifier remplit le message de retour (vide)", ad.getElementById("vac-back-note").value === "");
+    ad.getElementById("vac-back-note").value = "Raconte-nous Rome !";
+    submit("vac-form");
+    await waitFor(() => ad.getElementById("toast").textContent === "Absence de Sarah modifiée." && (ad.querySelector("#vac-list .row") || {}).textContent.indexOf("Raconte-nous Rome") !== -1);
     const saved = (await tw.MatDoraStore.getSettings()).vacations;
+    check(g, "dashboard : message de retour enregistré", saved[0].backNote === "Raconte-nous Rome !");
     check(g, "modifier une absence : remplacée, pas dupliquée", saved.length === 1 && saved[0].destination === "Rome" && ad.getElementById("vac-submit").textContent === "Ajouter", JSON.stringify(saved));
     await tw.refresh();
     check(g, "écran : thème mis à jour (Italie)", td.querySelector(".s-vac").classList.contains("theme-italie"));

@@ -1358,8 +1358,8 @@
           <p class="vac-note" id="vac-note"></p>
         </div>
         <div class="absent-head" id="absent-head" hidden>
-          <div class="eyebrow">Absents en ce moment</div>
-          <p class="vac-title">On pense à eux&nbsp;!</p>
+          <div class="eyebrow" id="absent-eyebrow">Absents en ce moment</div>
+          <p class="vac-title" id="absent-title">On pense à eux&nbsp;!</p>
         </div>
         <div class="absent-cards" id="absent-cards" hidden></div>
         <p class="vac-msg" id="vac-msg" hidden></p>
@@ -2042,6 +2042,11 @@
     const t = store.today(now);
     return vacations.filter(v => v.name && (!v.from || v.from <= t) && (!v.to || t < v.to));
   }
+  // Le jour du retour (date « De retour le ») : message de bon retour
+  function backToday(now) {
+    const t = store.today(now);
+    return vacations.filter(v => v.name && v.to === t);
+  }
   let vacKey = "";
   function renderVacation(now = new Date()) {
     const key = store.today(now) + JSON.stringify(vacations) + absenceMessage + innerWidth + "x" + innerHeight;
@@ -2050,8 +2055,10 @@
     // Message pour toute la slide (réglé dans l'onglet Congés)
     $("vac-msg").hidden = !absenceMessage;
     $("vac-msg").textContent = absenceMessage ? `💬 ${absenceMessage}` : "";
-    const list = onVacation(now).slice().sort((a, b) => (a.to || "9999").localeCompare(b.to || "9999"));
+    // Ceux qui reviennent aujourd'hui d'abord, puis les absents (retour le plus proche d'abord)
+    const list = backToday(now).concat(onVacation(now).slice().sort((a, b) => (a.to || "9999").localeCompare(b.to || "9999")));
     if (!list.length) return;
+    const isBack = v => v.to === store.today(now);
     const long = d => new Date(d + "T12:00:00").toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
     const short = d => new Date(d + "T12:00:00").toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "short" });
     const left = v => v.to ? daysUntil(new Date(v.to + "T12:00:00"), now) : null;
@@ -2064,7 +2071,17 @@
     $("vac-box").hidden = !one;
     $("absent-head").hidden = !!one;
     $("absent-cards").hidden = !!one;
-    if (one) {
+    if (one && isBack(one)) {
+      const kind = store.absenceKind(one);
+      $("vac-icons").textContent = kind.backEmoji;
+      $("vac-kind").textContent = "De retour aujourd'hui";
+      $("vac-title").innerHTML = `${kind.backTitle}, <span>${escapeHtml(one.name)}</span>&nbsp;!`;
+      $("vac-dest").hidden = kind.id === "maladie" || !one.destination;
+      $("vac-dest").textContent = one.destination ? `📍 ${one.destination}` : "";
+      $("vac-count").hidden = true;
+      $("vac-back").textContent = kind.id === "maladie" ? "C'est le grand retour aujourd'hui !" : "Fin des vacances, c'est le grand retour !";
+      $("vac-note").textContent = one.backNote || kind.backNote;
+    } else if (one) {
       const kind = store.absenceKind(one);
       const sick = kind.id === "maladie";
       $("vac-icons").textContent = theme.emoji;
@@ -2084,12 +2101,26 @@
       $("vac-back").textContent = one.to ? `${sick ? "Retour prévu le" : "De retour le"} ${long(one.to)}` : (sick ? "Remets-toi bien !" : "Profite bien !");
       $("vac-note").textContent = one.note || theme.note;
     } else {
+      const allBack = list.every(isBack);
+      $("absent-eyebrow").textContent = allBack ? "De retour aujourd'hui" : list.some(isBack) ? "Absents et retours" : "Absents en ce moment";
+      $("absent-title").innerHTML = allBack ? "Bon retour parmi nous&nbsp;!" : "On pense à eux&nbsp;!";
       const cards = $("absent-cards");
       cards.innerHTML = "";
       list.forEach(v => {
         const kind = store.absenceKind(v), t = store.vacationTheme(v), d = left(v);
         const card = document.createElement("div");
         card.className = "absent-card t-" + t.id;
+        if (isBack(v)) {
+          card.className += " back";
+          card.innerHTML =
+            `<div class="e" aria-hidden="true">${kind.backEmoji}</div>` +
+            `<div class="k">${escapeHtml(kind.backTitle)}</div>` +
+            `<div class="n">${escapeHtml(v.name)}</div>` +
+            `<div class="j">de retour <b>aujourd'hui</b>&nbsp;🎉</div>` +
+            `<div class="m">« ${escapeHtml(v.backNote || kind.backNote)} »</div>`;
+          cards.appendChild(card);
+          return;
+        }
         card.innerHTML =
           `<div class="e" aria-hidden="true">${t.emoji}</div>` +
           `<div class="k">${escapeHtml(kind.title)}</div>` +
@@ -2249,6 +2280,7 @@
   window.renderBirthday = renderBirthday;
   window.renderVacation = renderVacation;
   window.onVacation = onVacation;
+  window.backToday = backToday;
   window.upcomingBirthdays = upcomingBirthdays;
   window.addEventListener("resize", () => { bdayKey = vacKey = newsKey = ripKey = outKey = ""; renderBirthday(); renderVacation(); renderNews(); renderRip(); renderOuting(); });
 
@@ -2301,7 +2333,7 @@
     if (id === "news" && !activeNews(new Date()).length) return false;
     if (id === "photos" && !eventPhotos.length) return false;
     if (id === "birthday" && !upcomingBirthdays(new Date()).length) return false;
-    if (id === "vacation" && !onVacation(new Date()).length) return false;
+    if (id === "vacation" && !onVacation(new Date()).length && !backToday(new Date()).length) return false;
     return true;
   }
 

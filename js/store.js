@@ -566,8 +566,11 @@
   ];
   // Types d'absence : vacances (thème selon la destination) ou arrêt maladie (thème « bon rétablissement »)
   const ABSENCE_KINDS = [
-    { id: "vacances", label: "Vacances", emoji: "🏖️", title: "Bonnes vacances" },
-    { id: "maladie", label: "Arrêt maladie", emoji: "🤒", title: "Bon rétablissement" }
+    // back* : le jour du retour (la date « De retour le »)
+    { id: "vacances", label: "Vacances", emoji: "🏖️", title: "Bonnes vacances",
+      backTitle: "Bon retour", backEmoji: "🎉😎👋", backNote: "Bon retour parmi nous ! Alors, c'était comment ? ☀️" },
+    { id: "maladie", label: "Arrêt maladie", emoji: "🤒", title: "Bon rétablissement",
+      backTitle: "Content de te revoir", backEmoji: "💛🙌🌞", backNote: "Ravis de te revoir en forme, on t'attendait ! 💛" }
   ];
   function absenceKind(v) { return ABSENCE_KINDS.filter(k => k.id === (v && v.kind))[0] || ABSENCE_KINDS[0]; }
   const THEME_WORDS = [

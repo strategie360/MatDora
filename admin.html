@@ -305,6 +305,9 @@
         <div class="field"><label for="vac-to">De retour le <span class="hint">(facultatif)</span></label><input id="vac-to" type="date"></div>
         <div class="field grow-field"><label for="vac-note">Message pour cette personne <span class="hint">(facultatif, sur sa carte)</span></label><input id="vac-note" maxlength="140" placeholder="Ex. Ramène-nous du soleil !"></div>
       </div>
+      <div class="team-fields">
+        <div class="field grow-field"><label for="vac-back-note">Message pour son retour <span class="hint">(facultatif, affiché le jour du retour ; vide = message par défaut)</span></label><input id="vac-back-note" maxlength="140"></div>
+      </div>
       <p class="preview" id="vac-preview" aria-live="polite"></p>
       <div class="actions">
         <button class="btn primary" type="submit" id="vac-submit">Ajouter</button>
@@ -1112,7 +1115,7 @@
   });
   function formAbsence() {
     return { name: $("vac-name").value.trim(), kind: $("vac-kind").value, destination: $("vac-dest").value.trim(), theme: $("vac-theme").value,
-      from: $("vac-from").value, to: $("vac-to").value, note: $("vac-note").value.trim() };
+      from: $("vac-from").value, to: $("vac-to").value, note: $("vac-note").value.trim(), backNote: $("vac-back-note").value.trim() };
   }
   function vacPreview() {
     const v = formAbsence(), kind = store.absenceKind(v), theme = store.vacationTheme(v);
@@ -1120,11 +1123,13 @@
     // Destination et thème n'ont pas de sens pour un arrêt maladie
     document.querySelectorAll("#vac-form .only-vacances").forEach(el => el.classList.toggle("hide-for-sick", sick));
     $("vac-note").placeholder = sick ? "Ex. Prends soin de toi !" : "Ex. Ramène-nous du soleil !";
+    $("vac-back-note").placeholder = `Par défaut : ${kind.backNote}`;
     const left = v.to ? Math.round((new Date(v.to + "T00:00:00") - startToday()) / 86400000) : null;
     $("vac-preview").textContent = `Sur l'écran : ${theme.emoji} ${kind.title}, ${v.name || "…"} !` + (sick ? "" : ` · thème ${theme.label}`) +
-      (left !== null && left > 0 ? ` · plus que ${left} jour${left > 1 ? "s" : ""}${sick ? " avant le retour" : " à tenir"}` : "");
+      (left !== null && left > 0 ? ` · plus que ${left} jour${left > 1 ? "s" : ""}${sick ? " avant le retour" : " à tenir"}` : "") +
+      (v.to ? ` · le jour du retour : ${kind.backEmoji.slice(0, 2)} ${kind.backTitle}, ${v.name || "…"} !` : "");
   }
-  ["vac-name", "vac-kind", "vac-dest", "vac-theme", "vac-to", "vac-from"].forEach(id => {
+  ["vac-name", "vac-kind", "vac-dest", "vac-theme", "vac-to", "vac-from", "vac-back-note"].forEach(id => {
     $(id).addEventListener("input", vacPreview);
     $(id).addEventListener("change", vacPreview);
   });
@@ -1137,19 +1142,19 @@
     $("vac-empty").hidden = vacs.length > 0;
     vacs.forEach(v => {
       const kind = store.absenceKind(v), theme = store.vacationTheme(v);
-      const state = v.to && todayKey >= v.to ? "done" : v.from && todayKey < v.from ? "soon" : "now";
+      const state = v.to && todayKey === v.to ? "back" : v.to && todayKey > v.to ? "done" : v.from && todayKey < v.from ? "soon" : "now";
       const row = document.createElement("div");
       row.className = "row";
       const name = document.createElement("span");
       name.className = "grow";
       name.textContent = `${theme.emoji.slice(0, 2)} ${v.name}${kind.id !== "maladie" && v.destination ? ` · ${v.destination}` : ""}`;
       if (kind.id === "maladie") name.appendChild(badge("sick", "arrêt maladie"));
-      name.appendChild(badge(state, state === "now" ? "absent en ce moment" : state === "soon" ? "à venir" : "terminé"));
+      name.appendChild(badge(state === "back" ? "now" : state, state === "now" ? "absent en ce moment" : state === "back" ? "de retour aujourd'hui 🎉" : state === "soon" ? "à venir" : "terminé"));
       const small = document.createElement("small");
       const left = v.to ? Math.round((new Date(v.to + "T00:00:00") - t0) / 86400000) : null;
       small.textContent = `du ${longDate(v.from)}${v.to ? ` · retour le ${longDate(v.to)}` : " · sans date de retour"}` +
         (state === "now" && left !== null ? ` · plus que ${left} jour${left > 1 ? "s" : ""}` : "") +
-        (kind.id !== "maladie" ? ` · thème ${theme.label}` : "") + (v.note ? ` · « ${v.note} »` : "");
+        (kind.id !== "maladie" ? ` · thème ${theme.label}` : "") + (v.note ? ` · « ${v.note} »` : "") + (v.backNote ? ` · retour : « ${v.backNote} »` : "");
       name.appendChild(small);
       row.appendChild(name);
       row.appendChild(rowButtons(() => editAbsence(v), () => attempt(async () => {
@@ -1171,6 +1176,7 @@
     $("vac-from").value = v.from || "";
     $("vac-to").value = v.to || "";
     $("vac-note").value = v.note || "";
+    $("vac-back-note").value = v.backNote || "";
     $("vac-form-title").textContent = `Modifier l'absence de ${v.name}`;
     $("vac-submit").textContent = "Enregistrer les modifications";
     $("vac-cancel").hidden = false;
@@ -1199,7 +1205,7 @@
     const wasEditing = editingVac, sick = v.kind === "maladie";
     attempt(async () => {
       const entry = { id: wasEditing || newId(), name: v.name, kind: v.kind, destination: sick ? "" : v.destination, theme: sick ? "" : v.theme,
-        from: v.from, to: v.to || null, note: v.note };
+        from: v.from, to: v.to || null, note: v.note, backNote: v.backNote };
       const list = wasEditing ? settings.vacations.map(x => x.id === wasEditing ? entry : x) : settings.vacations.concat([entry]);
       await store.saveSetting("vacations", list);
       settings.vacations = list;
