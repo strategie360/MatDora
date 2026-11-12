@@ -141,7 +141,7 @@
   .clock {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 12px;
+    grid-gap: 12px; gap: 12px;
     width: 100%;
     max-width: 640px;
   }
@@ -176,7 +176,7 @@
     grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
     grid-template-rows: minmax(0, 1fr);
     align-items: center;
-    gap: 32px;
+    grid-gap: 32px; gap: 32px;
   }
   .s-dora h1 .who { color: var(--fg); }
   .info {
@@ -679,7 +679,7 @@
     padding: 0;
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(calc(210px * var(--scale, 1)), 1fr));
-    gap: calc(12px * var(--scale, 1));
+    grid-gap: calc(12px * var(--scale, 1)); gap: calc(12px * var(--scale, 1));
   }
   .chip {
     display: flex;
@@ -703,7 +703,7 @@
     .s-dora .inner {
       grid-template-columns: minmax(0, 1fr);
       grid-template-rows: auto minmax(0, 1fr);
-      gap: 12px;
+      grid-gap: 12px; gap: 12px;
     }
     .info > * + * { margin-top: clamp(8px, 2vh, 18px); }
     .lede { font-size: 1rem; margin-top: 8px; }
@@ -727,7 +727,7 @@
     .s-dora .lede, .s-dora .eyebrow { display: none; }
   }
   @media (max-width: 480px) {
-    .clock { gap: 8px; }
+    .clock { grid-gap: 8px; gap: 8px; }
     .unit { padding-left: 2px; padding-right: 2px; border-radius: 999px 999px 20px 20px; }
     .lbl { font-size: .62rem; letter-spacing: .06em; }
   }
@@ -881,7 +881,7 @@
   .absent-cards {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(calc(230px * var(--scale, 1)), 1fr));
-    gap: calc(16px * var(--scale, 1));
+    grid-gap: calc(16px * var(--scale, 1)); gap: calc(16px * var(--scale, 1));
     width: 100%;
     margin-top: calc(16px * var(--scale, 1));
   }
@@ -964,7 +964,7 @@
   .news-cards {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(calc(260px * var(--scale, 1)), 1fr));
-    gap: calc(18px * var(--scale, 1));
+    grid-gap: calc(18px * var(--scale, 1)); gap: calc(18px * var(--scale, 1));
     width: 100%;
     margin-top: calc(18px * var(--scale, 1));
   }
@@ -1089,7 +1089,7 @@
     grid-template-columns: repeat(auto-fit, minmax(calc(165px * var(--scale, 1)), calc(200px * var(--scale, 1))));
     justify-content: center;
     align-items: end;
-    gap: calc(18px * var(--scale, 1)) calc(16px * var(--scale, 1));
+    grid-gap: calc(18px * var(--scale, 1)) calc(16px * var(--scale, 1)); gap: calc(18px * var(--scale, 1)) calc(16px * var(--scale, 1));
     width: 100%;
     margin-top: calc(18px * var(--scale, 1));
   }

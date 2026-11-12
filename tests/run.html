@@ -1504,6 +1504,11 @@
     check(g, "min-width, max-height… ne sont pas touchés", fl("@media (max-width: 760px){a{min-width:0;max-height:10px}}") === "@media (max-width: 760px){a{min-width:0;max-height:10px}}");
     const h2 = parseFloat(w.getComputedStyle(d.querySelector(".s-pause h2")).fontSize);
     check(g, "les titres gardent une vraie taille", h2 > 20, String(h2));
+    // Pas de gap sur un élément flex (pas compris par les vieux navigateurs de TV) ; grid-gap en plus de gap
+    const flexGap = [...d.querySelectorAll("*")].filter(el => /flex/.test(w.getComputedStyle(el).display) && ["normal", "0px", ""].indexOf(w.getComputedStyle(el).columnGap) === -1);
+    check(g, "aucun gap sur un élément flex", flexGap.length === 0, flexGap.slice(0, 5).map(el => el.className || el.id || el.tagName).join(", "));
+    const gaps = css().match(/(^|[^-\w])gap:/g).length, paired = css().match(/grid-gap:[^;]+; gap:/g).length;
+    check(g, "chaque gap a aussi son grid-gap (anciens navigateurs)", gaps === paired, `${gaps} gap, ${paired} avec grid-gap`);
     f.width = 960; f.height = 540;
     await sleep(500);
     check(g, "recalculé quand l'écran change de taille", /x:480px/.test(fl("a{x:clamp(10px, 50vw, 2000px)}")));

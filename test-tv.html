@@ -88,7 +88,8 @@
   // Remplacés automatiquement par le site (js/css-fallback.js) : pas bloquant
   test("css", "clamp() (sinon remplacé par le site)", function () { return cssValue("width", "clamp(1px, 2px, 3px)"); }, false);
   test("css", "min() / max() (sinon remplacés par le site)", function () { return cssValue("width", "min(1px, 2px)"); }, false);
-  test("css", "espacement flex (gap)", function () {
+  // Le site n'en utilise pas (gap seulement sur des grilles) : pas bloquant
+  test("css", "espacement flex (gap, pas utilisé)", function () {
     var box = document.createElement("div");
     box.style.display = "flex";
     box.style.gap = "10px";
