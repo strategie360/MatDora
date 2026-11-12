@@ -85,8 +85,9 @@
     return ok;
   }, true);
   test("css", "calc()", function () { return cssValue("width", "calc(10px + 1px)"); }, true);
-  test("css", "clamp()", function () { return cssValue("width", "clamp(1px, 2px, 3px)"); }, true);
-  test("css", "min() / max()", function () { return cssValue("width", "min(1px, 2px)"); }, true);
+  // Remplacés automatiquement par le site (js/css-fallback.js) : pas bloquant
+  test("css", "clamp() (sinon remplacé par le site)", function () { return cssValue("width", "clamp(1px, 2px, 3px)"); }, false);
+  test("css", "min() / max() (sinon remplacés par le site)", function () { return cssValue("width", "min(1px, 2px)"); }, false);
   test("css", "espacement flex (gap)", function () {
     var box = document.createElement("div");
     box.style.display = "flex";
@@ -117,7 +118,7 @@
     return m;
   }
 
-  var page = { state: "en cours", errors: [], deck: false, slides: 0, shown: "" };
+  var page = { state: "en cours", errors: [], deck: false, slides: 0, shown: "", fallback: false };
   function render() {
     var html = "";
     html += "<h2>Navigateur</h2><div class='ua'>" + esc(navigator.userAgent) + "</div>";
@@ -132,7 +133,8 @@
     html += "<h2>Le vrai site, chargé en arrière-plan</h2><ul>" +
       "<li>" + esc(page.state) + "</li>" +
       (page.state === "chargé" ? "<li class='" + (page.deck ? "yes" : "no") + "'>" + (page.deck ? "✔ diaporama démarré" : "✘ diaporama pas démarré") + "</li>" +
-        "<li>" + esc(page.shown) + "</li>" : "") + "</ul>";
+        "<li>" + esc(page.shown) + "</li>" +
+        (page.fallback ? "<li class='yes'>✔ clamp/min/max remplacés automatiquement</li>" : "") : "") + "</ul>";
     if (page.errors.length) {
       html += "<div class='err'>";
       for (var i = 0; i < page.errors.length && i < 6; i++) html += "• " + esc(page.errors[i]) + "<br>";
@@ -162,6 +164,7 @@
         page.state = "chargé";
         page.errors = (w.__errors || []).slice();
         page.deck = typeof w.deck === "object" && !!w.deck;
+        page.fallback = !!(w.cssFallback && w.cssFallback.active);
         var lock = d.getElementById("lock");
         var active = d.querySelector(".slide.active");
         page.shown = lock && !lock.hidden ? "écran du code d'accès affiché" : active ? "slide affichée : " + (active.getAttribute("aria-label") || "?") : "rien d'affiché";

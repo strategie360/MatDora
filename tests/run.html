@@ -80,10 +80,10 @@
     return imgs;
   }
 
-  async function testViewport(w, h) {
-    const g = `${w}×${h}`;
+  async function testViewport(w, h, extra = "") {
+    const g = `${w}×${h}${extra ? " " + extra.replace(",", "") : ""}`;
     // Mode démo : toutes les slides, y compris Happiness, Photos et Repas
-    const f = await load("../index.html#mock", w, h);
+    const f = await load("../index.html#mock" + extra, w, h);
     const win = f.contentWindow, doc = f.contentDocument;
     await win.document.fonts?.ready;
     await win.refresh();
@@ -1488,6 +1488,28 @@
     localStorage.removeItem("matdora-demo");
   }
 
+  // Remplacement de clamp()/min()/max() pour les vieux navigateurs
+  async function testNoClamp() {
+    const g = "sans clamp (iiyama)";
+    const f = await load("../index.html#mock,noclamp", 1920, 1080);
+    const w = f.contentWindow, d = f.contentDocument;
+    const css = () => [...d.querySelectorAll("style")].map(s => s.textContent).join("");
+    check(g, "remplacement actif", w.cssFallback && w.cssFallback.active === true);
+    check(g, "plus aucun clamp(), min() ni max() dans les styles", !/(^|[^-\w])(clamp|min|max)\(/.test(css()));
+    const fl = w.cssFallback.flatten;
+    check(g, "clamp() : la valeur idéale, bornée", fl("a{x:clamp(10px, 50vw, 2000px)}") === "a{x:960px}" && fl("a{x:clamp(1rem, 1px, 3rem)}") === "a{x:16px}" && fl("a{x:clamp(1rem, 50vw, 3rem)}") === "a{x:48px}");
+    check(g, "min() / max() : la plus petite / la plus grande", fl("a{x:min(5vw, 8vh)}") === "a{x:86.4px}" && fl("a{x:max(10px, 1vw)}") === "a{x:19.2px}");
+    check(g, "imbriqués, dans un calc() avec var()", fl("a{x:calc(clamp(1rem, min(5vw, 8vh), 6rem) * var(--scale, 1))}") === "a{x:calc(86.4px * var(--scale, 1))}");
+    check(g, "non calculable (env) : la valeur fixe", fl("a{--g: max(16px, env(safe-area-inset-left, 0px))}") === "a{--g: 16px}");
+    check(g, "min-width, max-height… ne sont pas touchés", fl("@media (max-width: 760px){a{min-width:0;max-height:10px}}") === "@media (max-width: 760px){a{min-width:0;max-height:10px}}");
+    const h2 = parseFloat(w.getComputedStyle(d.querySelector(".s-pause h2")).fontSize);
+    check(g, "les titres gardent une vraie taille", h2 > 20, String(h2));
+    f.width = 960; f.height = 540;
+    await sleep(500);
+    check(g, "recalculé quand l'écran change de taille", /x:480px/.test(fl("a{x:clamp(10px, 50vw, 2000px)}")));
+    f.remove();
+  }
+
   // Page de diagnostic pour les navigateurs de TV (iiyama…)
   async function testTvPage() {
     const g = "page test-tv";
@@ -1721,6 +1743,9 @@
       await testAccess();
       localStorage.removeItem("matdora-demo");
       for (const [w, h] of VIEWPORTS) await testViewport(w, h);
+      // Vieux navigateur de TV sans clamp()/min()/max() (iiyama) : simulé avec #noclamp
+      await testNoClamp();
+      for (const [w, h] of [[1920, 1080], [1280, 720], [960, 540]]) await testViewport(w, h, ",noclamp");
       localStorage.removeItem("matdora-demo");
     } catch (e) {
       check("erreur", "les tests ont planté", false, String(e));
