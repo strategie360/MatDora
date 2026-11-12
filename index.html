@@ -1,5 +1,10 @@
 <!doctype html>
 <meta charset="utf-8">
+<script>
+  // Note les erreurs JavaScript (lues par /test-tv.html pour diagnostiquer un navigateur de TV) ; ES5 exprès
+  window.__errors = [];
+  window.onerror = function (msg, src, line) { window.__errors.push(msg + " (" + String(src || "").split("/").pop() + ":" + line + ")"); };
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Dora arrive</title>
 <meta name="claude:viewport-fit-sides" content="cover">
@@ -344,6 +349,10 @@
     color: #ffd27a;
   }
   .s-pause.on-break .day { background: #ff8787; color: #ffffff; }
+  /* 18h : fin de la journée */
+  .s-pause.end-of-day .big-time { font-size: clamp(2.2rem, min(7vw, 11vh), 5.4rem); line-height: 1.05; color: #ffd27a; }
+  .s-pause.end-of-day .day { background: #9775fa; color: #ffffff; }
+  .s-pause.end-of-day h2 { color: #ffffff; font-size: clamp(2rem, min(6.4vw, 9vh), 4.6rem); }
   .s-pause.on-break h2 { color: #ffffff; font-size: clamp(2rem, min(6.4vw, 9vh), 4.6rem); }
 
   /* ---------- Slide Imputations : post-it jaune, encre bleu nuit ---------- */
@@ -988,6 +997,51 @@
   .news-card .m { margin-top: 8px; font-size: calc(clamp(.9rem, 2.2vh, 1.15rem) * var(--scale, 1)); color: #343a66; white-space: pre-line; overflow-wrap: anywhere; }
 
   /* ---------- Slide Ils nous ont quittés : un petit cimetière (avec humour), bougies et photos ---------- */
+  /* ---------- Jeux de société (12h – 14h) : tapis de jeu violet ---------- */
+  body[data-tone="games"] .seg { background: rgba(255, 255, 255, .18); }
+  body[data-tone="games"] .seg i { background: #ffd43b; }
+  .s-games {
+    background-color: #2d2a6e;
+    background-image: radial-gradient(rgba(255, 255, 255, .08) 2px, transparent 2px);
+    background-size: 36px 36px;
+    color: #f3f0ff;
+  }
+  .s-games .inner { max-width: 1280px; display: flex; flex-direction: column; justify-content: center; }
+  .games-wrap { flex: none; }
+  .s-games .eyebrow { color: #ffd43b; }
+  .games-head h2 { margin: 6px 0 0; color: #ffffff; font-size: calc(clamp(1.8rem, min(5vw, 8vh), 3.6rem) * var(--scale, 1)); }
+  .games-body { display: flex; align-items: center; margin-top: calc(clamp(12px, 3vh, 30px) * var(--scale, 1)); }
+  .game-pick {
+    flex: 0 0 36%;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    margin-right: clamp(16px, 3vw, 44px);
+    padding: calc(clamp(14px, 3vh, 28px) * var(--scale, 1)) 18px;
+    border-radius: 22px;
+    background: #ffffff;
+    color: #2d2a6e;
+    box-shadow: 0 20px 40px -20px rgba(0, 0, 0, .6);
+    transform: rotate(-2deg);
+  }
+  .game-emoji { font-size: calc(clamp(2.8rem, min(8vw, 13vh), 6.5rem) * var(--scale, 1)); line-height: 1.1; }
+  .game-label { margin-top: 6px; color: #6c5ce7; font-weight: 800; text-transform: uppercase; letter-spacing: .12em; font-size: calc(clamp(.65rem, 1.5vh, .85rem) * var(--scale, 1)); }
+  .game-name { margin-top: 4px; font-family: var(--display); font-weight: 400; line-height: 1.05; overflow-wrap: anywhere; font-size: calc(clamp(1.5rem, min(4.2vw, 6.6vh), 3.2rem) * var(--scale, 1)); }
+  .games-all { flex: 1 1 auto; min-width: 0; }
+  .games-sub { margin: 0 0 10px; color: #c9c3ff; font-weight: 800; text-transform: uppercase; letter-spacing: .12em; font-size: calc(clamp(.65rem, 1.6vh, .85rem) * var(--scale, 1)); }
+  .games-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(calc(200px * var(--scale, 1)), 1fr)); grid-gap: calc(12px * var(--scale, 1)); }
+  .games-list li { display: flex; align-items: center; min-width: 0; box-sizing: border-box; padding: calc(9px * var(--scale, 1)) calc(14px * var(--scale, 1)); border-radius: 12px; background: rgba(255, 255, 255, .13); font-weight: 800; font-size: calc(clamp(.9rem, min(2.1vw, 2.6vh), 1.3rem) * var(--scale, 1)); }
+  .games-list .e { flex: none; margin-right: .4em; }
+  .games-list .n { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .games-list li.picked { background: #ffd43b; color: #2d2a6e; }
+  .games-list li.out { opacity: .5; }
+  @media (max-width: 760px), (max-aspect-ratio: 1/1) {
+    .games-body { flex-direction: column; align-items: stretch; }
+    .game-pick { flex: none; margin: 0 0 clamp(12px, 2.4vh, 22px); transform: none; }
+  }
+
   /* ---------- Prochain resto d'équipe : ardoise de bistrot et menu en papier ---------- */
   body[data-tone="bistro"] .seg { background: rgba(255, 255, 255, .18); }
   body[data-tone="bistro"] .seg i { background: #f2c14e; }
@@ -1331,6 +1385,29 @@
     </div>
   </section>
 
+  <!-- Jeux de société, entre 12h et 14h (onglet Jeux du dashboard) -->
+  <section class="slide s-games" data-id="games" data-tone="games" aria-label="Jeux de société">
+    <div class="inner" id="games-inner">
+      <div class="games-wrap" id="games-wrap">
+        <div class="games-head">
+          <div class="eyebrow">Pause déjeuner · 12h – 14h</div>
+          <h2>On joue à quoi&nbsp;? 🎲</h2>
+        </div>
+        <div class="games-body">
+          <div class="game-pick" id="game-pick">
+            <span class="game-emoji" id="game-emoji" aria-hidden="true">🎲</span>
+            <span class="game-label" id="game-label">Jeu du midi</span>
+            <strong class="game-name" id="game-name">–</strong>
+          </div>
+          <div class="games-all">
+            <p class="games-sub" id="games-sub">Tous les jeux</p>
+            <ul class="games-list" id="games-list"></ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <!-- Anniversaires (onglet Équipe du dashboard) -->
   <section class="slide s-bday" data-id="birthday" data-tone="party" aria-label="Anniversaires">
     <div class="inner" id="bday-inner">
@@ -1524,6 +1601,13 @@
 
   // Durée d'une pause : 30 min, sauf celle de 12:00 qui est la pause déjeuner (12:00 → 14:00)
   const BREAK_MINUTES = 30, LUNCH = [12, 0], LUNCH_MINUTES = 120;
+  // Rappel de fin de journée à 18:00 (jusqu'à 20:00), les jours où il y a des pauses
+  const END_OF_DAY = [18, 0], END_UNTIL = 20;
+  function endOfDay(now) {
+    return (SCHEDULE[now.getDay()] || []).length ? new Date(now.getFullYear(), now.getMonth(), now.getDate(), END_OF_DAY[0], END_OF_DAY[1]) : null;
+  }
+  function isEndOfDay(now) { const e = endOfDay(now); return !!e && now >= e && now.getHours() < END_UNTIL; }
+  window.isEndOfDay = isEndOfDay;
   function breakMinutes(h, m) { return h === LUNCH[0] && m === LUNCH[1] ? LUNCH_MINUTES : BREAK_MINUTES; }
   // Pause en cours (aujourd'hui), ou null
   function currentBreak(now) {
@@ -1544,6 +1628,7 @@
     const brk = currentBreak(now);
     const slide = document.querySelector(".s-pause");
     slide.classList.toggle("on-break", !!brk);
+    slide.classList.toggle("end-of-day", !brk && isEndOfDay(now));
     if (brk) {
       // Pendant la pause (30 min, ou 12:00 → 14:00 pour déjeuner) : « Tu n'es pas en pause ? »
       setChips(now, SCHEDULE[now.getDay()]);
@@ -1558,8 +1643,30 @@
       });
       return;
     }
+    const eod = endOfDay(now);
+    if (isEndOfDay(now)) {
+      setChips(now, SCHEDULE[now.getDay()]);
+      $("pause-day").hidden = false;
+      $("pause-day").textContent = "Fin de journée 🌙";
+      $("pause-title").textContent = "Il est 18h, la journée est finie !";
+      $("pause-time").textContent = "Rentre chez toi 🏠";
+      $("pause-in").innerHTML = "Trop de travail en cours&nbsp;? <strong>Ça attendra demain</strong> 😉";
+      pauseItems.forEach(li => { li.className = "past"; });
+      return;
+    }
     $("pause-title").textContent = "Prochaine pause";
     const t = nextPause(now);
+    // Plus de pause avant 18h : on compte jusqu'à la fin de la journée
+    if (eod && now < eod && (!t || t > eod)) {
+      setChips(now, SCHEDULE[now.getDay()]);
+      $("pause-day").hidden = false;
+      $("pause-day").textContent = "Aujourd'hui";
+      $("pause-title").textContent = "Fin de la journée";
+      $("pause-time").textContent = `${pad(END_OF_DAY[0])}:${pad(END_OF_DAY[1])}`;
+      $("pause-in").innerHTML = `dans <strong>${duration(eod - now)}</strong>`;
+      pauseItems.forEach(li => { li.className = "past"; });
+      return;
+    }
     $("pause-day").hidden = !t;
     if (!t) {
       $("pause-time").textContent = "–";
@@ -2068,20 +2175,29 @@
   }
 
   /* ---------- Slide Bonnes vacances ---------- */
-  let vacations = [], absenceMessage = "";
+  let vacations = [], absenceMessage = "", backDays = 1;
   // En vacances aujourd'hui : depuis "from" (inclus) jusqu'à la veille du retour ("to")
   function onVacation(now) {
     const t = store.today(now);
     return vacations.filter(v => v.name && (!v.from || v.from <= t) && (!v.to || t < v.to));
   }
   // Le jour du retour (date « De retour le ») : message de bon retour
+  // (affiché pendant backDays jours ouvrés, réglés dans le dashboard ; 1 = seulement le jour du retour)
   function backToday(now) {
     const t = store.today(now);
-    return vacations.filter(v => v.name && v.to === t);
+    return vacations.filter(v => v.name && v.to && v.to <= t && t <= store.backUntil(v.to, backDays));
+  }
+  // « aujourd'hui », « depuis hier », « depuis lundi », « depuis le 3 novembre »
+  function backSince(v, now) {
+    const t = store.today(now);
+    if (v.to === t) return { word: "aujourd'hui", prefix: "" };
+    const days = Math.round((new Date(t + "T12:00:00") - new Date(v.to + "T12:00:00")) / 86400000);
+    const d = new Date(v.to + "T12:00:00");
+    return { prefix: "depuis ", word: days === 1 ? "hier" : days < 7 ? d.toLocaleDateString("fr-FR", { weekday: "long" }) : "le " + d.toLocaleDateString("fr-FR", { day: "numeric", month: "long" }) };
   }
   let vacKey = "";
   function renderVacation(now = new Date()) {
-    const key = store.today(now) + JSON.stringify(vacations) + absenceMessage + innerWidth + "x" + innerHeight;
+    const key = store.today(now) + JSON.stringify(vacations) + absenceMessage + backDays + innerWidth + "x" + innerHeight;
     if (key === vacKey) return;
     vacKey = key;
     // Message pour toute la slide (réglé dans l'onglet Congés)
@@ -2090,7 +2206,8 @@
     // Ceux qui reviennent aujourd'hui d'abord, puis les absents (retour le plus proche d'abord)
     const list = backToday(now).concat(onVacation(now).slice().sort((a, b) => (a.to || "9999").localeCompare(b.to || "9999")));
     if (!list.length) return;
-    const isBack = v => v.to === store.today(now);
+    const backList = backToday(now);
+    const isBack = v => backList.indexOf(v) !== -1;
     const long = d => new Date(d + "T12:00:00").toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
     const short = d => new Date(d + "T12:00:00").toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "short" });
     const left = v => v.to ? daysUntil(new Date(v.to + "T12:00:00"), now) : null;
@@ -2106,7 +2223,8 @@
     if (one && isBack(one)) {
       const kind = store.absenceKind(one);
       $("vac-icons").textContent = kind.backEmoji;
-      $("vac-kind").textContent = "De retour aujourd'hui";
+      const since = backSince(one, now);
+      $("vac-kind").textContent = `De retour ${since.prefix}${since.word}`;
       $("vac-title").innerHTML = `${kind.backTitle}, <span>${escapeHtml(one.name)}</span>&nbsp;!`;
       $("vac-dest").hidden = kind.id === "maladie" || !one.destination;
       $("vac-dest").textContent = one.destination ? `📍 ${one.destination}` : "";
@@ -2134,7 +2252,8 @@
       $("vac-note").textContent = one.note || theme.note;
     } else {
       const allBack = list.every(isBack);
-      $("absent-eyebrow").textContent = allBack ? "De retour aujourd'hui" : list.some(isBack) ? "Absents et retours" : "Absents en ce moment";
+      const allToday = list.every(v => v.to === store.today(now));
+      $("absent-eyebrow").textContent = allBack ? (allToday ? "De retour aujourd'hui" : "De retour parmi nous") : list.some(isBack) ? "Absents et retours" : "Absents en ce moment";
       $("absent-title").innerHTML = allBack ? "Bon retour parmi nous&nbsp;!" : "On pense à eux&nbsp;!";
       const cards = $("absent-cards");
       cards.innerHTML = "";
@@ -2148,7 +2267,7 @@
             `<div class="e" aria-hidden="true">${kind.backEmoji}</div>` +
             `<div class="k">${escapeHtml(kind.backTitle)}</div>` +
             `<div class="n">${escapeHtml(v.name)}</div>` +
-            `<div class="j">de retour <b>aujourd'hui</b>&nbsp;🎉</div>` +
+            `<div class="j">de retour ${backSince(v, now).prefix}<b>${escapeHtml(backSince(v, now).word)}</b>&nbsp;🎉</div>` +
             `<div class="m">« ${escapeHtml(v.backNote || kind.backNote)} »</div>`;
           cards.appendChild(card);
           return;
@@ -2270,6 +2389,37 @@
   window.renderRip = renderRip;
   window.departed = departed;
 
+  /* ---------- Jeux de société (12h – 14h) ---------- */
+  let games = [], gameChoice = null;
+  const GAMES_FROM = 12, GAMES_TO = 14;
+  function gamesTime(now) { return now.getHours() >= GAMES_FROM && now.getHours() < GAMES_TO; }
+  let gamesKey = "";
+  function renderGames(now = new Date()) {
+    const day = store.today(now);
+    const key = day + JSON.stringify(games) + JSON.stringify(gameChoice) + innerWidth + "x" + innerHeight;
+    if (key === gamesKey) return;
+    gamesKey = key;
+    const pick = store.gameOfDay(games, gameChoice, day);
+    if (!pick) return;
+    $("game-emoji").textContent = store.gameEmoji(pick.game.name);
+    $("game-label").textContent = pick.chosen ? "Jeu du midi" : "Tiré au sort pour ce midi";
+    $("game-name").textContent = pick.game.name;
+    const ul = $("games-list");
+    ul.innerHTML = "";
+    const list = games.filter(g => g && g.name);
+    const someOut = list.some(g => g.inDraw === false);
+    list.forEach(g => {
+      const li = document.createElement("li");
+      li.className = g === pick.game ? "picked" : g.inDraw === false ? "out" : "";
+      li.innerHTML = `<span class="e" aria-hidden="true">${store.gameEmoji(g.name)}</span><span class="n">${escapeHtml(g.name)}</span>`;
+      ul.appendChild(li);
+    });
+    $("games-sub").textContent = someOut ? "Tous les jeux · en grisé : pas dans le tirage" : "Tous les jeux";
+    fitBox("games-inner", "games-wrap", 0.4);
+  }
+  window.renderGames = renderGames;
+  window.gamesTime = gamesTime;
+
   /* ---------- Prochain resto d'équipe ---------- */
   let outings = [];
   const OUTING_END_HOUR = 14;  // le jour J, la slide reste jusqu'à 14 h
@@ -2314,7 +2464,7 @@
   window.onVacation = onVacation;
   window.backToday = backToday;
   window.upcomingBirthdays = upcomingBirthdays;
-  window.addEventListener("resize", () => { bdayKey = vacKey = newsKey = ripKey = outKey = ""; renderBirthday(); renderVacation(); renderNews(); renderRip(); renderOuting(); });
+  window.addEventListener("resize", () => { bdayKey = vacKey = newsKey = ripKey = outKey = gamesKey = ""; renderBirthday(); renderVacation(); renderNews(); renderRip(); renderOuting(); renderGames(); });
 
   /* ---------- Horloge commune ---------- */
   let doraRunning = render();
@@ -2331,6 +2481,7 @@
     renderNews();
     renderRip();
     renderOuting();
+    renderGames();
     if (lunchData) renderDraw(lunchData);
   }, 1000);
 
@@ -2359,7 +2510,9 @@
   // Les slides à données ne s'affichent que si les données sont là (Anniversaires : au moins une
   // date ; Bonnes vacances : seulement quand quelqu'un est en vacances aujourd'hui)
   function available(id) {
-    if (["happiness", "photos", "lunch", "outing", "birthday", "vacation", "news", "cemetery"].indexOf(id) !== -1 && store.mode === "off") return false;
+    if (["happiness", "photos", "lunch", "outing", "games", "birthday", "vacation", "news", "cemetery"].indexOf(id) !== -1 && store.mode === "off") return false;
+    // Jeux : seulement entre 12h et 14h (toujours en mode démo, pour pouvoir la voir)
+    if (id === "games" && (!games.some(g => g && g.name) || (store.mode !== "demo" && !gamesTime(new Date())))) return false;
     if (id === "outing" && !upcomingOutings(new Date()).length) return false;
     if (id === "cemetery" && !departed(new Date()).length) return false;
     if (id === "news" && !activeNews(new Date()).length) return false;
@@ -2506,8 +2659,12 @@
       birthdays = settings.birthdays;
       vacations = settings.vacations;
       absenceMessage = settings.absenceMessage;
+      backDays = settings.backDays;
       teamNews = settings.teamNews;
       outings = settings.restoOutings;
+      games = settings.games;
+      gameChoice = settings.gameChoice;
+      renderGames();
       renderOuting();
       renderNews();
       renderRip();

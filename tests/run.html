@@ -87,7 +87,7 @@
     const win = f.contentWindow, doc = f.contentDocument;
     await win.document.fonts?.ready;
     await win.refresh();
-    check(g, "les 12 slides sont dans la rotation", win.deck.count === 12, win.deck.ids.join(", "));
+    check(g, "les 13 slides sont dans la rotation", win.deck.count === 13, win.deck.ids.join(", "));
     const imgs = await imagesReady(doc);
     check(g, "script chargé (diaporama prêt)", typeof win.deck === "object");
     if (typeof win.deck !== "object") return;
@@ -206,8 +206,20 @@
     win.renderPause(at("2026-11-03T11:59:30"));
     check(g, "moins d'une heure : dans 0 min 30 s", doc.getElementById("pause-in").textContent === "dans 0 min 30 s", doc.getElementById("pause-in").textContent);
     win.renderPause(at("2026-11-06T17:00:00"));
-    check(g, "vendredi soir : lundi, dans 2 j 17 h 00 min", doc.getElementById("pause-day").textContent === "Lundi" && doc.getElementById("pause-in").textContent === "dans 2 j 17 h 00 min",
+    check(g, "après la dernière pause : « Fin de la journée » 18:00, dans 1 h", doc.getElementById("pause-title").textContent === "Fin de la journée" && doc.getElementById("pause-time").textContent === "18:00" && doc.getElementById("pause-in").textContent === "dans 1 h 00 min 00 s",
+      `${doc.getElementById("pause-title").textContent} / ${doc.getElementById("pause-in").textContent}`);
+    win.renderPause(at("2026-11-06T18:20:00"));
+    const eodSlide = doc.querySelector(".s-pause");
+    check(g, "18:20 : rappel de fin de journée, trop de travail en cours", eodSlide.classList.contains("end-of-day") && doc.getElementById("pause-title").textContent === "Il est 18h, la journée est finie !" && doc.getElementById("pause-in").textContent.indexOf("Trop de travail en cours") === 0 && doc.getElementById("pause-day").textContent === "Fin de journée 🌙",
+      `${doc.getElementById("pause-title").textContent} / ${doc.getElementById("pause-in").textContent}`);
+    check(g, "fin de journée : toutes les pauses du jour passées", [...doc.querySelectorAll("#pause-list li")].every(li => li.className === "past"));
+    win.renderPause(at("2026-11-06T17:59:59"));
+    check(g, "17:59:59 : pas encore le rappel", !eodSlide.classList.contains("end-of-day"));
+    win.renderPause(at("2026-11-06T20:00:00"));
+    check(g, "vendredi 20:00 : lundi, dans 2 j 14 h 00 min", !eodSlide.classList.contains("end-of-day") && doc.getElementById("pause-day").textContent === "Lundi" && doc.getElementById("pause-in").textContent === "dans 2 j 14 h 00 min",
       `${doc.getElementById("pause-day").textContent} / ${doc.getElementById("pause-in").textContent}`);
+    win.renderPause(at("2026-11-07T18:30:00"));
+    check(g, "samedi 18:30 (pas de pause ce jour-là) : pas de rappel", !eodSlide.classList.contains("end-of-day"));
     win.renderPause();
 
     // Pendant la pause : 30 min (« C'est la pause ! »), sauf 12:00 → 14:00 (« C'est l'heure de manger ! »)
@@ -321,7 +333,7 @@
     const tw = tv.contentWindow, td = tv.contentDocument;
     tw.deck.pause(true);
     await tw.refresh();
-    check(g, "écran : 12 slides avec les données", tw.deck.ids.join() === "dora,pause,jira,rdv,happiness,photos,lunch,outing,birthday,vacation,news,cemetery", tw.deck.ids.join());
+    check(g, "écran : 13 slides avec les données", tw.deck.ids.join() === "dora,pause,jira,rdv,happiness,photos,lunch,outing,games,birthday,vacation,news,cemetery", tw.deck.ids.join());
     check(g, "happiness : titre de l'event affiché", td.getElementById("happy-title").textContent.indexOf("apéro") !== -1, td.getElementById("happy-title").textContent);
     check(g, "happiness : compte à rebours affiché", /^dans \d/.test(td.getElementById("happy-in").textContent), td.getElementById("happy-in").textContent);
     const lunchRows = () => [...td.querySelectorAll("#lunch-list .lunch-name")].map(n => n.textContent.trim());
@@ -470,12 +482,12 @@
     const aw = adm.contentWindow, ad = adm.contentDocument;
     await adminLogin(aw, ad);
     check(g, "dashboard : mode démo indiqué", ad.getElementById("mode").textContent === "Mode démo (#mock)");
-    check(g, "dashboard : 12 slides listées", ad.querySelectorAll("#slides-list .row").length === 12);
+    check(g, "dashboard : 13 slides listées", ad.querySelectorAll("#slides-list .row").length === 13);
     ad.getElementById("slide-jira").click();
     ad.getElementById("slides-save").click();
     await sleep(400);
     await tw.refresh();
-    check(g, "dashboard → écran : slide décochée retirée", tw.deck.ids.indexOf("jira") === -1 && tw.deck.count === 11, tw.deck.ids.join());
+    check(g, "dashboard → écran : slide décochée retirée", tw.deck.ids.indexOf("jira") === -1 && tw.deck.count === 12, tw.deck.ids.join());
 
     ad.querySelector('[data-tab="pauses"]').click();
     check(g, "dashboard : onglet Pauses s'ouvre", !ad.getElementById("tab-pauses").hidden && ad.getElementById("tab-slides").hidden);
@@ -507,7 +519,7 @@
     tw.renderPause(at2("2026-11-06T16:30:00"));
     const friChips = [...td.querySelectorAll("#pause-list li")].map(li => `${li.textContent}${li.className ? ":" + li.className : ""}`).join(" ");
     check(g, "écran : pastilles du vendredi (4 pauses)", friChips === "10:00:past 12:00:past 16:00:past 18:00:next", friChips);
-    tw.renderPause(at2("2026-11-06T19:00:00"));
+    tw.renderPause(at2("2026-11-06T20:00:00"));
     const satChips = [...td.querySelectorAll("#pause-list li")].map(li => `${li.textContent}${li.className ? ":" + li.className : ""}`).join(" ");
     check(g, "écran : vendredi soir → pastilles du samedi", satChips === "11:15:next" && td.getElementById("pause-day").textContent === "Demain", `${td.getElementById("pause-day").textContent} ${satChips}`);
 
@@ -964,6 +976,19 @@
     tw.renderVacation(at("2026-11-09T10:00:00"));
     check(g, "deux retours : « Bon retour parmi nous ! »", cards().length === 2 && cards().every(c => c.classList.contains("back")) && txt("absent-eyebrow") === "De retour aujourd'hui" && txt("absent-title").replace(/\s+/g, " ") === "Bon retour parmi nous !");
 
+    // Message de bon retour affiché plusieurs jours ouvrés (réglage du dashboard)
+    check(g, "durée du retour : jours ouvrés, week-end sauté", S.backUntil("2026-11-06", 1) === "2026-11-06" && S.backUntil("2026-11-06", 3) === "2026-11-10" && S.backUntil("2026-11-02", 5) === "2026-11-06");
+    check(g, "durée du retour : 1 par défaut, entre 1 et 10", S.withDefaults(null).backDays === 1 && S.withDefaults({ backDays: 99 }).backDays === 10 && S.withDefaults({ backDays: 0 }).backDays === 1 && S.withDefaults({ backDays: 4 }).backDays === 4);
+    tw.eval('backDays = 3; vacations = [{ id: "v", name: "Sarah", from: "2026-11-02", to: "2026-11-06" }]; vacKey = ""');
+    check(g, "retour sur 3 jours ouvrés : vendredi, lundi, mardi", back("2026-11-06T09:00:00") === "Sarah" && back("2026-11-09T09:00:00") === "Sarah" && back("2026-11-10T09:00:00") === "Sarah" && back("2026-11-11T09:00:00") === "");
+    tw.renderVacation(at("2026-11-09T10:00:00"));
+    check(g, "retour depuis vendredi : « De retour depuis vendredi »", txt("vac-kind") === "De retour depuis vendredi" && txt("vac-title").replace(/\s+/g, " ") === "Bon retour, Sarah !", txt("vac-kind"));
+    tw.eval('vacations.push({ id: "w", name: "Paul", from: "2026-11-02", to: "2026-11-09" }); vacKey = ""');
+    tw.renderVacation(at("2026-11-10T10:00:00"));
+    check(g, "deux retours, jours différents : « depuis vendredi », « depuis hier »", cards().length === 2 && cards().every(c => c.classList.contains("back")) && txt("absent-eyebrow") === "De retour parmi nous" && /depuis hier/.test(cards().map(c => c.textContent).join(" | ")) && /depuis mardi|depuis vendredi/.test(cards().map(c => c.textContent).join(" | ")),
+      cards().map(c => c.textContent).join(" | "));
+    tw.eval('backDays = 1');
+
     tw.eval('vacations = [{ id: "v", name: "Sarah", from: "2026-11-02", to: "2026-11-09", note: "" }, { id: "w", name: "Paul", from: "2026-11-20", to: null, note: "" }]; vacKey = ""');
     await tw.refresh();
 
@@ -1013,6 +1038,14 @@
     ad.getElementById("vac-note").value = "Ramène-nous du soleil !";
     ad.getElementById("vac-dest").value = "Japon";
     ad.getElementById("vac-dest").dispatchEvent(new aw.Event("input"));
+    check(g, "dashboard : durée du message de bon retour, 1 jour par défaut", ad.getElementById("backdays").value === "1" && !!ad.querySelector('label[for="backdays"]'));
+    ad.getElementById("backdays").value = "3";
+    ad.getElementById("backdays-form").dispatchEvent(new aw.Event("submit", { cancelable: true }));
+    await waitFor(() => ad.getElementById("toast").textContent === "Message de bon retour affiché pendant 3 jours ouvrés.");
+    check(g, "dashboard : durée enregistrée, aperçu mis à jour", (await tw.MatDoraStore.getSettings()).backDays === 3 && ad.getElementById("vac-preview").textContent.indexOf("au retour (3 jours ouvrés)") !== -1, ad.getElementById("vac-preview").textContent);
+    ad.getElementById("backdays").value = "1";
+    ad.getElementById("backdays-form").dispatchEvent(new aw.Event("submit", { cancelable: true }));
+    await waitFor(() => ad.getElementById("toast").textContent === "Message de bon retour : le jour du retour seulement.");
     check(g, "dashboard : aperçu du jour du retour, message par défaut proposé", ad.getElementById("vac-preview").textContent.indexOf("le jour du retour : 🎉 Bon retour, Sarah !") !== -1 && ad.getElementById("vac-back-note").placeholder.indexOf("Bon retour parmi nous") !== -1, ad.getElementById("vac-preview").textContent);
     check(g, "dashboard : aperçu de la slide avec le thème deviné", ad.getElementById("vac-preview").textContent.indexOf("Bonnes vacances, Sarah") !== -1 && ad.getElementById("vac-preview").textContent.indexOf("thème Japon") !== -1 && /plus que 7 jours/.test(ad.getElementById("vac-preview").textContent), ad.getElementById("vac-preview").textContent);
     check(g, "dashboard : 8 thèmes au choix + automatique", ad.querySelectorAll("#vac-theme option").length === 9);
@@ -1368,6 +1401,106 @@
     localStorage.removeItem("matdora-demo");
   }
 
+  // Jeux de société entre 12h et 14h : tous les jeux, et le jeu du midi (choisi ou tiré au sort)
+  async function testGames() {
+    const g = "jeux de société";
+    localStorage.removeItem("matdora-demo");
+    const tv = await load("../index.html#mock", 1280, 720);
+    const tw = tv.contentWindow, td = tv.contentDocument;
+    tw.deck.pause(true);
+    await tw.refresh();
+    const at = x => new tw.Date(x);
+    const txt = id => td.getElementById(id).textContent;
+    const S = tw.MatDoraStore;
+    check(g, "seulement entre 12h et 14h", !tw.gamesTime(at("2026-11-12T11:59:00")) && tw.gamesTime(at("2026-11-12T12:00:00")) && tw.gamesTime(at("2026-11-12T13:59:00")) && !tw.gamesTime(at("2026-11-12T14:00:00")));
+    check(g, "démo : la slide est là, après le resto d'équipe", tw.deck.ids.indexOf("games") === tw.deck.ids.indexOf("outing") + 1);
+    const items = () => [...td.querySelectorAll("#games-list li")];
+    check(g, "tous les jeux affichés, avec emoji", items().length === 4 && items().some(li => li.textContent.indexOf("Uno") !== -1 && li.textContent.indexOf("🃏") !== -1) && items().some(li => li.textContent.indexOf("Échecs") !== -1 && li.textContent.indexOf("♟️") !== -1));
+    check(g, "jeu hors tirage : grisé", items().filter(li => li.textContent.indexOf("Échecs") !== -1)[0].classList.contains("out") && txt("games-sub").indexOf("en grisé") !== -1);
+    check(g, "sans choix : « Tiré au sort pour ce midi », mis en avant dans la liste", txt("game-label") === "Tiré au sort pour ce midi" && items().filter(li => li.classList.contains("picked")).length === 1 && items().filter(li => li.classList.contains("picked"))[0].textContent.indexOf(txt("game-name")) !== -1);
+
+    // Tirage au sort : le même toute la journée (et sur tous les écrans), jamais un jeu hors tirage
+    const list = [{ id: "a", name: "Uno", inDraw: true }, { id: "b", name: "Skyjo", inDraw: true }, { id: "c", name: "Échecs", inDraw: false }, { id: "d", name: "Dobble", inDraw: true }];
+    const days = Array.from({ length: 60 }, (_, k) => S.addDays("2026-11-01", k));
+    const picks = days.map(d => S.gameOfDay(list, null, d).game.id);
+    check(g, "tirage : jamais un jeu hors tirage", picks.indexOf("c") === -1);
+    check(g, "tirage : varie d'un jour à l'autre, tous les jeux y passent", new Set(picks).size === 3, picks.slice(0, 12).join(""));
+    check(g, "tirage : le même pour une date donnée", S.gameOfDay(list, null, "2026-11-12").game.id === S.gameOfDay(list, null, "2026-11-12").game.id);
+    check(g, "choix du jour prioritaire, seulement ce jour-là", S.gameOfDay(list, { day: "2026-11-12", id: "c" }, "2026-11-12").game.id === "c" && S.gameOfDay(list, { day: "2026-11-12", id: "c" }, "2026-11-12").chosen && !S.gameOfDay(list, { day: "2026-11-12", id: "c" }, "2026-11-13").chosen);
+    check(g, "tous hors tirage : on tire quand même parmi tous", !!S.gameOfDay([{ id: "x", name: "Uno", inDraw: false }], null, "2026-11-12"));
+    check(g, "aucun jeu : pas de slide", S.gameOfDay([], null, "2026-11-12") === null);
+
+    // Beaucoup de jeux : tout tient à l'écran
+    tw.deck.show(tw.deck.ids.indexOf("games"));
+    for (const [w, h] of [[1920, 1080], [1280, 720], [375, 667]]) {
+      tv.width = w; tv.height = h;
+      await sleep(250);
+      tw.eval('games = ' + JSON.stringify(Array.from({ length: 24 }, (_, k) => ({ id: "j" + k, name: "Un jeu au nom assez long n°" + k, inDraw: k % 4 !== 0 }))) + '; gameChoice = null; gamesKey = ""');
+      tw.renderGames(at("2026-11-12T12:30:00"));
+      check(g, `24 jeux : tout tient à l'écran (${w}×${h})`, items().length === 24 && fitsBox(td.getElementById("games-inner")));
+    }
+    tv.width = 1280; tv.height = 720;
+    await sleep(200);
+
+    // Dashboard : onglet Jeux
+    await tw.refresh();
+    const adm = await load("../admin.html#mock,games", 1280, 900);
+    const aw = adm.contentWindow, ad = adm.contentDocument;
+    await adminLogin(aw, ad);
+    const rows = () => [...ad.querySelectorAll("#games-list .row")];
+    check(g, "dashboard : onglet Jeux, 4 jeux, case « dans le tirage »", !ad.getElementById("tab-games").hidden && rows().length === 4 && rows().every(r => r.querySelector("input[type=checkbox]")) && !rows().filter(r => r.textContent.indexOf("Échecs") !== -1)[0].querySelector("input").checked);
+    check(g, "dashboard : le jeu de ce midi (tiré au sort)", /tiré au sort$/.test(ad.getElementById("game-now").textContent) && ad.getElementById("game-choice").value === "", ad.getElementById("game-now").textContent);
+    ad.getElementById("game-name").value = "Loup-garou";
+    ad.getElementById("game-form").dispatchEvent(new aw.Event("submit", { cancelable: true }));
+    await waitFor(() => rows().length === 5);
+    check(g, "dashboard : jeu ajouté, dans le tirage", rows().some(r => r.textContent.indexOf("🐺 Loup-garou") !== -1 && r.querySelector("input").checked));
+    ad.getElementById("game-name").value = "loup-garou";
+    ad.getElementById("game-form").dispatchEvent(new aw.Event("submit", { cancelable: true }));
+    await sleep(100);
+    check(g, "dashboard : pas de doublon", ad.getElementById("toast").classList.contains("error") && rows().length === 5);
+    const wolf = (await S.getSettings()).games.filter(x => x.name === "Loup-garou")[0];
+    ad.getElementById("game-choice").value = wolf.id;
+    ad.getElementById("game-choice").dispatchEvent(new aw.Event("change"));
+    await waitFor(() => ad.getElementById("toast").textContent === "Jeu de ce midi choisi.");
+    check(g, "dashboard : jeu choisi pour ce midi", ad.getElementById("game-now").textContent === "🐺 Loup-garou · choisi pour ce midi");
+    await tw.refresh();
+    check(g, "écran : « Jeu du midi » Loup-garou", txt("game-label") === "Jeu du midi" && txt("game-name") === "Loup-garou");
+    ad.getElementById("game-reroll").click();
+    await waitFor(() => /^Tirage : /.test(ad.getElementById("toast").textContent));
+    const after = (await S.getSettings()).gameChoice;
+    check(g, "dashboard : « Tirer au sort » change de jeu", after && after.id !== wolf.id && after.day === S.today());
+    // Décocher un jeu : il sort du tirage
+    const skyRow = rows().filter(r => r.textContent.indexOf("Skyjo") !== -1)[0];
+    skyRow.querySelector("input").click();
+    await waitFor(() => ad.getElementById("toast").textContent === "Exemple : Skyjo retiré du tirage.");
+    check(g, "dashboard : décoché = hors tirage", (await S.getSettings()).games.filter(x => x.name === "Exemple : Skyjo")[0].inDraw === false);
+    // On retire tout : plus de slide
+    while (ad.querySelector("#games-list .btn.danger")) {
+      const b = ad.querySelector("#games-list .btn.danger");
+      const before = rows().length;
+      b.click(); b.click();
+      await waitFor(() => rows().length === before - 1);
+    }
+    await tw.refresh();
+    check(g, "plus de jeu : plus de slide", tw.deck.ids.indexOf("games") === -1 && ad.getElementById("game-now").textContent === "Aucun jeu dans la liste", tw.deck.ids.join());
+    adm.remove();
+    tv.remove();
+    localStorage.removeItem("matdora-demo");
+  }
+
+  // Page de diagnostic pour les navigateurs de TV (iiyama…)
+  async function testTvPage() {
+    const g = "page test-tv";
+    const f = await load("../test-tv.html", 1280, 720);
+    const d = f.contentDocument;
+    await waitFor(() => /Ce navigateur devrait/.test(d.getElementById("verdict").textContent), 20000);
+    check(g, "verdict : ce navigateur fait marcher le site", d.getElementById("verdict").classList.contains("ok"), d.getElementById("verdict").textContent);
+    check(g, "affiche le navigateur et l'écran", d.querySelector(".ua").textContent === navigator.userAgent && /fenêtre \d+ × \d+/.test(d.getElementById("out").textContent));
+    check(g, "le vrai site a démarré sans erreur JavaScript", /diaporama démarré/.test(d.getElementById("out").textContent) && !d.querySelector(".err"));
+    check(g, "le site note ses erreurs JavaScript (pour la page de test)", Array.isArray(f.contentDocument.querySelector("iframe").contentWindow.__errors));
+    f.remove();
+  }
+
   // Sécurité en mode démo : connexion au dashboard et code d'accès du site
   async function testAccess() {
     const g = "accès (démo)";
@@ -1583,6 +1716,8 @@
       await testTeam();
       await testNews();
       await testOuting();
+      await testGames();
+      await testTvPage();
       await testAccess();
       localStorage.removeItem("matdora-demo");
       for (const [w, h] of VIEWPORTS) await testViewport(w, h);

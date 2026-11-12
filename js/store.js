@@ -21,6 +21,7 @@
     { id: "photos", label: "Photos d'events" },
     { id: "lunch", label: "Repas du midi" },
     { id: "outing", label: "Prochain resto d'équipe" },
+    { id: "games", label: "Jeux de société (12h – 14h)" },
     { id: "birthday", label: "Anniversaires" },
     { id: "vacation", label: "Congés et absences" },
     { id: "news", label: "Arrivées et CDI" },
@@ -51,6 +52,7 @@
   }
 
   // Complète la config enregistrée avec les valeurs par défaut (et les slides ajoutées depuis)
+  const BACK_DAYS_MAX = 10;
   function withDefaults(saved) {
     const out = Object.assign({}, DEFAULTS, saved || {});
     const list = Array.isArray(out.slides) ? out.slides.filter(s => SLIDES.some(d => d.id === s.id)) : [];
@@ -61,10 +63,15 @@
     out.birthdays = Array.isArray(out.birthdays) ? out.birthdays : [];
     out.vacations = Array.isArray(out.vacations) ? out.vacations : [];
     out.absenceMessage = typeof out.absenceMessage === "string" ? out.absenceMessage : "";
+    // Message de bon retour : affiché pendant N jours ouvrés à partir du jour du retour (1 à 10)
+    out.backDays = Math.max(1, Math.min(BACK_DAYS_MAX, Math.round(Number(out.backDays)) || 1));
     // Arrivées et départs : bienvenue (stagiaire, alternant…), départ, passage en CDI
     out.teamNews = Array.isArray(out.teamNews) ? out.teamNews : [];
     // Restos d'équipe : le midi où on y va ensemble, avec le menu (photo et/ou texte)
     out.restoOutings = Array.isArray(out.restoOutings) ? out.restoOutings : [];
+    // Jeux de société : la liste (inDraw = dans le tirage au sort) et le jeu choisi pour un midi
+    out.games = Array.isArray(out.games) ? out.games : [];
+    out.gameChoice = out.gameChoice && typeof out.gameChoice === "object" && out.gameChoice.day ? out.gameChoice : null;
     return out;
   }
 
@@ -333,6 +340,12 @@
           ],
           vacations: [
             { id: "v1", kind: "vacances", name: "Exemple : Sarah", destination: "Japon", theme: "", from: today(new Date(d.getTime() - 2 * 86400000)), to: today(new Date(d.getTime() + 6 * 86400000)), note: "" }
+          ],
+          games: [
+            { id: "g1", name: "Exemple : Uno", inDraw: true },
+            { id: "g2", name: "Exemple : Skyjo", inDraw: true },
+            { id: "g3", name: "Exemple : Time's Up", inDraw: true },
+            { id: "g4", name: "Exemple : Échecs", inDraw: false }
           ],
           restoOutings: [
             { id: "ro1", name: "Exemple : Le Bistrot du coin", date: today(new Date(d.getTime() + 2 * 86400000)), place: "Exemple : 12 rue de la Paix",
@@ -605,6 +618,39 @@
   function newsType(n) { return NEWS_TYPES.filter(t => t.id === (n && n.type))[0] || NEWS_TYPES[0]; }
   function addDays(day, n) { const d = new Date(day + "T12:00:00"); d.setDate(d.getDate() + n); return today(d); }
   // Départ : on ne garde que le dernier mois ("AAAA-MM") ; les anciennes fiches avaient une date
+  // Dernier jour du message de bon retour : le jour du retour + (n - 1) jours ouvrés (week-ends sautés)
+  function backUntil(to, n) {
+    let d = to;
+    for (let count = 1; count < (n || 1);) {
+      d = addDays(d, 1);
+      if (weekday(d) !== 0 && weekday(d) !== 6) count++;
+    }
+    return d;
+  }
+  // Jeu de société du midi : celui choisi pour ce jour-là, sinon un tirage au sort parmi les jeux
+  // « dans le tirage », le même sur tous les écrans (il dépend seulement de la date)
+  function hashDay(s) { let h = 7; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0; return h; }
+  function gameOfDay(games, choice, day) {
+    const list = (games || []).filter(g => g && g.name);
+    if (!list.length) return null;
+    if (choice && choice.day === day) {
+      const chosen = list.filter(g => g.id === choice.id)[0];
+      if (chosen) return { game: chosen, chosen: true };
+    }
+    const pool = list.filter(g => g.inDraw !== false);
+    const from = pool.length ? pool : list;
+    return { game: from[hashDay(day) % from.length], chosen: false };
+  }
+  const GAME_EMOJI = [
+    [/échec|echec|chess/i, "♟️"], [/puzzle/i, "🧩"], [/loup|garou|werewolf/i, "🐺"], [/catan|colon/i, "🏝️"],
+    [/time.?s up|timeline/i, "⏱️"], [/dessin|pictionary|dixit/i, "🎨"], [/quiz|trivial|culture/i, "❓"],
+    [/scrabble|mot|codenames|code names|bananagram/i, "🔤"], [/jenga|tour/i, "🧱"], [/mölkky|molkky|pétanque|petanque/i, "🎳"],
+    [/uno|carte|belote|tarot|poker|skyjo|dobble|qui prend|président|president/i, "🃏"], [/dés|des |yam|421/i, "🎲"]
+  ];
+  function gameEmoji(name) {
+    for (let i = 0; i < GAME_EMOJI.length; i++) if (GAME_EMOJI[i][0].test(name || "")) return GAME_EMOJI[i][1];
+    return "🎲";
+  }
   function departMonth(n) { return n.month || (n.date || "").slice(0, 7); }
   function nextMonth(month) { const y = Number(month.slice(0, 4)), m = Number(month.slice(5, 7)); return m === 12 ? `${y + 1}-01` : `${y}-${pad(m + 1)}`; }
   function newsWindow(n) { return { from: addDays(n.date, -NEWS_BEFORE_DAYS), until: n.until || addDays(n.date, NEWS_AFTER_DAYS) }; }
@@ -624,7 +670,7 @@
 
   const lunchApi = impl ? { lunch, ensureDraw, reroll, lunchRaw: impl.lunch } : {};
   window.MatDoraStore = Object.assign(
-    { mode, SLIDES, DEFAULTS, HM_REMINDER: "Va sur le channel HM pour voter pour la date et annoncer ta présence !", today, withDefaults, storedCode, rememberCode, usernameToEmail, resizeImage, foodEmoji, VACATION_THEMES, ABSENCE_KINDS, absenceKind, NEWS_TYPES, newsType, newsWindow, addDays, departMonth, nextMonth, guessTheme, vacationTheme, openOn, drawTime, weekday, DRAW_HOUR, DRAW_MINUTE },
+    { mode, SLIDES, DEFAULTS, HM_REMINDER: "Va sur le channel HM pour voter pour la date et annoncer ta présence !", today, withDefaults, storedCode, rememberCode, usernameToEmail, resizeImage, foodEmoji, VACATION_THEMES, ABSENCE_KINDS, absenceKind, NEWS_TYPES, newsType, newsWindow, addDays, gameOfDay, gameEmoji, backUntil, BACK_DAYS_MAX, departMonth, nextMonth, guessTheme, vacationTheme, openOn, drawTime, weekday, DRAW_HOUR, DRAW_MINUTE },
     impl || { getSettings: () => Promise.resolve(withDefaults(null)) },
     lunchApi
   );

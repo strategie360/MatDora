@@ -1,0 +1,184 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Test du navigateur MatDora</title>
+<style>
+  /* Page volontairement simple (pas de grille, pas de variables CSS) pour s'afficher sur les vieux navigateurs */
+  html, body { margin: 0; background: #1f2430; color: #f4f1ea; font-family: Arial, Helvetica, sans-serif; }
+  body { padding: 2vh 3vw; font-size: 2.6vh; line-height: 1.35; }
+  h1 { margin: 0 0 1vh; font-size: 4.4vh; }
+  h2 { margin: 2.2vh 0 .8vh; font-size: 3vh; color: #ffd27a; }
+  .verdict { padding: 1.4vh 2vw; border-radius: 12px; font-size: 3.4vh; font-weight: bold; background: #33405a; }
+  .verdict.ok { background: #1f6f43; }
+  .verdict.ko { background: #9b2c24; }
+  .ua { padding: 1vh 1.4vw; border-radius: 8px; background: #0f131b; font-family: "Courier New", monospace; font-size: 2.6vh; word-break: break-all; }
+  ul { margin: 0; padding: 0; list-style: none; }
+  li { display: inline-block; margin: 0 1.6vw .6vh 0; white-space: nowrap; }
+  .yes { color: #7be0a1; }
+  .no { color: #ff8a80; font-weight: bold; }
+  .err { color: #ff8a80; font-family: "Courier New", monospace; font-size: 2.4vh; word-break: break-all; }
+  .hint { color: #b7bfcf; font-size: 2.2vh; }
+  iframe { position: absolute; left: -9999px; top: 0; width: 1280px; height: 720px; border: 0; }
+</style>
+<body>
+<h1>📺 Test du navigateur pour MatDora</h1>
+<div class="verdict" id="verdict">Test en cours… (environ 10 secondes)</div>
+<div id="out"></div>
+<p class="hint">Prends une photo de cet écran et envoie-la. Page : /test-tv.html</p>
+
+<script>
+  // ES5 uniquement : cette page doit marcher même là où le vrai site ne marche pas
+  var results = { syntax: [], api: [], css: [] };
+  var out = document.getElementById("out");
+
+  function esc(t) { return String(t).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+  function add(group, label, ok, important) { results[group].push({ label: label, ok: !!ok, important: !!important }); }
+  function syntax(label, code) {
+    var ok = false;
+    try { new Function(code); ok = true; } catch (e) { ok = false; }
+    add("syntax", label, ok, true);
+  }
+  function test(group, label, fn, important) {
+    var ok = false;
+    try { ok = !!fn(); } catch (e) { ok = false; }
+    add(group, label, ok, important);
+  }
+
+  // ----- JavaScript : syntaxe utilisée par le site
+  syntax("let / const", "let a = 1; const b = 2;");
+  syntax("fonctions fléchées", "var f = (x) => x + 1;");
+  syntax("gabarits `${}`", "var s = `a${1}`;");
+  syntax("async / await", "async function f() { await 1; }");
+  syntax("paramètres par défaut", "function f(a = 1) { return a; }");
+  syntax("décomposition", "var o = { a: 1 }; var { a } = o; var [b] = [1];");
+  syntax("étalement [...]", "var a = [...[1, 2]];");
+  syntax("classes", "class A {}");
+
+  // ----- JavaScript : fonctions du navigateur
+  test("api", "fetch", function () { return typeof fetch === "function"; }, true);
+  test("api", "Promise", function () { return typeof Promise === "function"; }, true);
+  test("api", "Object.assign", function () { return typeof Object.assign === "function"; }, true);
+  test("api", "Array.from", function () { return typeof Array.from === "function"; }, true);
+  test("api", "Set", function () { return typeof Set === "function"; }, true);
+  test("api", "localStorage", function () { localStorage.setItem("matdora-test", "1"); var ok = localStorage.getItem("matdora-test") === "1"; localStorage.removeItem("matdora-test"); return ok; }, true);
+  test("api", "dates en français", function () { return /novembre/.test(new Date(2026, 10, 8, 12).toLocaleDateString("fr-FR", { month: "long" })); }, false);
+  test("api", "Intl", function () { return typeof Intl === "object"; }, false);
+  test("api", "requestAnimationFrame", function () { return typeof requestAnimationFrame === "function"; }, false);
+  test("api", "crypto.subtle (dashboard)", function () { return !!(window.crypto && crypto.subtle); }, false);
+  test("api", "URL", function () { return typeof URL === "function" && !!new URL("https://a.b/c").host; }, false);
+
+  // ----- CSS : ce que les slides utilisent
+  function cssValue(prop, value) {
+    var el = document.createElement("div");
+    el.style[prop] = value;
+    return el.style[prop] !== "";
+  }
+  test("css", "flexbox", function () { return cssValue("display", "flex"); }, true);
+  test("css", "grille (grid)", function () { return cssValue("display", "grid"); }, true);
+  test("css", "variables CSS", function () {
+    var el = document.createElement("div");
+    el.style.setProperty("--t", "17px");
+    el.style.width = "var(--t)";
+    document.body.appendChild(el);
+    var ok = el.offsetWidth === 17;
+    document.body.removeChild(el);
+    return ok;
+  }, true);
+  test("css", "calc()", function () { return cssValue("width", "calc(10px + 1px)"); }, true);
+  test("css", "clamp()", function () { return cssValue("width", "clamp(1px, 2px, 3px)"); }, true);
+  test("css", "min() / max()", function () { return cssValue("width", "min(1px, 2px)"); }, true);
+  test("css", "espacement flex (gap)", function () {
+    var box = document.createElement("div");
+    box.style.display = "flex";
+    box.style.gap = "10px";
+    box.style.position = "absolute";
+    box.innerHTML = "<i style='display:block;width:5px;height:5px'></i><i style='display:block;width:5px;height:5px'></i>";
+    document.body.appendChild(box);
+    var ok = box.offsetWidth === 20;
+    document.body.removeChild(box);
+    return ok;
+  }, false);
+  test("css", "inset", function () { return cssValue("inset", "0px"); }, false);
+  test("css", "aspect-ratio", function () { return cssValue("aspectRatio", "4 / 3"); }, false);
+  test("css", "object-fit", function () { return cssValue("objectFit", "cover"); }, false);
+  test("css", "animations", function () { return cssValue("animationName", "x") || cssValue("webkitAnimationName", "x"); }, false);
+
+  function list(group) {
+    var html = "<ul>";
+    for (var i = 0; i < results[group].length; i++) {
+      var r = results[group][i];
+      html += "<li class='" + (r.ok ? "yes" : "no") + "'>" + (r.ok ? "✔ " : "✘ ") + esc(r.label) + "</li>";
+    }
+    return html + "</ul>";
+  }
+  function missing() {
+    var m = [];
+    for (var g in results) for (var i = 0; i < results[g].length; i++) if (results[g][i].important && !results[g][i].ok) m.push(results[g][i].label);
+    return m;
+  }
+
+  var page = { state: "en cours", errors: [], deck: false, slides: 0, shown: "" };
+  function render() {
+    var html = "";
+    html += "<h2>Navigateur</h2><div class='ua'>" + esc(navigator.userAgent) + "</div>";
+    html += "<h2>Écran</h2><ul>" +
+      "<li>fenêtre " + window.innerWidth + " × " + window.innerHeight + "</li>" +
+      "<li>écran " + screen.width + " × " + screen.height + "</li>" +
+      "<li>densité " + (window.devicePixelRatio || 1) + "</li>" +
+      "<li>langue " + esc(navigator.language || "?") + "</li></ul>";
+    html += "<h2>JavaScript (syntaxe)</h2>" + list("syntax");
+    html += "<h2>JavaScript (fonctions)</h2>" + list("api");
+    html += "<h2>CSS</h2>" + list("css");
+    html += "<h2>Le vrai site, chargé en arrière-plan</h2><ul>" +
+      "<li>" + esc(page.state) + "</li>" +
+      (page.state === "chargé" ? "<li class='" + (page.deck ? "yes" : "no") + "'>" + (page.deck ? "✔ diaporama démarré" : "✘ diaporama pas démarré") + "</li>" +
+        "<li>" + esc(page.shown) + "</li>" : "") + "</ul>";
+    if (page.errors.length) {
+      html += "<div class='err'>";
+      for (var i = 0; i < page.errors.length && i < 6; i++) html += "• " + esc(page.errors[i]) + "<br>";
+      html += "</div>";
+    }
+    out.innerHTML = html;
+  }
+
+  function verdict() {
+    var m = missing(), v = document.getElementById("verdict");
+    var ok = !m.length && page.deck && !page.errors.length;
+    v.className = "verdict " + (ok ? "ok" : page.state === "chargé" ? "ko" : "");
+    v.innerHTML = ok ? "✅ Ce navigateur devrait faire marcher le site."
+      : page.state !== "chargé" ? "Test en cours… (environ 10 secondes)"
+      : "⚠️ À corriger : " + esc(m.concat(page.deck ? [] : ["le diaporama ne démarre pas"]).concat(page.errors.length ? [page.errors.length + " erreur(s) JavaScript"] : []).join(", "));
+  }
+
+  // Le vrai site dans une fenêtre cachée : démarre-t-il, et avec quelles erreurs ?
+  function checkPage() {
+    var frame = document.createElement("iframe");
+    var done = false;
+    function finish() {
+      if (done) return;
+      done = true;
+      try {
+        var w = frame.contentWindow, d = frame.contentDocument;
+        page.state = "chargé";
+        page.errors = (w.__errors || []).slice();
+        page.deck = typeof w.deck === "object" && !!w.deck;
+        var lock = d.getElementById("lock");
+        var active = d.querySelector(".slide.active");
+        page.shown = lock && !lock.hidden ? "écran du code d'accès affiché" : active ? "slide affichée : " + (active.getAttribute("aria-label") || "?") : "rien d'affiché";
+      } catch (e) {
+        page.state = "impossible de lire la page : " + e.message;
+      }
+      render();
+      verdict();
+    }
+    frame.onload = function () { setTimeout(finish, 8000); };
+    setTimeout(finish, 15000);
+    frame.src = "index.html?test=" + new Date().getTime();
+    document.body.appendChild(frame);
+  }
+
+  render();
+  verdict();
+  checkPage();
+</script>
+</body>

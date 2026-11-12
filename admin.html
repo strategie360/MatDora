@@ -241,6 +241,7 @@
     <button role="tab" data-tab="photos">Photos</button>
     <button role="tab" data-tab="lunch">Repas</button>
     <button role="tab" data-tab="outings">Resto d'équipe</button>
+    <button role="tab" data-tab="games">Jeux</button>
     <button role="tab" data-tab="team">Anniversaires</button>
     <button role="tab" data-tab="absences">Congés</button>
     <button role="tab" data-tab="news">Arrivées / CDI</button>
@@ -290,6 +291,14 @@
         <div class="field"><span class="label-spacer" aria-hidden="true">&nbsp;</span><button class="btn primary" type="submit">Enregistrer le message</button></div>
       </div>
     </form>
+    <form class="team-form" id="backdays-form">
+      <h3>Message de bon retour</h3>
+      <div class="team-fields">
+        <div class="field grow-field"><label for="backdays">Affiché pendant combien de jours ouvrés <span class="hint">(1 = seulement le jour du retour, jusqu'à 10 ; les week-ends ne comptent pas)</span></label>
+          <input id="backdays" type="number" min="1" max="10" step="1" required></div>
+        <div class="field"><span class="label-spacer" aria-hidden="true">&nbsp;</span><button class="btn primary" type="submit">Enregistrer la durée</button></div>
+      </div>
+    </form>
     <form class="team-form" id="vac-form">
       <h3 id="vac-form-title">Ajouter une absence</h3>
       <div class="team-fields">
@@ -306,7 +315,7 @@
         <div class="field grow-field"><label for="vac-note">Message pour cette personne <span class="hint">(facultatif, sur sa carte)</span></label><input id="vac-note" maxlength="140" placeholder="Ex. Ramène-nous du soleil !"></div>
       </div>
       <div class="team-fields">
-        <div class="field grow-field"><label for="vac-back-note">Message pour son retour <span class="hint">(facultatif, affiché le jour du retour ; vide = message par défaut)</span></label><input id="vac-back-note" maxlength="140"></div>
+        <div class="field grow-field"><label for="vac-back-note">Message pour son retour <span class="hint">(facultatif, affiché à son retour ; vide = message par défaut)</span></label><input id="vac-back-note" maxlength="140"></div>
       </div>
       <p class="preview" id="vac-preview" aria-live="polite"></p>
       <div class="actions">
@@ -505,6 +514,24 @@
     </form>
   </section>
 
+  <!-- Jeux de société (slide entre 12h et 14h) -->
+  <section class="panel" id="tab-games" role="tabpanel" hidden>
+    <h2>🎲 Jeux de société</h2>
+    <p class="help">La slide « On joue à quoi ? » s'affiche entre 12h et 14h avec tous les jeux. Le jeu du midi est celui que tu choisis ici ; si personne ne choisit, il est tiré au sort parmi les jeux cochés « dans le tirage » (le même sur tous les écrans).</p>
+    <div class="row">
+      <span class="grow draw-now" id="game-now">–</span>
+      <button class="btn" type="button" id="game-reroll">🎲 Tirer au sort</button>
+    </div>
+    <div class="field"><label for="game-choice">Jeu de ce midi</label><select id="game-choice"></select></div>
+    <h2 class="sub">Liste des jeux</h2>
+    <div id="games-list"></div>
+    <p class="empty" id="games-empty" hidden>Aucun jeu pour l'instant : la slide ne s'affiche pas.</p>
+    <form class="actions" id="game-form">
+      <input id="game-name" maxlength="60" placeholder="Nom du jeu" aria-label="Nom du jeu à ajouter" required>
+      <button class="btn primary" type="submit">Ajouter le jeu</button>
+    </form>
+  </section>
+
   <!-- Resto d'équipe : le midi où on y va ensemble, avec le menu -->
   <section class="panel" id="tab-outings" role="tabpanel" hidden>
     <h2>🍽️ Resto d'équipe</h2>
@@ -602,7 +629,7 @@
   }
 
   /* ---------- Onglets ---------- */
-  const TABS = ["slides", "pauses", "happiness", "photos", "lunch", "outings", "team", "absences", "news", "departures", "access"];
+  const TABS = ["slides", "pauses", "happiness", "photos", "lunch", "outings", "games", "team", "absences", "news", "departures", "access"];
   function openTab(name) {
     TABS.forEach(t => {
       $("tab-" + t).hidden = t !== name;
@@ -1127,7 +1154,7 @@
     const left = v.to ? Math.round((new Date(v.to + "T00:00:00") - startToday()) / 86400000) : null;
     $("vac-preview").textContent = `Sur l'écran : ${theme.emoji} ${kind.title}, ${v.name || "…"} !` + (sick ? "" : ` · thème ${theme.label}`) +
       (left !== null && left > 0 ? ` · plus que ${left} jour${left > 1 ? "s" : ""}${sick ? " avant le retour" : " à tenir"}` : "") +
-      (v.to ? ` · le jour du retour : ${kind.backEmoji.slice(0, 2)} ${kind.backTitle}, ${v.name || "…"} !` : "");
+      (v.to ? ` · ${settings.backDays > 1 ? `au retour (${settings.backDays} jours ouvrés)` : "le jour du retour"} : ${kind.backEmoji.slice(0, 2)} ${kind.backTitle}, ${v.name || "…"} !` : "");
   }
   ["vac-name", "vac-kind", "vac-dest", "vac-theme", "vac-to", "vac-from", "vac-back-note"].forEach(id => {
     $(id).addEventListener("input", vacPreview);
@@ -1142,14 +1169,14 @@
     $("vac-empty").hidden = vacs.length > 0;
     vacs.forEach(v => {
       const kind = store.absenceKind(v), theme = store.vacationTheme(v);
-      const state = v.to && todayKey === v.to ? "back" : v.to && todayKey > v.to ? "done" : v.from && todayKey < v.from ? "soon" : "now";
+      const state = v.to && todayKey >= v.to && todayKey <= store.backUntil(v.to, settings.backDays) ? "back" : v.to && todayKey > v.to ? "done" : v.from && todayKey < v.from ? "soon" : "now";
       const row = document.createElement("div");
       row.className = "row";
       const name = document.createElement("span");
       name.className = "grow";
       name.textContent = `${theme.emoji.slice(0, 2)} ${v.name}${kind.id !== "maladie" && v.destination ? ` · ${v.destination}` : ""}`;
       if (kind.id === "maladie") name.appendChild(badge("sick", "arrêt maladie"));
-      name.appendChild(badge(state === "back" ? "now" : state, state === "now" ? "absent en ce moment" : state === "back" ? "de retour aujourd'hui 🎉" : state === "soon" ? "à venir" : "terminé"));
+      name.appendChild(badge(state === "back" ? "now" : state, state === "now" ? "absent en ce moment" : state === "back" ? (todayKey === v.to ? "de retour aujourd'hui 🎉" : "de retour, message affiché 🎉") : state === "soon" ? "à venir" : "terminé"));
       const small = document.createElement("small");
       const left = v.to ? Math.round((new Date(v.to + "T00:00:00") - t0) / 86400000) : null;
       small.textContent = `du ${longDate(v.from)}${v.to ? ` · retour le ${longDate(v.to)}` : " · sans date de retour"}` +
@@ -1313,6 +1340,14 @@
   });
 
   // Message pour toute la slide Congés
+  $("backdays-form").addEventListener("submit", e => {
+    e.preventDefault();
+    const n = Math.round(Number($("backdays").value));
+    if (!(n >= 1 && n <= store.BACK_DAYS_MAX)) { toast(`Choisis un nombre de jours entre 1 et ${store.BACK_DAYS_MAX}.`, true); return; }
+    attempt(async () => { await store.saveSetting("backDays", n); settings.backDays = n; renderAbsences(); vacPreview(); },
+      n === 1 ? "Message de bon retour : le jour du retour seulement." : `Message de bon retour affiché pendant ${n} jours ouvrés.`);
+  });
+
   $("absmsg-form").addEventListener("submit", e => {
     e.preventDefault();
     const msg = $("absmsg").value.trim();
@@ -1521,7 +1556,86 @@
   });
   outingPreview();
 
-  function renderTeam() { $("absmsg").value = settings.absenceMessage || ""; renderBirthdays(); renderAbsences(); renderNewsList(); renderDepartures(); }
+  /* ----- Jeux de société ----- */
+  function renderGamesTab() {
+    const day = store.today(), list = settings.games;
+    const box = $("games-list");
+    box.innerHTML = "";
+    $("games-empty").hidden = list.length > 0;
+    list.forEach(gm => {
+      const row = document.createElement("div");
+      row.className = "row";
+      const name = document.createElement("span");
+      name.className = "grow";
+      name.textContent = `${store.gameEmoji(gm.name)} ${gm.name}`;
+      row.appendChild(name);
+      const lab = document.createElement("label");
+      lab.className = "check";
+      const cb = document.createElement("input");
+      cb.type = "checkbox";
+      cb.checked = gm.inDraw !== false;
+      cb.addEventListener("change", () => attempt(async () => {
+        const next = settings.games.map(x => x.id === gm.id ? Object.assign({}, x, { inDraw: cb.checked }) : x);
+        await store.saveSetting("games", next);
+        settings.games = next;
+        renderGamesTab();
+      }, cb.checked ? `${gm.name} remis dans le tirage.` : `${gm.name} retiré du tirage.`));
+      lab.appendChild(cb);
+      lab.appendChild(document.createTextNode(" dans le tirage"));
+      row.appendChild(lab);
+      row.appendChild(confirmButton("Retirer", () => attempt(async () => {
+        const next = settings.games.filter(x => x.id !== gm.id);
+        await store.saveSetting("games", next);
+        settings.games = next;
+        renderGamesTab();
+      }, `${gm.name} retiré de la liste.`)));
+      box.appendChild(row);
+    });
+    const sel = $("game-choice");
+    sel.innerHTML = "";
+    const auto = document.createElement("option");
+    auto.value = "";
+    auto.textContent = "🎲 Au hasard parmi les jeux cochés";
+    sel.appendChild(auto);
+    list.forEach(gm => { const o = document.createElement("option"); o.value = gm.id; o.textContent = `${store.gameEmoji(gm.name)} ${gm.name}`; sel.appendChild(o); });
+    const ch = settings.gameChoice;
+    sel.value = ch && ch.day === day && list.some(gm => gm.id === ch.id) ? ch.id : "";
+    const pick = store.gameOfDay(list, ch, day);
+    $("game-now").textContent = pick ? `${store.gameEmoji(pick.game.name)} ${pick.game.name} · ${pick.chosen ? "choisi pour ce midi" : "tiré au sort"}` : "Aucun jeu dans la liste";
+    $("game-reroll").disabled = list.length < 2;
+  }
+  async function saveGameChoice(choice) {
+    await store.saveSetting("gameChoice", choice);
+    settings.gameChoice = choice;
+    renderGamesTab();
+  }
+  $("game-choice").addEventListener("change", () => {
+    const id = $("game-choice").value;
+    attempt(() => saveGameChoice(id ? { day: store.today(), id } : null), id ? "Jeu de ce midi choisi." : "Le jeu de ce midi sera tiré au sort.");
+  });
+  $("game-reroll").addEventListener("click", () => {
+    const day = store.today(), cur = store.gameOfDay(settings.games, settings.gameChoice, day);
+    const inDraw = settings.games.filter(gm => gm.inDraw !== false);
+    const pool = (inDraw.length ? inDraw : settings.games).filter(gm => !cur || gm.id !== cur.game.id);
+    if (!pool.length) { toast("Il faut au moins deux jeux dans le tirage.", true); return; }
+    const gm = pool[Math.floor(Math.random() * pool.length)];
+    attempt(() => saveGameChoice({ day, id: gm.id }), `Tirage : ${gm.name} !`);
+  });
+  $("game-form").addEventListener("submit", e => {
+    e.preventDefault();
+    const name = $("game-name").value.trim().replace(/\s+/g, " ");
+    if (!name) return;
+    if (settings.games.some(gm => gm.name.toLowerCase() === name.toLowerCase())) { toast(`« ${name} » est déjà dans la liste.`, true); return; }
+    attempt(async () => {
+      const next = settings.games.concat([{ id: newId(), name, inDraw: true }]);
+      await store.saveSetting("games", next);
+      settings.games = next;
+      $("game-name").value = "";
+      renderGamesTab();
+    }, `${name} ajouté.`);
+  });
+
+  function renderTeam() { $("absmsg").value = settings.absenceMessage || ""; $("backdays").value = settings.backDays; renderBirthdays(); renderAbsences(); renderNewsList(); renderDepartures(); }
   newsPreview();
   vacPreview();
 
@@ -1585,7 +1699,7 @@
     $("who").hidden = false;
     $("who-name").textContent = who.username;
     const ok = await attempt(async () => { settings = await store.getSettings(); });
-    renderSlides(); renderPauses(); renderHappiness(); renderTeam(); renderOutings();
+    renderSlides(); renderPauses(); renderHappiness(); renderTeam(); renderOutings(); renderGamesTab();
     if (ok) await Promise.all([attempt(loadPhotos), attempt(loadLunch), attempt(loadAccess)]);
     if (!timerStarted) {
       timerStarted = true;
