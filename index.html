@@ -1035,6 +1035,9 @@
   .games-list li { display: flex; align-items: center; min-width: 0; box-sizing: border-box; padding: calc(9px * var(--scale, 1)) calc(14px * var(--scale, 1)); border-radius: 12px; background: rgba(255, 255, 255, .13); font-weight: 800; font-size: calc(clamp(.9rem, min(2.1vw, 2.6vh), 1.3rem) * var(--scale, 1)); }
   .games-list .e { flex: none; margin-right: .4em; }
   .games-list .n { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .games-list .t { display: flex; flex-direction: column; min-width: 0; }
+  .games-list .m { margin-top: 2px; font-size: .7em; font-weight: 700; opacity: .85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .game-info { margin-top: 8px; color: #6c5ce7; font-weight: 800; font-size: calc(clamp(.8rem, 2.2vh, 1.15rem) * var(--scale, 1)); }
   .games-list li.picked { background: #ffd43b; color: #2d2a6e; }
   .games-list li.out { opacity: .5; }
   @media (max-width: 760px), (max-aspect-ratio: 1/1) {
@@ -1400,6 +1403,7 @@
             <span class="game-emoji" id="game-emoji" aria-hidden="true">🎲</span>
             <span class="game-label" id="game-label">Jeu du midi</span>
             <strong class="game-name" id="game-name">–</strong>
+            <span class="game-info" id="game-info" hidden></span>
           </div>
           <div class="games-all">
             <p class="games-sub" id="games-sub">Tous les jeux</p>
@@ -2392,31 +2396,48 @@
   window.departed = departed;
 
   /* ---------- Jeux de société (12h – 14h) ---------- */
-  let games = [], gameChoice = null;
+  let games = [], gameChoice = null, gamePlayers = null, gamePlayersUsual = 0;
   const GAMES_FROM = 12, GAMES_TO = 14;
   function gamesTime(now) { return now.getHours() >= GAMES_FROM && now.getHours() < GAMES_TO; }
   let gamesKey = "";
   function renderGames(now = new Date()) {
     const day = store.today(now);
-    const key = day + JSON.stringify(games) + JSON.stringify(gameChoice) + innerWidth + "x" + innerHeight;
+    // Jeux jouables avec les joueurs du jour et dans le temps qui reste avant 14h
+    const players = store.playersOn({ gamePlayers, gamePlayersUsual }, day), minutes = store.minutesLeft(now);
+    const key = day + "|" + players + "|" + minutes + JSON.stringify(games) + JSON.stringify(gameChoice) + innerWidth + "x" + innerHeight;
     if (key === gamesKey) return;
     gamesKey = key;
-    const pick = store.gameOfDay(games, gameChoice, day);
+    const pick = store.gameOfDay(games, gameChoice, day, { players, minutes });
     if (!pick) return;
-    $("game-emoji").textContent = store.gameEmoji(pick.game.name);
-    $("game-label").textContent = pick.chosen ? "Jeu du midi" : "Tiré au sort pour ce midi";
-    $("game-name").textContent = pick.game.name;
+    const info = pick.game ? store.gameInfo(pick.game) : "";
+    if (pick.game) {
+      $("game-emoji").textContent = store.gameEmoji(pick.game.name);
+      $("game-label").textContent = pick.chosen ? "Jeu du midi" : "Tiré au sort pour ce midi";
+      $("game-name").textContent = pick.game.name;
+    } else {
+      $("game-emoji").textContent = pick.why === "time" ? "⏰" : "👥";
+      $("game-label").textContent = "Pas de jeu du tirage";
+      $("game-name").textContent = pick.why === "time" ? "Plus assez de temps avant 14h" : `Aucun jeu pour ${players} joueurs`;
+    }
+    $("game-info").hidden = !info;
+    $("game-info").textContent = info;
     const ul = $("games-list");
     ul.innerHTML = "";
     const list = games.filter(g => g && g.name);
-    const someOut = list.some(g => g.inDraw === false);
+    let someOut = false;
     list.forEach(g => {
       const li = document.createElement("li");
-      li.className = g === pick.game ? "picked" : g.inDraw === false ? "out" : "";
-      li.innerHTML = `<span class="e" aria-hidden="true">${store.gameEmoji(g.name)}</span><span class="n">${escapeHtml(g.name)}</span>`;
+      const out = g.inDraw === false || !!store.gameFits(g, players, minutes);
+      if (out && g !== pick.game) someOut = true;
+      li.className = g === pick.game ? "picked" : out ? "out" : "";
+      const meta = store.gameInfo(g);
+      // Nom, et en dessous les joueurs et la durée
+      li.innerHTML = `<span class="e" aria-hidden="true">${store.gameEmoji(g.name)}</span><span class="t"><span class="n">${escapeHtml(g.name)}</span>` +
+        (meta ? `<span class="m">${escapeHtml(meta)}</span>` : "") + "</span>";
       ul.appendChild(li);
     });
-    $("games-sub").textContent = someOut ? "Tous les jeux · en grisé : pas dans le tirage" : "Tous les jeux";
+    $("games-sub").textContent = [players ? `👥 ${players} joueurs` : "", gamesTime(now) ? `⏱️ ${store.formatMinutes(minutes)} avant 14h` : "",
+      someOut ? "en grisé : pas jouable maintenant" : ""].filter(Boolean).join(" · ") || "Tous les jeux";
     fitBox("games-inner", "games-wrap", 0.4);
   }
   window.renderGames = renderGames;
@@ -2666,6 +2687,8 @@
       outings = settings.restoOutings;
       games = settings.games;
       gameChoice = settings.gameChoice;
+      gamePlayers = settings.gamePlayers;
+      gamePlayersUsual = settings.gamePlayersUsual;
       renderGames();
       renderOuting();
       renderNews();

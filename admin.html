@@ -517,7 +517,15 @@
   <!-- Jeux de société (slide entre 12h et 14h) -->
   <section class="panel" id="tab-games" role="tabpanel" hidden>
     <h2>🎲 Jeux de société</h2>
-    <p class="help">La slide « On joue à quoi ? » s'affiche entre 12h et 14h avec tous les jeux. Le jeu du midi est celui que tu choisis ici ; si personne ne choisit, il est tiré au sort parmi les jeux cochés « dans le tirage » (le même sur tous les écrans).</p>
+    <p class="help">La slide « On joue à quoi ? » s'affiche entre 12h et 14h avec tous les jeux. Le jeu du midi est celui que tu choisis ici ; si personne ne choisit, il est tiré au sort parmi les jeux cochés « dans le tirage » qui se jouent avec le nombre de joueurs du jour et dans le temps qui reste avant 14h (le même sur tous les écrans).</p>
+    <form class="team-form" id="players-form">
+      <h3>Joueurs</h3>
+      <div class="team-fields">
+        <div class="field"><label for="players-today">Joueurs ce midi <span class="hint">(vide = le nombre habituel)</span></label><input id="players-today" type="number" min="1" max="50" step="1"></div>
+        <div class="field"><label for="players-usual">Joueurs d'habitude <span class="hint">(vide = pas de limite)</span></label><input id="players-usual" type="number" min="1" max="50" step="1"></div>
+        <div class="field"><span class="label-spacer" aria-hidden="true">&nbsp;</span><button class="btn primary" type="submit">Enregistrer</button></div>
+      </div>
+    </form>
     <div class="row">
       <span class="grow draw-now" id="game-now">–</span>
       <button class="btn" type="button" id="game-reroll">🎲 Tirer au sort</button>
@@ -526,9 +534,19 @@
     <h2 class="sub">Liste des jeux</h2>
     <div id="games-list"></div>
     <p class="empty" id="games-empty" hidden>Aucun jeu pour l'instant : la slide ne s'affiche pas.</p>
-    <form class="actions" id="game-form">
-      <input id="game-name" maxlength="60" placeholder="Nom du jeu" aria-label="Nom du jeu à ajouter" required>
-      <button class="btn primary" type="submit">Ajouter le jeu</button>
+    <form class="team-form" id="game-form">
+      <h3 id="game-form-title">Ajouter un jeu</h3>
+      <div class="team-fields">
+        <div class="field grow-field"><label for="game-name">Nom du jeu</label><input id="game-name" maxlength="60" placeholder="Ex. Skyjo" required></div>
+        <div class="field"><label for="game-min">Joueurs min.</label><input id="game-min" type="number" min="1" max="50" step="1" placeholder="Ex. 2"></div>
+        <div class="field"><label for="game-max">Joueurs max.</label><input id="game-max" type="number" min="1" max="50" step="1" placeholder="Ex. 8"></div>
+        <div class="field"><label for="game-duration">Durée (min)</label><input id="game-duration" type="number" min="1" max="240" step="1" placeholder="Ex. 30"></div>
+      </div>
+      <p class="hint">Joueurs et durée d'une partie sont facultatifs : sans eux, le jeu est toujours jouable.</p>
+      <div class="actions">
+        <button class="btn primary" type="submit" id="game-submit">Ajouter le jeu</button>
+        <button class="btn" type="button" id="game-cancel" hidden>Annuler la modification</button>
+      </div>
     </form>
   </section>
 
@@ -1557,8 +1575,13 @@
   outingPreview();
 
   /* ----- Jeux de société ----- */
+  let editingGame = null;
+  const optNum = id => { const n = Math.round(Number($(id).value)); return $(id).value.trim() !== "" && n > 0 ? n : 0; };
+  // Joueurs du jour et temps restant avant 14h (toute la pause hors de 12h – 14h)
+  function gameOpts() { return { players: store.playersOn(settings, store.today()), minutes: store.minutesLeft(new Date()) }; }
+  const WHY = { players: n => `pas prévu pour ${n} joueurs`, time: () => "trop long pour le temps restant avant 14h" };
   function renderGamesTab() {
-    const day = store.today(), list = settings.games;
+    const day = store.today(), list = settings.games, opts = gameOpts();
     const box = $("games-list");
     box.innerHTML = "";
     $("games-empty").hidden = list.length > 0;
@@ -1568,6 +1591,10 @@
       const name = document.createElement("span");
       name.className = "grow";
       name.textContent = `${store.gameEmoji(gm.name)} ${gm.name}`;
+      const why = store.gameFits(gm, opts.players, opts.minutes);
+      const small = document.createElement("small");
+      small.textContent = [store.gameInfo(gm) || "pas de joueurs ni de durée indiqués", why ? WHY[why](opts.players) : ""].filter(Boolean).join(" · ");
+      name.appendChild(small);
       row.appendChild(name);
       const lab = document.createElement("label");
       lab.className = "check";
@@ -1583,10 +1610,11 @@
       lab.appendChild(cb);
       lab.appendChild(document.createTextNode(" dans le tirage"));
       row.appendChild(lab);
-      row.appendChild(confirmButton("Retirer", () => attempt(async () => {
+      row.appendChild(rowButtons(() => editGame(gm), () => attempt(async () => {
         const next = settings.games.filter(x => x.id !== gm.id);
         await store.saveSetting("games", next);
         settings.games = next;
+        if (editingGame === gm.id) stopEditGame();
         renderGamesTab();
       }, `${gm.name} retiré de la liste.`)));
       box.appendChild(row);
@@ -1595,15 +1623,45 @@
     sel.innerHTML = "";
     const auto = document.createElement("option");
     auto.value = "";
-    auto.textContent = "🎲 Au hasard parmi les jeux cochés";
+    auto.textContent = "🎲 Au hasard parmi les jeux cochés et jouables";
     sel.appendChild(auto);
-    list.forEach(gm => { const o = document.createElement("option"); o.value = gm.id; o.textContent = `${store.gameEmoji(gm.name)} ${gm.name}`; sel.appendChild(o); });
+    list.forEach(gm => {
+      const o = document.createElement("option");
+      o.value = gm.id;
+      o.textContent = `${store.gameEmoji(gm.name)} ${gm.name}${store.gameFits(gm, opts.players, opts.minutes) ? " (pas jouable maintenant)" : ""}`;
+      sel.appendChild(o);
+    });
     const ch = settings.gameChoice;
     sel.value = ch && ch.day === day && list.some(gm => gm.id === ch.id) ? ch.id : "";
-    const pick = store.gameOfDay(list, ch, day);
-    $("game-now").textContent = pick ? `${store.gameEmoji(pick.game.name)} ${pick.game.name} · ${pick.chosen ? "choisi pour ce midi" : "tiré au sort"}` : "Aucun jeu dans la liste";
+    const pick = store.gameOfDay(list, ch, day, opts);
+    $("game-now").textContent = !pick ? "Aucun jeu dans la liste"
+      : pick.game ? `${store.gameEmoji(pick.game.name)} ${pick.game.name} · ${pick.chosen ? "choisi pour ce midi" : "tiré au sort"}${pick.chosen && pick.why ? ` ⚠️ ${WHY[pick.why](opts.players)}` : ""}`
+      : pick.why === "time" ? "⏰ Plus assez de temps avant 14h pour un jeu du tirage" : `👥 Aucun jeu du tirage pour ${opts.players} joueurs`;
     $("game-reroll").disabled = list.length < 2;
+    $("players-today").value = settings.gamePlayers && settings.gamePlayers.day === day ? settings.gamePlayers.count : "";
+    $("players-usual").value = settings.gamePlayersUsual || "";
   }
+  function editGame(gm) {
+    editingGame = gm.id;
+    $("game-name").value = gm.name;
+    $("game-min").value = gm.minPlayers || "";
+    $("game-max").value = gm.maxPlayers || "";
+    $("game-duration").value = gm.duration || "";
+    $("game-form-title").textContent = `Modifier : ${gm.name}`;
+    $("game-submit").textContent = "Enregistrer les modifications";
+    $("game-cancel").hidden = false;
+    $("game-form").classList.add("is-editing");
+    $("game-form").scrollIntoView({ block: "start" });
+  }
+  function stopEditGame() {
+    editingGame = null;
+    $("game-form").reset();
+    $("game-form-title").textContent = "Ajouter un jeu";
+    $("game-submit").textContent = "Ajouter le jeu";
+    $("game-cancel").hidden = true;
+    $("game-form").classList.remove("is-editing");
+  }
+  $("game-cancel").addEventListener("click", stopEditGame);
   async function saveGameChoice(choice) {
     await store.saveSetting("gameChoice", choice);
     settings.gameChoice = choice;
@@ -1614,25 +1672,43 @@
     attempt(() => saveGameChoice(id ? { day: store.today(), id } : null), id ? "Jeu de ce midi choisi." : "Le jeu de ce midi sera tiré au sort.");
   });
   $("game-reroll").addEventListener("click", () => {
-    const day = store.today(), cur = store.gameOfDay(settings.games, settings.gameChoice, day);
+    const day = store.today(), opts = gameOpts(), cur = store.gameOfDay(settings.games, settings.gameChoice, day, opts);
     const inDraw = settings.games.filter(gm => gm.inDraw !== false);
-    const pool = (inDraw.length ? inDraw : settings.games).filter(gm => !cur || gm.id !== cur.game.id);
-    if (!pool.length) { toast("Il faut au moins deux jeux dans le tirage.", true); return; }
+    const pool = (inDraw.length ? inDraw : settings.games)
+      .filter(gm => !store.gameFits(gm, opts.players, opts.minutes) && (!cur || !cur.game || gm.id !== cur.game.id));
+    if (!pool.length) { toast("Aucun autre jeu jouable maintenant (joueurs ou temps avant 14h).", true); return; }
     const gm = pool[Math.floor(Math.random() * pool.length)];
     attempt(() => saveGameChoice({ day, id: gm.id }), `Tirage : ${gm.name} !`);
+  });
+  $("players-form").addEventListener("submit", e => {
+    e.preventDefault();
+    const today = optNum("players-today"), usual = optNum("players-usual");
+    attempt(async () => {
+      const p = today ? { day: store.today(), count: today } : null;
+      await store.saveSetting("gamePlayers", p);
+      await store.saveSetting("gamePlayersUsual", usual);
+      settings.gamePlayers = p;
+      settings.gamePlayersUsual = usual;
+      renderGamesTab();
+    }, today ? `${today} joueurs ce midi.` : usual ? `${usual} joueurs d'habitude.` : "Pas de limite de joueurs.");
   });
   $("game-form").addEventListener("submit", e => {
     e.preventDefault();
     const name = $("game-name").value.trim().replace(/\s+/g, " ");
     if (!name) return;
-    if (settings.games.some(gm => gm.name.toLowerCase() === name.toLowerCase())) { toast(`« ${name} » est déjà dans la liste.`, true); return; }
+    const min = optNum("game-min"), max = optNum("game-max"), duration = optNum("game-duration");
+    if (min && max && min > max) { toast("Le nombre de joueurs min. doit être inférieur au max.", true); return; }
+    const wasEditing = editingGame;
+    if (settings.games.some(gm => gm.id !== wasEditing && gm.name.toLowerCase() === name.toLowerCase())) { toast(`« ${name} » est déjà dans la liste.`, true); return; }
     attempt(async () => {
-      const next = settings.games.concat([{ id: newId(), name, inDraw: true }]);
+      const before = wasEditing ? settings.games.filter(x => x.id === wasEditing)[0] : null;
+      const entry = { id: wasEditing || newId(), name, inDraw: before ? before.inDraw !== false : true, minPlayers: min || null, maxPlayers: max || null, duration: duration || null };
+      const next = wasEditing ? settings.games.map(x => x.id === wasEditing ? entry : x) : settings.games.concat([entry]);
       await store.saveSetting("games", next);
       settings.games = next;
-      $("game-name").value = "";
+      stopEditGame();
       renderGamesTab();
-    }, `${name} ajouté.`);
+    }, wasEditing ? `${name} modifié.` : `${name} ajouté.`);
   });
 
   function renderTeam() { $("absmsg").value = settings.absenceMessage || ""; $("backdays").value = settings.backDays; renderBirthdays(); renderAbsences(); renderNewsList(); renderDepartures(); }

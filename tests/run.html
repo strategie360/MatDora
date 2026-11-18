@@ -1415,6 +1415,7 @@
     check(g, "seulement entre 12h et 14h", !tw.gamesTime(at("2026-11-12T11:59:00")) && tw.gamesTime(at("2026-11-12T12:00:00")) && tw.gamesTime(at("2026-11-12T13:59:00")) && !tw.gamesTime(at("2026-11-12T14:00:00")));
     check(g, "démo : la slide est là, après le resto d'équipe", tw.deck.ids.indexOf("games") === tw.deck.ids.indexOf("outing") + 1);
     const items = () => [...td.querySelectorAll("#games-list li")];
+    tw.eval('gamesKey = ""'); tw.renderGames(at("2026-11-12T12:05:00"));
     check(g, "tous les jeux affichés, avec emoji", items().length === 4 && items().some(li => li.textContent.indexOf("Uno") !== -1 && li.textContent.indexOf("🃏") !== -1) && items().some(li => li.textContent.indexOf("Échecs") !== -1 && li.textContent.indexOf("♟️") !== -1));
     check(g, "jeu hors tirage : grisé", items().filter(li => li.textContent.indexOf("Échecs") !== -1)[0].classList.contains("out") && txt("games-sub").indexOf("en grisé") !== -1);
     check(g, "sans choix : « Tiré au sort pour ce midi », mis en avant dans la liste", txt("game-label") === "Tiré au sort pour ce midi" && items().filter(li => li.classList.contains("picked")).length === 1 && items().filter(li => li.classList.contains("picked"))[0].textContent.indexOf(txt("game-name")) !== -1);
@@ -1430,12 +1431,51 @@
     check(g, "tous hors tirage : on tire quand même parmi tous", !!S.gameOfDay([{ id: "x", name: "Uno", inDraw: false }], null, "2026-11-12"));
     check(g, "aucun jeu : pas de slide", S.gameOfDay([], null, "2026-11-12") === null);
 
+    // Joueurs présents et temps restant avant 14h
+    check(g, "temps restant : jusqu'à 14h pendant la pause, 2 h sinon", S.minutesLeft(at("2026-11-12T12:00:00")) === 120 && S.minutesLeft(at("2026-11-12T13:35:00")) === 25 && S.minutesLeft(at("2026-11-12T13:59:00")) === 1 && S.minutesLeft(at("2026-11-12T10:00:00")) === 120 && S.minutesLeft(at("2026-11-12T15:00:00")) === 120);
+    check(g, "joueurs : ceux de ce midi, sinon ceux d'habitude", S.playersOn({ gamePlayers: { day: "2026-11-12", count: 3 }, gamePlayersUsual: 6 }, "2026-11-12") === 3 && S.playersOn({ gamePlayers: { day: "2026-11-11", count: 3 }, gamePlayersUsual: 6 }, "2026-11-12") === 6 && S.playersOn({}, "2026-11-12") === 0);
+    check(g, "infos d'un jeu : joueurs et durée", S.gameInfo({ minPlayers: 2, maxPlayers: 8, duration: 30 }) === "👥 2–8 · ⏱️ 30 min" && S.gameInfo({ minPlayers: 2, maxPlayers: 2 }) === "👥 2" && S.gameInfo({ minPlayers: 4, duration: 90 }) === "👥 4+ · ⏱️ 1 h 30" && S.gameInfo({}) === "");
+    const P = [
+      { id: "a", name: "Uno", inDraw: true, minPlayers: 2, maxPlayers: 10, duration: 20 },
+      { id: "b", name: "Skyjo", inDraw: true, minPlayers: 2, maxPlayers: 8, duration: 30 },
+      { id: "t", name: "Time's Up", inDraw: true, minPlayers: 4, maxPlayers: 12, duration: 45 },
+      { id: "e", name: "Échecs", inDraw: true, minPlayers: 2, maxPlayers: 2, duration: 40 },
+      { id: "l", name: "Loup-garou", inDraw: true, minPlayers: 8, maxPlayers: 18, duration: 60 },
+      { id: "f", name: "Sans infos", inDraw: true }];
+    check(g, "jouable : bon nombre de joueurs et assez de temps", S.gameFits(P[2], 3, 120) === "players" && S.gameFits(P[2], 6, 30) === "time" && S.gameFits(P[2], 6, 45) === "" && S.gameFits(P[5], 30, 1) === "" && S.gameFits(P[2], 0, 0) === "");
+    const pickAt = (players, minutes, d) => S.gameOfDay(P, null, d, { players, minutes });
+    const manyDays = Array.from({ length: 80 }, (_, k) => S.addDays("2026-11-01", k));
+    check(g, "tirage avec 3 joueurs : jamais Time's Up, Échecs ni Loup-garou", manyDays.every(d => ["t", "e", "l"].indexOf(pickAt(3, 120, d).game.id) === -1));
+    check(g, "tirage à 13:35 (25 min) : que des jeux de 25 min ou moins", manyDays.every(d => ["a", "f"].indexOf(pickAt(6, 25, d).game.id) !== -1));
+    check(g, "tirage avec 10 joueurs : Uno, Time's Up, Loup-garou ou sans infos", manyDays.every(d => ["a", "t", "l", "f"].indexOf(pickAt(10, 120, d).game.id) !== -1) && new Set(manyDays.map(d => pickAt(10, 120, d).game.id)).size === 4);
+    const stable = manyDays.filter(d => { const full = pickAt(6, 120, d).game; return !S.gameFits(full, 6, 50) && pickAt(6, 50, d).game !== full; });
+    check(g, "tirage stable : le jeu ne change que s'il ne rentre plus", stable.length === 0, stable.join());
+    check(g, "aucun jeu assez court : « time »", S.gameOfDay([P[2]], null, "2026-11-12", { players: 6, minutes: 10 }).game === null && S.gameOfDay([P[2]], null, "2026-11-12", { players: 6, minutes: 10 }).why === "time");
+    check(g, "aucun jeu pour ce nombre : « players »", S.gameOfDay([P[2], P[3]], null, "2026-11-12", { players: 3, minutes: 120 }).why === "players");
+    check(g, "jeu choisi : gardé, avec l'alerte s'il ne rentre pas", S.gameOfDay(P, { day: "2026-11-12", id: "l" }, "2026-11-12", { players: 3, minutes: 120 }).game.id === "l" && S.gameOfDay(P, { day: "2026-11-12", id: "l" }, "2026-11-12", { players: 3, minutes: 120 }).why === "players");
+
+    // Écran : joueurs et temps restant, jeux pas jouables grisés, infos de chaque jeu
+    tw.eval('games = ' + JSON.stringify(P) + '; gameChoice = null; gamePlayers = { day: "2026-11-12", count: 6 }; gamePlayersUsual = 0; gamesKey = ""');
+    tw.renderGames(at("2026-11-12T13:30:00"));
+    const li = name => items().filter(x => x.querySelector(".n").textContent === name)[0];
+    check(g, "écran 13:30 : « 👥 6 joueurs · ⏱️ 30 min avant 14h »", txt("games-sub").indexOf("👥 6 joueurs · ⏱️ 30 min avant 14h") === 0, txt("games-sub"));
+    check(g, "écran 13:30 : Time's Up (45 min) et Échecs (2 joueurs) grisés", li("Time's Up").classList.contains("out") && li("Échecs").classList.contains("out") && li("Loup-garou").classList.contains("out") && !li("Uno").classList.contains("out"));
+    check(g, "écran : infos sur chaque jeu", li("Skyjo").querySelector(".m").textContent === "👥 2–8 · ⏱️ 30 min" && !li("Sans infos").querySelector(".m"));
+    check(g, "écran : le jeu tiré rentre dans le temps, avec ses infos", ["Uno", "Skyjo", "Sans infos"].indexOf(txt("game-name")) !== -1 && (txt("game-name") === "Sans infos" ? td.getElementById("game-info").hidden : txt("game-info") === S.gameInfo(P.filter(x => x.name === txt("game-name"))[0])), txt("game-name"));
+    tw.eval('games = ' + JSON.stringify([P[2], P[4]]) + '; gamesKey = ""');
+    tw.renderGames(at("2026-11-12T13:40:00"));
+    check(g, "écran : plus assez de temps → « Plus assez de temps avant 14h »", txt("game-name") === "Plus assez de temps avant 14h" && txt("game-emoji") === "⏰" && items().every(x => x.classList.contains("out")));
+    tw.eval('gamePlayers = { day: "2026-11-12", count: 2 }; gamesKey = ""');
+    tw.renderGames(at("2026-11-12T12:10:00"));
+    check(g, "écran : personne ne peut jouer à 2 → « Aucun jeu pour 2 joueurs »", txt("game-name") === "Aucun jeu pour 2 joueurs");
+    tw.eval('gamePlayers = null; gamesKey = ""');
+
     // Beaucoup de jeux : tout tient à l'écran
     tw.deck.show(tw.deck.ids.indexOf("games"));
     for (const [w, h] of [[1920, 1080], [1280, 720], [375, 667]]) {
       tv.width = w; tv.height = h;
       await sleep(250);
-      tw.eval('games = ' + JSON.stringify(Array.from({ length: 24 }, (_, k) => ({ id: "j" + k, name: "Un jeu au nom assez long n°" + k, inDraw: k % 4 !== 0 }))) + '; gameChoice = null; gamesKey = ""');
+      tw.eval('games = ' + JSON.stringify(Array.from({ length: 24 }, (_, k) => ({ id: "j" + k, name: "Un jeu au nom assez long n°" + k, inDraw: k % 4 !== 0, minPlayers: 2, maxPlayers: 8 + k, duration: 15 + k * 5 }))) + '; gameChoice = null; gamesKey = ""');
       tw.renderGames(at("2026-11-12T12:30:00"));
       check(g, `24 jeux : tout tient à l'écran (${w}×${h})`, items().length === 24 && fitsBox(td.getElementById("games-inner")));
     }
@@ -1450,10 +1490,36 @@
     const rows = () => [...ad.querySelectorAll("#games-list .row")];
     check(g, "dashboard : onglet Jeux, 4 jeux, case « dans le tirage »", !ad.getElementById("tab-games").hidden && rows().length === 4 && rows().every(r => r.querySelector("input[type=checkbox]")) && !rows().filter(r => r.textContent.indexOf("Échecs") !== -1)[0].querySelector("input").checked);
     check(g, "dashboard : le jeu de ce midi (tiré au sort)", /tiré au sort$/.test(ad.getElementById("game-now").textContent) && ad.getElementById("game-choice").value === "", ad.getElementById("game-now").textContent);
+    check(g, "dashboard : infos des jeux dans la liste", rows().some(r => r.textContent.indexOf("Skyjo") !== -1 && r.textContent.indexOf("👥 2–8 · ⏱️ 30 min") !== -1) && ad.getElementById("players-usual").value === "6");
+    check(g, "dashboard : champs joueurs min., max. et durée", ["game-min", "game-max", "game-duration", "players-today", "players-usual"].every(id => ad.querySelector(`label[for="${id}"]`)));
     ad.getElementById("game-name").value = "Loup-garou";
+    ad.getElementById("game-min").value = "5";
+    ad.getElementById("game-max").value = "3";
+    ad.getElementById("game-form").dispatchEvent(new aw.Event("submit", { cancelable: true }));
+    await sleep(100);
+    check(g, "dashboard : min. plus grand que max. refusé", ad.getElementById("toast").classList.contains("error") && rows().length === 4);
+    ad.getElementById("game-max").value = "18";
+    ad.getElementById("game-duration").value = "60";
     ad.getElementById("game-form").dispatchEvent(new aw.Event("submit", { cancelable: true }));
     await waitFor(() => rows().length === 5);
     check(g, "dashboard : jeu ajouté, dans le tirage", rows().some(r => r.textContent.indexOf("🐺 Loup-garou") !== -1 && r.querySelector("input").checked));
+    let wolfSaved = (await S.getSettings()).games.filter(x => x.name === "Loup-garou")[0];
+    check(g, "dashboard : joueurs et durée enregistrés", wolfSaved.minPlayers === 5 && wolfSaved.maxPlayers === 18 && wolfSaved.duration === 60);
+    // Modifier un jeu
+    [...rows().filter(r => r.textContent.indexOf("Loup-garou") !== -1)[0].querySelectorAll("button")].filter(b => b.textContent === "Modifier")[0].click();
+    check(g, "dashboard : modifier remplit le formulaire", ad.getElementById("game-name").value === "Loup-garou" && ad.getElementById("game-min").value === "5" && ad.getElementById("game-duration").value === "60" && !ad.getElementById("game-cancel").hidden);
+    ad.getElementById("game-min").value = "7";
+    ad.getElementById("game-form").dispatchEvent(new aw.Event("submit", { cancelable: true }));
+    await waitFor(() => ad.getElementById("toast").textContent === "Loup-garou modifié.");
+    wolfSaved = (await S.getSettings()).games.filter(x => x.name === "Loup-garou");
+    check(g, "dashboard : modifié, pas dupliqué", wolfSaved.length === 1 && wolfSaved[0].minPlayers === 7 && rows().length === 5);
+    // 3 joueurs ce midi : le Loup-garou (7+) n'est plus jouable
+    ad.getElementById("players-today").value = "3";
+    ad.getElementById("players-form").dispatchEvent(new aw.Event("submit", { cancelable: true }));
+    await waitFor(() => ad.getElementById("toast").textContent === "3 joueurs ce midi.");
+    const sett = await S.getSettings();
+    check(g, "dashboard : joueurs de ce midi enregistrés", sett.gamePlayers && sett.gamePlayers.count === 3 && sett.gamePlayers.day === S.today() && sett.gamePlayersUsual === 6);
+    check(g, "dashboard : jeu pas jouable signalé", rows().filter(r => r.textContent.indexOf("Loup-garou") !== -1)[0].textContent.indexOf("pas prévu pour 3 joueurs") !== -1 && [...ad.querySelectorAll("#game-choice option")].some(o => o.textContent.indexOf("Loup-garou (pas jouable maintenant)") !== -1));
     ad.getElementById("game-name").value = "loup-garou";
     ad.getElementById("game-form").dispatchEvent(new aw.Event("submit", { cancelable: true }));
     await sleep(100);
@@ -1462,13 +1528,14 @@
     ad.getElementById("game-choice").value = wolf.id;
     ad.getElementById("game-choice").dispatchEvent(new aw.Event("change"));
     await waitFor(() => ad.getElementById("toast").textContent === "Jeu de ce midi choisi.");
-    check(g, "dashboard : jeu choisi pour ce midi", ad.getElementById("game-now").textContent === "🐺 Loup-garou · choisi pour ce midi");
+    check(g, "dashboard : jeu choisi pour ce midi, avec l'alerte (3 joueurs)", ad.getElementById("game-now").textContent === "🐺 Loup-garou · choisi pour ce midi ⚠️ pas prévu pour 3 joueurs", ad.getElementById("game-now").textContent);
     await tw.refresh();
     check(g, "écran : « Jeu du midi » Loup-garou", txt("game-label") === "Jeu du midi" && txt("game-name") === "Loup-garou");
     ad.getElementById("game-reroll").click();
     await waitFor(() => /^Tirage : /.test(ad.getElementById("toast").textContent));
     const after = (await S.getSettings()).gameChoice;
-    check(g, "dashboard : « Tirer au sort » change de jeu", after && after.id !== wolf.id && after.day === S.today());
+    const afterGame = (await S.getSettings()).games.filter(x => x.id === (after && after.id))[0];
+    check(g, "dashboard : « Tirer au sort » change de jeu, pour un jeu jouable à 3", after && after.id !== wolf.id && after.day === S.today() && afterGame && !S.gameFits(afterGame, 3, S.minutesLeft(new Date())), afterGame && afterGame.name);
     // Décocher un jeu : il sort du tirage
     const skyRow = rows().filter(r => r.textContent.indexOf("Skyjo") !== -1)[0];
     skyRow.querySelector("input").click();

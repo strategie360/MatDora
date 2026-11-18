@@ -72,6 +72,9 @@
     // Jeux de société : la liste (inDraw = dans le tirage au sort) et le jeu choisi pour un midi
     out.games = Array.isArray(out.games) ? out.games : [];
     out.gameChoice = out.gameChoice && typeof out.gameChoice === "object" && out.gameChoice.day ? out.gameChoice : null;
+    // Joueurs : ce midi ({ day, count }) et d'habitude (0 = pas de limite)
+    out.gamePlayers = out.gamePlayers && typeof out.gamePlayers === "object" && out.gamePlayers.day && Number(out.gamePlayers.count) > 0 ? out.gamePlayers : null;
+    out.gamePlayersUsual = Math.max(0, Math.round(Number(out.gamePlayersUsual)) || 0);
     return out;
   }
 
@@ -342,11 +345,12 @@
             { id: "v1", kind: "vacances", name: "Exemple : Sarah", destination: "Japon", theme: "", from: today(new Date(d.getTime() - 2 * 86400000)), to: today(new Date(d.getTime() + 6 * 86400000)), note: "" }
           ],
           games: [
-            { id: "g1", name: "Exemple : Uno", inDraw: true },
-            { id: "g2", name: "Exemple : Skyjo", inDraw: true },
-            { id: "g3", name: "Exemple : Time's Up", inDraw: true },
-            { id: "g4", name: "Exemple : Échecs", inDraw: false }
+            { id: "g1", name: "Exemple : Uno", inDraw: true, minPlayers: 2, maxPlayers: 10, duration: 20 },
+            { id: "g2", name: "Exemple : Skyjo", inDraw: true, minPlayers: 2, maxPlayers: 8, duration: 30 },
+            { id: "g3", name: "Exemple : Time's Up", inDraw: true, minPlayers: 4, maxPlayers: 12, duration: 45 },
+            { id: "g4", name: "Exemple : Échecs", inDraw: false, minPlayers: 2, maxPlayers: 2, duration: 30 }
           ],
+          gamePlayersUsual: 6,
           restoOutings: [
             { id: "ro1", name: "Exemple : Le Bistrot du coin", date: today(new Date(d.getTime() + 2 * 86400000)), place: "Exemple : 12 rue de la Paix",
               menuText: "Entrée : velouté de potimarron\nPlat : burger maison ou risotto aux champignons\nDessert : tarte tatin\n\nFormule entrée, plat, dessert : 18 €", menuImage: null, menuPath: null }
@@ -628,18 +632,58 @@
     return d;
   }
   // Jeu de société du midi : celui choisi pour ce jour-là, sinon un tirage au sort parmi les jeux
-  // « dans le tirage », le même sur tous les écrans (il dépend seulement de la date)
-  function hashDay(s) { let h = 7; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0; return h; }
-  function gameOfDay(games, choice, day) {
+  // « dans le tirage » jouables avec le nombre de joueurs et dans le temps qui reste avant 14h.
+  // Le même sur tous les écrans : l'ordre du tirage ne dépend que de la date.
+  const GAMES_FROM = 12, GAMES_TO = 14;
+  function hashDay(s) {
+    let h = 2166136261;
+    for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
+    h ^= h >>> 15; h = Math.imul(h, 2246822507) >>> 0; h ^= h >>> 13;
+    return h >>> 0;
+  }
+  const posInt = v => { const n = Math.round(Number(v)); return n > 0 ? n : 0; };
+  // Minutes de jeu possibles : jusqu'à 14h pendant la pause déjeuner, sinon toute la pause (2 h)
+  function minutesLeft(now) {
+    const t = now.getHours() * 60 + now.getMinutes();
+    if (t < GAMES_FROM * 60 || t >= GAMES_TO * 60) return (GAMES_TO - GAMES_FROM) * 60;
+    return GAMES_TO * 60 - t;
+  }
+  // Joueurs du jour : le nombre de ce midi s'il est donné, sinon celui d'habitude (0 = pas de limite)
+  function playersOn(s, day) {
+    const p = s && s.gamePlayers;
+    if (p && p.day === day && posInt(p.count)) return posInt(p.count);
+    return posInt(s && s.gamePlayersUsual);
+  }
+  // "" si le jeu est jouable, sinon la raison : "players" ou "time"
+  function gameFits(g, players, minutes) {
+    const min = posInt(g.minPlayers), max = posInt(g.maxPlayers), d = posInt(g.duration);
+    if (players && ((min && players < min) || (max && players > max))) return "players";
+    if (minutes && d && d > minutes) return "time";
+    return "";
+  }
+  function formatMinutes(m) { return m >= 60 ? `${Math.floor(m / 60)} h${m % 60 ? " " + pad(m % 60) : ""}` : `${m} min`; }
+  // « 👥 2–8 · ⏱️ 30 min »
+  function gameInfo(g) {
+    const min = posInt(g.minPlayers), max = posInt(g.maxPlayers), d = posInt(g.duration), parts = [];
+    if (min || max) parts.push("👥 " + (min && max ? (min === max ? `${min}` : `${min}–${max}`) : min ? `${min}+` : `≤ ${max}`));
+    if (d) parts.push("⏱️ " + formatMinutes(d));
+    return parts.join(" · ");
+  }
+  function gameOfDay(games, choice, day, opts) {
+    opts = opts || {};
     const list = (games || []).filter(g => g && g.name);
     if (!list.length) return null;
     if (choice && choice.day === day) {
       const chosen = list.filter(g => g.id === choice.id)[0];
-      if (chosen) return { game: chosen, chosen: true };
+      if (chosen) return { game: chosen, chosen: true, why: gameFits(chosen, opts.players, opts.minutes) };
     }
-    const pool = list.filter(g => g.inDraw !== false);
-    const from = pool.length ? pool : list;
-    return { game: from[hashDay(day) % from.length], chosen: false };
+    const inDraw = list.filter(g => g.inDraw !== false);
+    const pool = (inDraw.length ? inDraw : list).slice()
+      .sort((a, b) => hashDay((a.id || a.name) + "|" + day) - hashDay((b.id || b.name) + "|" + day));
+    // Le premier du tirage qui est jouable : il ne change que s'il ne l'est plus (ex. plus assez de temps)
+    const ok = pool.filter(g => !gameFits(g, opts.players, opts.minutes));
+    if (ok.length) return { game: ok[0], chosen: false, why: "" };
+    return { game: null, chosen: false, why: pool.some(g => !gameFits(g, opts.players, 0)) ? "time" : "players" };
   }
   const GAME_EMOJI = [
     [/échec|echec|chess/i, "♟️"], [/puzzle/i, "🧩"], [/loup|garou|werewolf/i, "🐺"], [/catan|colon/i, "🏝️"],
@@ -670,7 +714,7 @@
 
   const lunchApi = impl ? { lunch, ensureDraw, reroll, lunchRaw: impl.lunch } : {};
   window.MatDoraStore = Object.assign(
-    { mode, SLIDES, DEFAULTS, HM_REMINDER: "Va sur le channel HM pour voter pour la date et annoncer ta présence !", today, withDefaults, storedCode, rememberCode, usernameToEmail, resizeImage, foodEmoji, VACATION_THEMES, ABSENCE_KINDS, absenceKind, NEWS_TYPES, newsType, newsWindow, addDays, gameOfDay, gameEmoji, backUntil, BACK_DAYS_MAX, departMonth, nextMonth, guessTheme, vacationTheme, openOn, drawTime, weekday, DRAW_HOUR, DRAW_MINUTE },
+    { mode, SLIDES, DEFAULTS, HM_REMINDER: "Va sur le channel HM pour voter pour la date et annoncer ta présence !", today, withDefaults, storedCode, rememberCode, usernameToEmail, resizeImage, foodEmoji, VACATION_THEMES, ABSENCE_KINDS, absenceKind, NEWS_TYPES, newsType, newsWindow, addDays, gameOfDay, gameEmoji, gameFits, gameInfo, minutesLeft, playersOn, formatMinutes, backUntil, BACK_DAYS_MAX, departMonth, nextMonth, guessTheme, vacationTheme, openOn, drawTime, weekday, DRAW_HOUR, DRAW_MINUTE },
     impl || { getSettings: () => Promise.resolve(withDefaults(null)) },
     lunchApi
   );
